@@ -216,15 +216,33 @@ function loadData(data) {
 
 // --- Unlock Screen ---
 
+// State for the opened file
+var _fileText = null;
+var _fileName = null;
+
+document.getElementById('openFileBtn').addEventListener('click', async function() {
+  var errorEl = document.getElementById('unlockError');
+  errorEl.textContent = '';
+  try {
+    var result = await FileManager.open();
+    _fileText = result.text;
+    _fileName = result.filename;
+    document.getElementById('fileName').textContent = _fileName;
+  } catch (e) {
+    if (e.name !== 'AbortError' && e.message !== 'File selection cancelled') {
+      errorEl.textContent = 'Could not open file.';
+    }
+  }
+});
+
 document.getElementById('decryptBtn').addEventListener('click', async function() {
-  var fileInput = document.getElementById('fileInput');
   var passphraseInput = document.getElementById('passphrase');
   var errorEl = document.getElementById('unlockError');
   var btn = this;
 
   errorEl.textContent = '';
 
-  if (!fileInput.files.length) {
+  if (!_fileText) {
     errorEl.textContent = 'Please select a file.';
     return;
   }
@@ -233,12 +251,18 @@ document.getElementById('decryptBtn').addEventListener('click', async function()
   btn.textContent = 'Decrypting...';
 
   try {
-    var text = await fileInput.files[0].text();
-    var fileData = JSON.parse(text);
+    var fileData = JSON.parse(_fileText);
 
     // Check if this is an unencrypted JSON (for dev/testing with sample.json)
     if (fileData.config && fileData.accounts && fileData.data && !fileData.v) {
       loadData(fileData);
+      FileManager.stashToSession({
+        decryptedData: fileData,
+        passphrase: null,
+        wasEncrypted: false,
+        originalFileText: _fileText,
+        filename: _fileName
+      });
       showDashboard();
       return;
     }
@@ -254,6 +278,13 @@ document.getElementById('decryptBtn').addEventListener('click', async function()
 
     var decrypted = await Crypto.decrypt(fileData, passphrase);
     loadData(decrypted);
+    FileManager.stashToSession({
+      decryptedData: decrypted,
+      passphrase: passphrase,
+      wasEncrypted: true,
+      originalFileText: _fileText,
+      filename: _fileName
+    });
     showDashboard();
   } catch (e) {
     errorEl.textContent = 'Decryption failed. Wrong passphrase or invalid file.';
@@ -281,4 +312,12 @@ document.getElementById('passphrase').addEventListener('keydown', function(e) {
   document.addEventListener('click', function() {
     menu.classList.remove('open');
   });
+})();
+
+// Auto-restore from sessionStorage (skip unlock when navigating back from admin)
+(function() {
+  var session = FileManager.loadFromSession();
+  if (!session || !session.decryptedData) return;
+  loadData(session.decryptedData);
+  showDashboard();
 })();

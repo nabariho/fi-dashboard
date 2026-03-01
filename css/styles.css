@@ -38,11 +38,40 @@ body {
   padding: 32px 24px;
 }
 
-#unlock input[type="file"] {
-  display: block;
-  width: 100%;
-  margin-bottom: 16px;
+.file-btn {
+  display: inline-block;
+  padding: 8px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.file-btn:hover {
+  background: #e8eaed;
+  border-color: #bdc1c6;
+}
+
+.file-name {
+  display: inline-block;
+  margin-left: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+#unlock .file-btn {
+  margin-bottom: 16px;
+}
+
+#unlock .file-name {
+  display: block;
+  margin-left: 0;
+  margin-bottom: 16px;
+  margin-top: -8px;
 }
 
 #unlock input[type="password"] {

@@ -12,7 +12,8 @@
   <div id="unlock">
     <h1>FI Dashboard — Admin</h1>
     <div class="unlock-form">
-      <input type="file" id="fileInput" accept=".fjson,.json">
+      <button type="button" id="openFileBtn" class="file-btn">Choose File</button>
+      <span id="fileName" class="file-name">No file selected</span>
       <input type="password" id="passphrase" placeholder="Passphrase">
       <button id="decryptBtn">Decrypt & Load</button>
       <div id="unlockError"></div>
@@ -65,7 +66,7 @@
         Unsaved changes
       </div>
       <span class="kbd" style="color:var(--text-secondary)">Ctrl+S</span>
-      <button class="btn-save" id="saveBtn">Save &amp; Download</button>
+      <button class="btn-save" id="saveBtn">Save</button>
     </div>
 
     <!-- Toast -->
@@ -74,6 +75,7 @@
   </div>
 
   <script src="js/crypto.js"></script>
+  <script src="js/file-manager.js"></script>
   <script src="js/admin.js"></script>
 
 </body>

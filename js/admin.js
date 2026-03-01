@@ -17,6 +17,7 @@ var AdminState = {
   data: [],
   budgetItems: [],
   originalFileText: null,
+  filename: null,
   wasEncrypted: false,
   passphrase: null,
   dirty: false,
@@ -51,15 +52,32 @@ function updateTabBadges() {
 
 // --- Unlock ---
 
+var _fileText = null;
+var _fileName = null;
+
+document.getElementById('openFileBtn').addEventListener('click', async function() {
+  var errorEl = document.getElementById('unlockError');
+  errorEl.textContent = '';
+  try {
+    var result = await FileManager.open();
+    _fileText = result.text;
+    _fileName = result.filename;
+    document.getElementById('fileName').textContent = _fileName;
+  } catch (e) {
+    if (e.name !== 'AbortError' && e.message !== 'File selection cancelled') {
+      errorEl.textContent = 'Could not open file.';
+    }
+  }
+});
+
 document.getElementById('decryptBtn').addEventListener('click', async function() {
-  var fileInput = document.getElementById('fileInput');
   var passphraseInput = document.getElementById('passphrase');
   var errorEl = document.getElementById('unlockError');
   var btn = this;
 
   errorEl.textContent = '';
 
-  if (!fileInput.files.length) {
+  if (!_fileText) {
     errorEl.textContent = 'Please select a file.';
     return;
   }
@@ -68,9 +86,9 @@ document.getElementById('decryptBtn').addEventListener('click', async function()
   btn.textContent = 'Loading...';
 
   try {
-    var text = await fileInput.files[0].text();
-    AdminState.originalFileText = text;
-    var fileData = JSON.parse(text);
+    AdminState.originalFileText = _fileText;
+    AdminState.filename = _fileName;
+    var fileData = JSON.parse(_fileText);
 
     if (fileData.config && fileData.accounts && fileData.data && !fileData.v) {
       AdminState.wasEncrypted = false;
@@ -728,13 +746,13 @@ async function save() {
   btn.textContent = 'Saving...';
 
   try {
-    // 1. Download backup
+    // 1. Download backup (always as a separate file)
     var now = new Date();
     var ts = now.getFullYear() +
       pad2(now.getMonth() + 1) + pad2(now.getDate()) + '-' +
       pad2(now.getHours()) + pad2(now.getMinutes()) + pad2(now.getSeconds());
     var backupName = 'fi-data.backup-' + ts + (AdminState.wasEncrypted ? '.fjson' : '.json');
-    downloadFile(AdminState.originalFileText, backupName);
+    FileManager.backup(AdminState.originalFileText, backupName);
 
     // 2. Build updated data
     var updated = {
@@ -749,24 +767,43 @@ async function save() {
     if (AdminState.wasEncrypted) {
       var encrypted = await Crypto.encrypt(updated, AdminState.passphrase);
       output = JSON.stringify(encrypted);
-      filename = 'fi-data.fjson';
+      filename = AdminState.filename || 'fi-data.fjson';
     } else {
       output = JSON.stringify(updated, null, 2);
-      filename = 'fi-data.json';
+      filename = AdminState.filename || 'fi-data.json';
     }
 
-    downloadFile(output, filename);
+    // 4. Save via File System Access API (write-back) or download fallback
+    var method = await FileManager.save(output, filename);
 
     AdminState.originalFileText = output;
     AdminState.dirty = false;
     document.querySelector('.dirty-indicator').classList.remove('visible');
-    showToast('Saved successfully');
+
+    // 5. Update sessionStorage so dashboard picks up changes
+    FileManager.stashToSession({
+      decryptedData: updated,
+      passphrase: AdminState.passphrase,
+      wasEncrypted: AdminState.wasEncrypted,
+      originalFileText: output,
+      filename: filename
+    });
+
+    if (method === 'handle') {
+      showToast('Saved to ' + filename);
+    } else {
+      showToast('Saved (downloaded)');
+    }
   } catch (e) {
-    alert('Save failed: ' + e.message);
+    if (e.name === 'AbortError') {
+      showToast('Save cancelled');
+    } else {
+      alert('Save failed: ' + e.message);
+    }
   }
 
   btn.disabled = false;
-  btn.textContent = 'Save & Download';
+  btn.textContent = 'Save';
 }
 
 // --- Helpers ---
@@ -779,14 +816,14 @@ function escHtml(str) {
 
 function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
-function downloadFile(content, filename) {
-  var blob = new Blob([content], { type: 'application/json' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+// Auto-restore from sessionStorage (skip unlock when navigating from dashboard)
+(function() {
+  var session = FileManager.loadFromSession();
+  if (!session || !session.decryptedData) return;
+  AdminState.originalFileText = session.originalFileText || null;
+  AdminState.filename = session.filename || null;
+  AdminState.wasEncrypted = !!session.wasEncrypted;
+  AdminState.passphrase = session.passphrase || null;
+  loadAdminData(session.decryptedData);
+  showAdmin();
+})();
