@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FI Dashboard — Admin</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="admin-body">
+
+  <!-- Unlock screen -->
+  <div id="unlock">
+    <h1>FI Dashboard — Admin</h1>
+    <div class="unlock-form">
+      <input type="file" id="fileInput" accept=".fjson,.json">
+      <input type="password" id="passphrase" placeholder="Passphrase">
+      <button id="decryptBtn">Decrypt & Load</button>
+      <div id="unlockError"></div>
+    </div>
+    <div class="unlock-hint">Select an .fjson or .json data file to edit.</div>
+  </div>
+
+  <!-- Admin editor (hidden until loaded) -->
+  <div id="adminApp" style="display:none;">
+
+    <div class="admin-header">
+      <h1>FI Dashboard — Admin</h1>
+      <div class="header-links">
+        <a href="index.html">Dashboard</a>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="config">Config</button>
+      <button class="admin-tab" data-tab="accounts">Accounts</button>
+      <button class="admin-tab" data-tab="budget">Budget</button>
+      <button class="admin-tab" data-tab="monthend">MonthEnd</button>
+    </div>
+
+    <!-- Config -->
+    <div class="admin-content active" id="admin-config">
+      <div id="configTable"></div>
+    </div>
+
+    <!-- Accounts -->
+    <div class="admin-content" id="admin-accounts">
+      <div id="accountsTable"></div>
+    </div>
+
+    <!-- Budget -->
+    <div class="admin-content" id="admin-budget">
+      <div id="budgetTable"></div>
+    </div>
+
+    <!-- MonthEnd -->
+    <div class="admin-content" id="admin-monthend">
+      <div id="monthendContent"></div>
+    </div>
+
+    <!-- Save bar -->
+    <div class="save-bar">
+      <div class="dirty-indicator">
+        <div class="dirty-dot"></div>
+        Unsaved changes
+      </div>
+      <button class="btn-save" id="saveBtn">Save &amp; Download</button>
+    </div>
+
+  </div>
+
+  <script src="js/crypto.js"></script>
+  <script src="js/admin.js"></script>
+
+</body>
+</html>
