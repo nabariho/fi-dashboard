@@ -12,13 +12,19 @@
   <div id="unlock">
     <h1>Financial Independence Dashboard</h1>
     <div class="unlock-form">
-      <button type="button" id="openFileBtn" class="file-btn">Choose File</button>
-      <span id="fileName" class="file-name">No file selected</span>
-      <input type="password" id="passphrase" placeholder="Passphrase">
-      <button id="decryptBtn">Decrypt & Load</button>
+      <div class="file-picker" id="filePicker">
+        <div class="file-picker-icon" id="filePickerIcon">&#128194;</div>
+        <div class="file-picker-text">
+          <div class="file-picker-label" id="filePickerLabel">Choose a data file</div>
+          <div class="file-picker-hint" id="filePickerHint">.fjson or .json from iCloud Drive</div>
+        </div>
+      </div>
+      <div class="unlock-step disabled" id="passphraseStep">
+        <input type="password" id="passphrase" placeholder="Enter passphrase">
+        <button id="decryptBtn">Decrypt & Load</button>
+      </div>
       <div id="unlockError"></div>
     </div>
-    <div class="unlock-hint">Select an encrypted .fjson file from iCloud Drive and enter your passphrase.</div>
   </div>
 
   <!-- Dashboard (hidden until decrypted) -->
@@ -37,11 +43,27 @@
       </div>
     </div>
 
-    <!-- FI Progress (always visible, above tabs) -->
-    <div class="fi-progress" id="fiProgress"></div>
+    <!-- FI Progress (collapsible, above tabs) -->
+    <div class="fi-progress" id="fiProgressWrapper">
+      <div class="collapsible-header" data-panel="fi-progress">
+        <span class="fi-title">Financial Independence Progress</span>
+        <button class="collapse-toggle"><span class="collapse-chevron">&#9660;</span></button>
+      </div>
+      <div class="collapsible-body">
+        <div id="fiProgress"></div>
+      </div>
+    </div>
 
-    <!-- Financial Goals (always visible, above tabs) -->
-    <div class="goals-panel" id="goalsPanel"></div>
+    <!-- Financial Goals (collapsible, above tabs) -->
+    <div class="goals-panel" id="goalsPanelWrapper">
+      <div class="collapsible-header" data-panel="goals-panel">
+        <span class="goals-title">Financial Goals</span>
+        <button class="collapse-toggle"><span class="collapse-chevron">&#9660;</span></button>
+      </div>
+      <div class="collapsible-body">
+        <div id="goalsPanel"></div>
+      </div>
+    </div>
 
     <!-- Navigation tabs -->
     <div class="nav-tabs">
@@ -96,17 +118,19 @@
             <button class="toggle-btn" data-view="eur">&euro;</button>
           </div>
         </div>
-        <table class="returns-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
-              <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
-              <th>YTD</th>
-            </tr>
-          </thead>
-          <tbody id="returnsBody"></tbody>
-        </table>
+        <div class="nw-table-scroll">
+          <table class="returns-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
+                <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
+                <th>YTD</th>
+              </tr>
+            </thead>
+            <tbody id="returnsBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -136,10 +160,12 @@
         <div class="table-header-row">
           <h2>Monthly Breakdown</h2>
         </div>
-        <table class="nw-breakdown">
-          <thead id="nwTableHead"></thead>
-          <tbody id="nwTableBody"></tbody>
-        </table>
+        <div class="nw-table-scroll">
+          <table class="nw-breakdown">
+            <thead id="nwTableHead"></thead>
+            <tbody id="nwTableBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 

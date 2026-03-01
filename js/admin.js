@@ -55,14 +55,38 @@ function updateTabBadges() {
 var _fileText = null;
 var _fileName = null;
 
-document.getElementById('openFileBtn').addEventListener('click', async function() {
+function updateFilePickerUI() {
+  var picker = document.getElementById('filePicker');
+  var icon = document.getElementById('filePickerIcon');
+  var label = document.getElementById('filePickerLabel');
+  var hint = document.getElementById('filePickerHint');
+  var step = document.getElementById('passphraseStep');
+  if (!picker) return;
+
+  if (_fileName) {
+    picker.classList.add('has-file');
+    icon.innerHTML = '&#9989;';
+    label.textContent = _fileName;
+    hint.textContent = 'File loaded — click to change';
+    step.classList.remove('disabled');
+    document.getElementById('passphrase').focus();
+  } else {
+    picker.classList.remove('has-file');
+    icon.innerHTML = '&#128194;';
+    label.textContent = 'Choose a data file';
+    hint.textContent = '.fjson or .json data file';
+    step.classList.add('disabled');
+  }
+}
+
+document.getElementById('filePicker').addEventListener('click', async function() {
   var errorEl = document.getElementById('unlockError');
   errorEl.textContent = '';
   try {
     var result = await FileManager.open();
     _fileText = result.text;
     _fileName = result.filename;
-    document.getElementById('fileName').textContent = _fileName;
+    updateFilePickerUI();
   } catch (e) {
     if (e.name !== 'AbortError' && e.message !== 'File selection cancelled') {
       errorEl.textContent = 'Could not open file.';

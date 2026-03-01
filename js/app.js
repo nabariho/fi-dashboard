@@ -27,7 +27,14 @@ function refreshFIProgress() {
   var avgSavings = FICalculator.avgMonthlySavings(perfMonthly, 12);
   var yearsToFI = FICalculator.yearsToFI(current.total, avgSavings, expectedReturn, fiTarget);
 
-  MetricsRenderer.renderFIProgress(progressPct, fiTarget, current.total, yearsToFI, passiveIncome, savingsRate);
+  // Monthly expenses from budget (for passive income coverage stat)
+  var monthlyExpenses = 0;
+  if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+    var budget = BudgetCalculator.computeMonthlyBudget(budgetItems);
+    monthlyExpenses = budget.total || 0;
+  }
+
+  MetricsRenderer.renderFIProgress(progressPct, fiTarget, current.total, yearsToFI, passiveIncome, savingsRate, monthlyExpenses);
 }
 
 // --- Financial Goals (always visible) ---
@@ -96,7 +103,13 @@ function refreshInvestments() {
   ReturnsCalculator.compute(monthly);
   var data = DataService.applyTimeRange(monthly, rangeMonths);
 
-  if (!data.length) return;
+  if (!data.length) {
+    document.getElementById('metrics').innerHTML =
+      '<div class="empty-state-panel"><div class="empty-state-icon">&#128200;</div>' +
+      '<div class="empty-state-title">No investment data</div>' +
+      '<div class="empty-state-desc">Add performance accounts and month-end data in the Admin page.</div></div>';
+    return;
+  }
 
   // UI layer: render metrics and charts
   MetricsRenderer.renderInvestments(data[data.length - 1]);
@@ -118,7 +131,13 @@ function refreshNetWorth() {
   var nwData = NetWorthCalculator.compute(allData, accountIds);
   var data = DataService.applyTimeRange(nwData, rangeMonths);
 
-  if (!data.length) return;
+  if (!data.length) {
+    document.getElementById('nwMetrics').innerHTML =
+      '<div class="empty-state-panel"><div class="empty-state-icon">&#128176;</div>' +
+      '<div class="empty-state-title">No net worth data</div>' +
+      '<div class="empty-state-desc">Add accounts and month-end balances in the Admin page.</div></div>';
+    return;
+  }
 
   var current = data[data.length - 1];
   var mom = NetWorthCalculator.computeMoM(data);
@@ -220,14 +239,38 @@ function loadData(data) {
 var _fileText = null;
 var _fileName = null;
 
-document.getElementById('openFileBtn').addEventListener('click', async function() {
+function updateFilePickerUI() {
+  var picker = document.getElementById('filePicker');
+  var icon = document.getElementById('filePickerIcon');
+  var label = document.getElementById('filePickerLabel');
+  var hint = document.getElementById('filePickerHint');
+  var step = document.getElementById('passphraseStep');
+  if (!picker) return;
+
+  if (_fileName) {
+    picker.classList.add('has-file');
+    icon.innerHTML = '&#9989;';
+    label.textContent = _fileName;
+    hint.textContent = 'File loaded — click to change';
+    step.classList.remove('disabled');
+    document.getElementById('passphrase').focus();
+  } else {
+    picker.classList.remove('has-file');
+    icon.innerHTML = '&#128194;';
+    label.textContent = 'Choose a data file';
+    hint.textContent = '.fjson or .json from iCloud Drive';
+    step.classList.add('disabled');
+  }
+}
+
+document.getElementById('filePicker').addEventListener('click', async function() {
   var errorEl = document.getElementById('unlockError');
   errorEl.textContent = '';
   try {
     var result = await FileManager.open();
     _fileText = result.text;
     _fileName = result.filename;
-    document.getElementById('fileName').textContent = _fileName;
+    updateFilePickerUI();
   } catch (e) {
     if (e.name !== 'AbortError' && e.message !== 'File selection cancelled') {
       errorEl.textContent = 'Could not open file.';
@@ -311,6 +354,24 @@ document.getElementById('passphrase').addEventListener('keydown', function(e) {
   });
   document.addEventListener('click', function() {
     menu.classList.remove('open');
+  });
+})();
+
+// Collapsible panels (FI progress, Goals)
+(function() {
+  document.querySelectorAll('.collapsible-header').forEach(function(header) {
+    var panelKey = 'panel_' + header.dataset.panel;
+    var wrapper = header.parentElement;
+
+    // Restore saved state
+    if (localStorage.getItem(panelKey) === 'collapsed') {
+      wrapper.classList.add('collapsed');
+    }
+
+    header.addEventListener('click', function() {
+      wrapper.classList.toggle('collapsed');
+      localStorage.setItem(panelKey, wrapper.classList.contains('collapsed') ? 'collapsed' : 'open');
+    });
   });
 })();
 

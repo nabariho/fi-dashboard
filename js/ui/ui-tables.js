@@ -44,18 +44,23 @@ var TableRenderer = {
 
   // Render the net worth monthly breakdown table with MoM deltas
   renderNetWorthBreakdown: function(data, brokerIds, cashIds) {
-    var recent = data.slice(-6).reverse();
+    // Show up to 6 most recent months from the (already time-filtered) data
+    var maxCols = Math.min(data.length, 6);
+    var recent = data.slice(-maxCols).reverse();
 
-    // Header: account name + month columns + MoM delta
+    // Total columns = account name + months + change
+    var colCount = recent.length + 2;
+
+    // Header
     document.getElementById('nwTableHead').innerHTML =
       '<tr><th></th>' +
       recent.map(function(r) { return '<th>' + r.month + '</th>'; }).join('') +
-      '<th>MoM</th></tr>';
+      '<th>Change</th></tr>';
 
     var rows = '';
 
     // Broker section
-    rows += this._sectionRow('Investments', recent.length + 1);
+    rows += this._sectionRow('Investments', colCount);
     brokerIds.forEach(function(a) {
       var delta = TableRenderer._computeDelta(recent, a);
       rows += '<tr><td>' + AccountService.getName(a) + '</td>' +
@@ -68,7 +73,7 @@ var TableRenderer = {
     rows += this._totalRowWithDelta('Subtotal', recent, 'investments');
 
     // Cash section
-    rows += this._sectionRow('Bank Accounts', recent.length + 1);
+    rows += this._sectionRow('Bank Accounts', colCount);
     cashIds.forEach(function(a) {
       var delta = TableRenderer._computeDelta(recent, a);
       rows += '<tr><td>' + AccountService.getName(a) + '</td>' +
@@ -97,14 +102,12 @@ var TableRenderer = {
   _deltaCell: function(delta) {
     if (delta === 0) return '<td class="delta-cell">-</td>';
     var cls = delta >= 0 ? 'positive' : 'negative';
-    var arrow = delta >= 0 ? '\u25B2' : '\u25BC';
-    return '<td class="delta-cell ' + cls + '">' + arrow + ' ' + Fmt.currencyShort(Math.abs(delta)) + '</td>';
+    var sign = delta >= 0 ? '+' : '';
+    return '<td class="delta-cell ' + cls + '">' + sign + Fmt.currencyShort(delta) + '</td>';
   },
 
   _sectionRow: function(label, colCount) {
-    var emptyCells = '';
-    for (var i = 0; i < colCount; i++) emptyCells += '<td></td>';
-    return '<tr class="section-row"><td>' + label + '</td>' + emptyCells + '</tr>';
+    return '<tr class="section-row"><td colspan="' + colCount + '">' + label + '</td></tr>';
   },
 
   _totalRowWithDelta: function(label, recent, field) {

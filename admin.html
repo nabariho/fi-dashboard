@@ -12,13 +12,19 @@
   <div id="unlock">
     <h1>FI Dashboard — Admin</h1>
     <div class="unlock-form">
-      <button type="button" id="openFileBtn" class="file-btn">Choose File</button>
-      <span id="fileName" class="file-name">No file selected</span>
-      <input type="password" id="passphrase" placeholder="Passphrase">
-      <button id="decryptBtn">Decrypt & Load</button>
+      <div class="file-picker" id="filePicker">
+        <div class="file-picker-icon" id="filePickerIcon">&#128194;</div>
+        <div class="file-picker-text">
+          <div class="file-picker-label" id="filePickerLabel">Choose a data file</div>
+          <div class="file-picker-hint" id="filePickerHint">.fjson or .json data file</div>
+        </div>
+      </div>
+      <div class="unlock-step disabled" id="passphraseStep">
+        <input type="password" id="passphrase" placeholder="Enter passphrase">
+        <button id="decryptBtn">Decrypt & Load</button>
+      </div>
       <div id="unlockError"></div>
     </div>
-    <div class="unlock-hint">Select an .fjson or .json data file to edit.</div>
   </div>
 
   <!-- Admin editor (hidden until loaded) -->

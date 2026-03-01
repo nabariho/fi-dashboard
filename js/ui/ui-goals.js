@@ -13,7 +13,7 @@ var GoalsRenderer = {
     var el = document.getElementById('goalsPanel');
     if (!el) return;
 
-    var html = '<div class="goals-title">Financial Goals</div>';
+    var html = '';
 
     // Emergency Fund
     var efValue = emergency.status === 'green' ? emergency.dedicated : emergency.available;
@@ -28,14 +28,17 @@ var GoalsRenderer = {
       '</div>' +
       this._goalBar(emergency.pct, emergency.status);
 
+    var trName = AccountService.getName('TRADE_REPUBLIC');
+    var bbvaName = AccountService.getName('BBVA');
+
     if (emergency.status === 'green') {
-      html += '<div class="goal-note">Fully covered by Trade Republic (' + Fmt.currencyShort(emergency.dedicated) + ')</div>';
+      html += '<div class="goal-note">Fully covered by ' + trName + ' (' + Fmt.currencyShort(emergency.dedicated) + ')</div>';
     } else if (emergency.status === 'yellow') {
-      html += '<div class="goal-alert goal-alert-yellow">Trade Republic: ' + Fmt.currencyShort(emergency.dedicated) +
-        ' + BBVA: ' + Fmt.currencyShort(emergency.available - emergency.dedicated) + '</div>';
+      html += '<div class="goal-alert goal-alert-yellow">' + trName + ': ' + Fmt.currencyShort(emergency.dedicated) +
+        ' + ' + bbvaName + ': ' + Fmt.currencyShort(emergency.available - emergency.dedicated) + '</div>';
     } else {
       html += '<div class="goal-alert goal-alert-red">Shortfall: ' + Fmt.currencyShort(emergency.target - emergency.available) +
-        ' below target (Trade Republic: ' + Fmt.currencyShort(emergency.dedicated) + ')</div>';
+        ' below target (' + trName + ': ' + Fmt.currencyShort(emergency.dedicated) + ')</div>';
     }
 
     html += '</div>';
@@ -70,6 +73,11 @@ var GoalsRenderer = {
     var el = document.getElementById('goalsDetail');
     if (!el) return;
 
+    var trName = AccountService.getName('TRADE_REPUBLIC');
+    var bbvaName = AccountService.getName('BBVA');
+    var arrasName = AccountService.getName('ARRAS');
+    var bankinterName = AccountService.getName('BANKINTER');
+
     var html = '';
 
     // === EMERGENCY FUND DETAIL ===
@@ -86,9 +94,9 @@ var GoalsRenderer = {
     var trVal = accounts.TRADE_REPUBLIC || 0;
     var bbvaVal = accounts.BBVA || 0;
 
-    html += '<tr><td>Trade Republic</td><td>Dedicated emergency fund</td>' +
+    html += '<tr><td>' + trName + '</td><td>Dedicated emergency fund</td>' +
       '<td style="text-align:right">' + Fmt.currency(trVal) + '</td></tr>';
-    html += '<tr><td>BBVA</td><td>Backup cash</td>' +
+    html += '<tr><td>' + bbvaName + '</td><td>Backup cash</td>' +
       '<td style="text-align:right">' + Fmt.currency(bbvaVal) + '</td></tr>';
     html += '<tr class="total-row"><td>Total Available</td><td></td>' +
       '<td style="text-align:right">' + Fmt.currency(emergency.available) + '</td></tr>';
@@ -99,10 +107,10 @@ var GoalsRenderer = {
     html += '<div class="goals-detail-explain">' +
       '<div class="goals-detail-explain-title">How is this calculated?</div>' +
       '<div>Only cash accounts <strong>not earmarked for the house</strong> count toward the emergency fund.</div>' +
-      '<div style="margin-top:6px">ARRAS and BANKINTER are fully reserved for the house down payment and excluded from this calculation.</div>' +
+      '<div style="margin-top:6px">' + arrasName + ' and ' + bankinterName + ' are fully reserved for the house down payment and excluded from this calculation.</div>' +
       '<div class="goals-detail-calc">' +
-        '<div class="calc-row"><span>Trade Republic</span><span>' + Fmt.currency(trVal) + '</span></div>' +
-        '<div class="calc-row"><span>+ BBVA</span><span>' + Fmt.currency(bbvaVal) + '</span></div>' +
+        '<div class="calc-row"><span>' + trName + '</span><span>' + Fmt.currency(trVal) + '</span></div>' +
+        '<div class="calc-row"><span>+ ' + bbvaName + '</span><span>' + Fmt.currency(bbvaVal) + '</span></div>' +
         '<div class="calc-row calc-total"><span>= Available for emergency</span><span>' + Fmt.currency(emergency.available) + '</span></div>' +
         '<div class="calc-row"><span>Target</span><span>' + Fmt.currency(emergency.target) + '</span></div>' +
         '<div class="calc-row calc-result ' + (emergency.available >= emergency.target ? 'positive' : 'negative') + '">' +
@@ -113,8 +121,8 @@ var GoalsRenderer = {
     // Status explanation
     html += '<div class="goals-detail-status-explain">' +
       '<strong>Status logic:</strong> ' +
-      '<span class="status-dot status-green"></span> Green = Trade Republic alone covers 40k | ' +
-      '<span class="status-dot status-yellow"></span> Yellow = TR + BBVA combined cover 40k | ' +
+      '<span class="status-dot status-green"></span> Green = ' + trName + ' alone covers target | ' +
+      '<span class="status-dot status-yellow"></span> Yellow = combined cash covers target | ' +
       '<span class="status-dot status-red"></span> Red = still below target' +
     '</div>';
 
@@ -134,9 +142,9 @@ var GoalsRenderer = {
         '<th>Account</th><th>Role</th><th style="text-align:right">Balance</th>' +
       '</tr></thead><tbody>';
 
-    html += '<tr><td>ARRAS</td><td>House savings</td>' +
+    html += '<tr><td>' + arrasName + '</td><td>House savings</td>' +
       '<td style="text-align:right">' + Fmt.currency(arrasVal) + '</td></tr>';
-    html += '<tr><td>Bankinter (total balance)</td><td>House savings + operating</td>' +
+    html += '<tr><td>' + bankinterName + ' (total balance)</td><td>House savings + operating</td>' +
       '<td style="text-align:right">' + Fmt.currency(house.bankinterTotal) + '</td></tr>';
 
     if (house.operatingReserve > 0) {
@@ -156,14 +164,14 @@ var GoalsRenderer = {
       '<div class="goals-detail-calc">';
 
     if (house.operatingReserve > 0) {
-      html += '<div class="calc-row"><span>Bankinter (total balance)</span><span>' + Fmt.currency(house.bankinterTotal) + '</span></div>' +
+      html += '<div class="calc-row"><span>' + bankinterName + ' (total balance)</span><span>' + Fmt.currency(house.bankinterTotal) + '</span></div>' +
         '<div class="calc-row"><span>- Monthly operating reserve</span><span>' + Fmt.currency(house.operatingReserve) + '</span></div>' +
-        '<div class="calc-row calc-total"><span>= Bankinter available for house</span><span>' + Fmt.currency(house.bankinterEffective) + '</span></div>' +
-        '<div class="calc-row" style="margin-top:8px"><span>ARRAS</span><span>' + Fmt.currency(arrasVal) + '</span></div>' +
-        '<div class="calc-row"><span>+ Bankinter (available)</span><span>' + Fmt.currency(house.bankinterEffective) + '</span></div>';
+        '<div class="calc-row calc-total"><span>= ' + bankinterName + ' available for house</span><span>' + Fmt.currency(house.bankinterEffective) + '</span></div>' +
+        '<div class="calc-row" style="margin-top:8px"><span>' + arrasName + '</span><span>' + Fmt.currency(arrasVal) + '</span></div>' +
+        '<div class="calc-row"><span>+ ' + bankinterName + ' (available)</span><span>' + Fmt.currency(house.bankinterEffective) + '</span></div>';
     } else {
-      html += '<div class="calc-row"><span>ARRAS</span><span>' + Fmt.currency(arrasVal) + '</span></div>' +
-        '<div class="calc-row"><span>+ Bankinter</span><span>' + Fmt.currency(bankinterVal) + '</span></div>';
+      html += '<div class="calc-row"><span>' + arrasName + '</span><span>' + Fmt.currency(arrasVal) + '</span></div>' +
+        '<div class="calc-row"><span>+ ' + bankinterName + '</span><span>' + Fmt.currency(bankinterVal) + '</span></div>';
     }
 
     html += '<div class="calc-row calc-total"><span>= Total saved</span><span>' + Fmt.currency(house.current) + '</span></div>' +
@@ -204,12 +212,12 @@ var GoalsRenderer = {
 
     if (efShortfall > 0 && house.surplus > 0) {
       var remaining = efShortfall - house.surplus;
-      actions.push('Move ' + Fmt.currency(house.surplus) + ' from house savings (surplus) to Trade Republic');
+      actions.push('Move ' + Fmt.currency(house.surplus) + ' from house savings (surplus) to ' + trName);
       if (remaining > 0) {
-        actions.push('Add ' + Fmt.currency(remaining) + ' more to Trade Republic to fully fund the emergency fund');
+        actions.push('Add ' + Fmt.currency(remaining) + ' more to ' + trName + ' to fully fund the emergency fund');
       }
     } else if (efShortfall > 0) {
-      actions.push('Add ' + Fmt.currency(efShortfall) + ' to Trade Republic to fully fund the emergency fund');
+      actions.push('Add ' + Fmt.currency(efShortfall) + ' to ' + trName + ' to fully fund the emergency fund');
     }
 
     if (house.surplus <= 0 && house.target - house.current > 0) {

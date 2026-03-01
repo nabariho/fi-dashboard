@@ -51,11 +51,11 @@ var ChartRenderer = {
           legend: { display: false },
           tooltip: Object.assign({}, this._baseTooltip(), {
             callbacks: {
-              label: function(ctx) { return ctx.dataset.label + ': ' + Fmt.currency(ctx.parsed.y); },
-              footer: function(items) {
+              title: function(items) {
                 var total = items.reduce(function(s, i) { return s + i.parsed.y; }, 0);
-                return 'Total: ' + Fmt.currency(total);
-              }
+                return 'Portfolio: ' + Fmt.currency(total);
+              },
+              label: function(ctx) { return '  ' + ctx.dataset.label + ': ' + Fmt.currency(ctx.parsed.y); }
             }
           })
         },
