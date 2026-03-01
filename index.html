@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Financial Independence Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Unlock screen (shown first) -->
+  <div id="unlock">
+    <h1>Financial Independence Dashboard</h1>
+    <div class="unlock-form">
+      <input type="file" id="fileInput" accept=".fjson,.json">
+      <input type="password" id="passphrase" placeholder="Passphrase">
+      <button id="decryptBtn">Decrypt & Load</button>
+      <div id="unlockError"></div>
+    </div>
+    <div class="unlock-hint">Select an encrypted .fjson file from iCloud Drive and enter your passphrase.</div>
+  </div>
+
+  <!-- Dashboard (hidden until decrypted) -->
+  <div id="app" style="display:none;">
+
+    <div class="dashboard-header">
+      <h1>Financial Independence Dashboard</h1>
+      <span id="lastUpdated"></span>
+    </div>
+
+    <!-- FI Progress (always visible, above tabs) -->
+    <div class="fi-progress" id="fiProgress"></div>
+
+    <!-- Financial Goals (always visible, above tabs) -->
+    <div class="goals-panel" id="goalsPanel"></div>
+
+    <!-- Navigation tabs -->
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-tab="investments">Investments</button>
+      <button class="nav-tab" data-tab="networth">Net Worth</button>
+      <button class="nav-tab" data-tab="goals">Goals</button>
+      <button class="nav-tab" data-tab="budget">Budget</button>
+    </div>
+
+    <!-- ==================== INVESTMENTS TAB ==================== -->
+    <div class="tab-content active" id="tab-investments">
+      <div class="filters">
+        <div class="filter-group">
+          <label>Account:</label>
+          <select id="accountFilter">
+            <option value="ALL">All Accounts</option>
+          </select>
+        </div>
+        <div class="time-range" id="timeRange">
+          <button data-range="6">6M</button>
+          <button data-range="12">1Y</button>
+          <button data-range="24">2Y</button>
+          <button data-range="36">3Y</button>
+          <button data-range="0" class="active">All</button>
+        </div>
+      </div>
+
+      <div class="metrics" id="metrics"></div>
+
+      <div class="chart-container">
+        <div class="chart-header">
+          <h2>Portfolio Evolution</h2>
+          <div class="legend">
+            <div class="legend-item">
+              <div class="legend-dot" style="background: #1a73e8;"></div>
+              Money Invested
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background: #0d904f;"></div>
+              Investment Gains
+            </div>
+          </div>
+        </div>
+        <canvas id="chart"></canvas>
+      </div>
+
+      <div class="table-container">
+        <div class="table-header-row">
+          <h2>Returns Table</h2>
+          <div class="view-toggle">
+            <button class="toggle-btn active" data-view="pct">%</button>
+            <button class="toggle-btn" data-view="eur">&euro;</button>
+          </div>
+        </div>
+        <table class="returns-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
+              <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
+              <th>YTD</th>
+            </tr>
+          </thead>
+          <tbody id="returnsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ==================== NET WORTH TAB ==================== -->
+    <div class="tab-content" id="tab-networth">
+      <div class="filters">
+        <div class="time-range" id="nwTimeRange">
+          <button data-range="6">6M</button>
+          <button data-range="12">1Y</button>
+          <button data-range="24">2Y</button>
+          <button data-range="36">3Y</button>
+          <button data-range="0" class="active">All</button>
+        </div>
+      </div>
+
+      <div class="metrics" id="nwMetrics"></div>
+
+      <div class="chart-container">
+        <div class="chart-header">
+          <h2>Net Worth Evolution</h2>
+          <div class="legend" id="nwLegend"></div>
+        </div>
+        <canvas id="nwChart"></canvas>
+      </div>
+
+      <div class="table-container">
+        <div class="table-header-row">
+          <h2>Monthly Breakdown</h2>
+        </div>
+        <table class="nw-breakdown">
+          <thead id="nwTableHead"></thead>
+          <tbody id="nwTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ==================== GOALS TAB ==================== -->
+    <div class="tab-content" id="tab-goals">
+      <div id="goalsDetail"></div>
+    </div>
+
+    <!-- ==================== BUDGET TAB ==================== -->
+    <div class="tab-content" id="tab-budget">
+      <div id="budgetDetail"></div>
+    </div>
+
+  </div>
+
+  <!-- Scripts: lib → data → ui → crypto → app -->
+  <script src="js/lib/utils.js"></script>
+  <script src="js/data/account-service.js"></script>
+  <script src="js/data/data-service.js"></script>
+  <script src="js/data/returns-calc.js"></script>
+  <script src="js/data/networth-calc.js"></script>
+  <script src="js/data/fi-calc.js"></script>
+  <script src="js/data/goals-calc.js"></script>
+  <script src="js/data/budget-calc.js"></script>
+  <script src="js/ui/ui-metrics.js"></script>
+  <script src="js/ui/ui-charts.js"></script>
+  <script src="js/ui/ui-tables.js"></script>
+  <script src="js/ui/ui-goals.js"></script>
+  <script src="js/ui/ui-budget.js"></script>
+  <script src="js/crypto.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

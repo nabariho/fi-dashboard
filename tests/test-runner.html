@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FI Dashboard — Tests</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 20px; margin-bottom: 16px; }
+    .suite { margin-bottom: 24px; }
+    .suite-name { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .test { padding: 4px 0; font-size: 14px; }
+    .pass { color: #0d904f; }
+    .fail { color: #d93025; }
+    .summary { margin-top: 24px; font-size: 16px; font-weight: 600; padding: 12px; border-radius: 8px; }
+    .summary.all-pass { background: #e6f4ea; color: #137333; }
+    .summary.has-fail { background: #fce8e6; color: #c5221f; }
+    .error-detail { font-size: 12px; color: #666; margin-left: 24px; font-family: monospace; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>FI Dashboard — Test Suite</h1>
+  <div id="results"></div>
+  <div id="summary"></div>
+
+  <!-- Load app modules (same order as index.html) -->
+  <script src="../js/lib/utils.js"></script>
+  <script src="../js/data/account-service.js"></script>
+  <script src="../js/data/data-service.js"></script>
+  <script src="../js/data/returns-calc.js"></script>
+  <script src="../js/data/networth-calc.js"></script>
+  <script src="../js/data/fi-calc.js"></script>
+  <script src="../js/data/goals-calc.js"></script>
+  <script src="../js/data/budget-calc.js"></script>
+  <script src="../js/crypto.js"></script>
+
+  <!-- Test framework (minimal) -->
+  <script>
+    var _suites = [];
+    var _currentSuite = null;
+
+    function describe(name, fn) {
+      _currentSuite = { name: name, tests: [] };
+      _suites.push(_currentSuite);
+      fn();
+      _currentSuite = null;
+    }
+
+    function it(name, fn) {
+      _currentSuite.tests.push({ name: name, fn: fn });
+    }
+
+    function assert(condition, msg) {
+      if (!condition) throw new Error(msg || 'Assertion failed');
+    }
+
+    function assertClose(actual, expected, tolerance, msg) {
+      if (Math.abs(actual - expected) > tolerance) {
+        throw new Error((msg || '') + ' Expected ~' + expected + ', got ' + actual);
+      }
+    }
+
+    function assertEqual(actual, expected, msg) {
+      if (actual !== expected) {
+        throw new Error((msg || '') + ' Expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual));
+      }
+    }
+
+    async function runTests() {
+      var resultsEl = document.getElementById('results');
+      var totalPass = 0;
+      var totalFail = 0;
+
+      for (var s = 0; s < _suites.length; s++) {
+        var suite = _suites[s];
+        var html = '<div class="suite"><div class="suite-name">' + suite.name + '</div>';
+
+        for (var t = 0; t < suite.tests.length; t++) {
+          var test = suite.tests[t];
+          try {
+            var result = test.fn();
+            if (result && typeof result.then === 'function') await result;
+            html += '<div class="test pass">  ✓ ' + test.name + '</div>';
+            totalPass++;
+          } catch (e) {
+            html += '<div class="test fail">  ✗ ' + test.name + '</div>';
+            html += '<div class="error-detail">' + e.message + '</div>';
+            totalFail++;
+          }
+        }
+
+        html += '</div>';
+        resultsEl.innerHTML += html;
+      }
+
+      var summaryEl = document.getElementById('summary');
+      var total = totalPass + totalFail;
+      if (totalFail === 0) {
+        summaryEl.className = 'summary all-pass';
+        summaryEl.textContent = 'All ' + total + ' tests passed!';
+      } else {
+        summaryEl.className = 'summary has-fail';
+        summaryEl.textContent = totalFail + ' of ' + total + ' tests failed.';
+      }
+    }
+  </script>
+
+  <!-- Test files -->
+  <script src="test-calculators.js"></script>
+  <script src="test-crypto.js"></script>
+
+  <!-- Run -->
+  <script>runTests();</script>
+</body>
+</html>
