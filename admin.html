@@ -26,16 +26,16 @@
     <div class="admin-header">
       <h1>FI Dashboard — Admin</h1>
       <div class="header-links">
-        <a href="index.html">Dashboard</a>
+        <a href="index.html">Back to Dashboard</a>
       </div>
     </div>
 
     <!-- Tabs -->
     <div class="admin-tabs">
-      <button class="admin-tab active" data-tab="config">Config</button>
-      <button class="admin-tab" data-tab="accounts">Accounts</button>
-      <button class="admin-tab" data-tab="budget">Budget</button>
-      <button class="admin-tab" data-tab="monthend">MonthEnd</button>
+      <button class="admin-tab active" data-tab="config">Config <span class="tab-badge" id="badge-config">0</span></button>
+      <button class="admin-tab" data-tab="accounts">Accounts <span class="tab-badge" id="badge-accounts">0</span></button>
+      <button class="admin-tab" data-tab="budget">Budget <span class="tab-badge" id="badge-budget">0</span></button>
+      <button class="admin-tab" data-tab="monthend">MonthEnd <span class="tab-badge" id="badge-monthend">0</span></button>
     </div>
 
     <!-- Config -->
@@ -64,8 +64,12 @@
         <div class="dirty-dot"></div>
         Unsaved changes
       </div>
+      <span class="kbd" style="color:var(--text-secondary)">Ctrl+S</span>
       <button class="btn-save" id="saveBtn">Save &amp; Download</button>
     </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
 
   </div>
 

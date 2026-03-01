@@ -26,7 +26,14 @@
     <div class="dashboard-header">
       <h1>Financial Independence Dashboard</h1>
       <span id="lastUpdated"></span>
-      <a href="admin.html" style="font-size:13px; color:#1a73e8; text-decoration:none; margin-left:12px;">Admin</a>
+      <div class="menu-wrapper">
+        <button class="hamburger-btn" id="menuBtn" aria-label="Menu">
+          <div class="hamburger-icon"><span></span><span></span><span></span></div>
+        </button>
+        <div class="nav-menu" id="navMenu">
+          <a href="admin.html"><span class="nav-menu-icon">&#9881;</span> Edit Data (Admin)</a>
+        </div>
+      </div>
     </div>
 
     <!-- FI Progress (always visible, above tabs) -->

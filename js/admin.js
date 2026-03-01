@@ -1,5 +1,15 @@
 // === ADMIN PAGE — Data Editor ===
 
+// --- Config Parameter Descriptions ---
+var CONFIG_DESCRIPTIONS = {
+  fi_target: 'Total net worth needed for financial independence',
+  withdrawal_rate: 'Annual withdrawal rate in retirement (e.g. 0.04 = 4%)',
+  expected_return: 'Expected annual investment return (e.g. 0.07 = 7%)',
+  monthly_income: 'Gross monthly income for savings rate calculation',
+  emergency_fund_target: 'Target amount for emergency fund reserve',
+  house_downpayment_target: 'Target amount for house down payment goal'
+};
+
 // --- State ---
 var AdminState = {
   config: {},
@@ -11,7 +21,6 @@ var AdminState = {
   passphrase: null,
   dirty: false,
   activeTab: 'config',
-  // MonthEnd filters
   filterAccount: 'ALL',
   filterMonths: 24
 };
@@ -19,6 +28,25 @@ var AdminState = {
 function markDirty() {
   AdminState.dirty = true;
   document.querySelector('.dirty-indicator').classList.add('visible');
+  updateTabBadges();
+}
+
+function showToast(msg) {
+  var toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  setTimeout(function() { toast.classList.remove('visible'); }, 2500);
+}
+
+function updateTabBadges() {
+  var b1 = document.getElementById('badge-config');
+  var b2 = document.getElementById('badge-accounts');
+  var b3 = document.getElementById('badge-budget');
+  var b4 = document.getElementById('badge-monthend');
+  if (b1) b1.textContent = Object.keys(AdminState.config).length;
+  if (b2) b2.textContent = AdminState.accounts.length;
+  if (b3) b3.textContent = AdminState.budgetItems.length;
+  if (b4) b4.textContent = AdminState.data.length;
 }
 
 // --- Unlock ---
@@ -45,14 +73,12 @@ document.getElementById('decryptBtn').addEventListener('click', async function()
     var fileData = JSON.parse(text);
 
     if (fileData.config && fileData.accounts && fileData.data && !fileData.v) {
-      // Unencrypted JSON
       AdminState.wasEncrypted = false;
       loadAdminData(fileData);
       showAdmin();
       return;
     }
 
-    // Encrypted .fjson
     var passphrase = passphraseInput.value;
     if (!passphrase) {
       errorEl.textContent = 'Please enter the passphrase.';
@@ -87,6 +113,7 @@ function loadAdminData(data) {
 function showAdmin() {
   document.getElementById('unlock').style.display = 'none';
   document.getElementById('adminApp').style.display = 'block';
+  updateTabBadges();
   bindAdminEvents();
   renderActiveTab();
 }
@@ -113,6 +140,14 @@ function bindAdminEvents() {
       e.returnValue = '';
     }
   });
+
+  // Keyboard shortcut: Ctrl/Cmd+S to save
+  document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      save();
+    }
+  });
 }
 
 function renderActiveTab() {
@@ -129,27 +164,38 @@ function renderConfig() {
   var container = document.getElementById('configTable');
   var keys = Object.keys(AdminState.config);
 
-  var html = '<table class="admin-table"><thead><tr>' +
-    '<th>Parameter</th><th>Value</th><th>Actions</th>' +
+  var html = '<div class="section-header">' +
+    '<h2>Configuration Parameters</h2>' +
+    '<p class="section-desc">Financial targets and rates used for dashboard calculations. Values like withdrawal_rate and expected_return are decimals (e.g. 0.04 = 4%).</p>' +
+    '</div>';
+
+  html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
+    '<th>Parameter</th><th>Description</th><th>Value</th><th></th>' +
     '</tr></thead><tbody>';
 
   keys.forEach(function(key) {
+    var desc = CONFIG_DESCRIPTIONS[key] || '';
     html += '<tr>' +
       '<td class="cell-id">' + escHtml(key) + '</td>' +
-      '<td><input type="number" step="any" value="' + AdminState.config[key] + '" data-key="' + escHtml(key) + '" class="config-value"></td>' +
-      '<td><button class="btn-delete" data-key="' + escHtml(key) + '" onclick="deleteConfig(this)">Delete</button></td>' +
+      '<td class="config-desc">' + escHtml(desc) + '</td>' +
+      '<td style="width:160px"><input type="number" step="any" value="' + AdminState.config[key] + '" data-key="' + escHtml(key) + '" class="config-value"></td>' +
+      '<td style="width:60px"><button class="btn-delete" data-key="' + escHtml(key) + '" onclick="deleteConfig(this)">Delete</button></td>' +
       '</tr>';
   });
 
-  // Add row
-  html += '<tr class="add-row"><td><input type="text" id="newConfigKey" placeholder="parameter_name"></td>' +
-    '<td><input type="number" step="any" id="newConfigValue" placeholder="0"></td>' +
-    '<td><button class="btn-add" onclick="addConfig()">+ Add</button></td></tr>';
+  html += '</tbody></table></div>';
 
-  html += '</tbody></table>';
+  // Add form card
+  html += '<div class="add-form-card" style="margin-top:16px">' +
+    '<div class="add-form-title">Add Parameter</div>' +
+    '<div class="add-form-row">' +
+    '<div class="add-form-field"><label>Key</label><input type="text" id="newConfigKey" placeholder="parameter_name" style="width:180px"></div>' +
+    '<div class="add-form-field"><label>Value</label><input type="number" step="any" id="newConfigValue" placeholder="0" style="width:120px"></div>' +
+    '<button class="btn-add" onclick="addConfig()">Add Parameter</button>' +
+    '</div></div>';
+
   container.innerHTML = html;
 
-  // Bind change events
   container.querySelectorAll('.config-value').forEach(function(input) {
     input.addEventListener('change', function() {
       var key = this.dataset.key;
@@ -176,6 +222,9 @@ function addConfig() {
   var key = keyInput.value.trim();
   var val = parseFloat(valInput.value);
 
+  keyInput.classList.remove('input-error');
+  valInput.classList.remove('input-error');
+
   if (!key) { keyInput.classList.add('input-error'); return; }
   if (isNaN(val)) { valInput.classList.add('input-error'); return; }
   if (AdminState.config.hasOwnProperty(key)) {
@@ -186,6 +235,7 @@ function addConfig() {
   AdminState.config[key] = val;
   markDirty();
   renderConfig();
+  showToast('Parameter added');
 }
 
 // --- Accounts Tab ---
@@ -194,9 +244,31 @@ function renderAccounts() {
   var container = document.getElementById('accountsTable');
   var accts = AdminState.accounts;
 
-  var html = '<table class="admin-table"><thead><tr>' +
-    '<th>ID</th><th>Name</th><th>Type</th><th>Currency</th><th>Net Worth</th><th>Performance</th><th>Actions</th>' +
+  var html = '<div class="section-header">' +
+    '<h2>Accounts</h2>' +
+    '<p class="section-desc">Financial accounts tracked in the dashboard. "Net Worth" includes the account in total net worth. "Performance" includes it in investment return calculations.</p>' +
+    '</div>';
+
+  // Add form at top
+  html += '<div class="add-form-card">' +
+    '<div class="add-form-title">Add Account</div>' +
+    '<div class="add-form-row">' +
+    '<div class="add-form-field"><label>ID</label><input type="text" id="newAcctId" placeholder="ACCT_ID" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Name</label><input type="text" id="newAcctName" placeholder="Account Name" style="width:180px"></div>' +
+    '<div class="add-form-field"><label>Type</label><select id="newAcctType"><option value="Broker">Broker</option><option value="Cash">Cash</option></select></div>' +
+    '<div class="add-form-field"><label>Currency</label><input type="text" id="newAcctCurrency" value="EUR" style="width:60px"></div>' +
+    '<div class="add-form-field"><label>Net Worth</label><input type="checkbox" id="newAcctNW" checked></div>' +
+    '<div class="add-form-field"><label>Performance</label><input type="checkbox" id="newAcctPerf"></div>' +
+    '<button class="btn-add" onclick="addAccount()">Add Account</button>' +
+    '</div></div>';
+
+  html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
+    '<th>ID</th><th>Name</th><th>Type</th><th>Currency</th><th style="text-align:center">Net Worth</th><th style="text-align:center">Performance</th><th></th>' +
     '</tr></thead><tbody>';
+
+  if (!accts.length) {
+    html += '<tr><td colspan="7"><div class="empty-state">No accounts yet. Add one above.</div></td></tr>';
+  }
 
   accts.forEach(function(a, i) {
     html += '<tr>' +
@@ -209,25 +281,13 @@ function renderAccounts() {
       '<td><input type="text" value="' + escHtml(a.currency || 'EUR') + '" data-idx="' + i + '" data-field="currency" class="acct-field" style="width:60px"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (a.include_networth ? ' checked' : '') + ' data-idx="' + i + '" data-field="include_networth" class="acct-check"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (a.include_performance ? ' checked' : '') + ' data-idx="' + i + '" data-field="include_performance" class="acct-check"></td>' +
-      '<td><button class="btn-delete" data-idx="' + i + '" onclick="deleteAccount(this)">Delete</button></td>' +
+      '<td style="width:60px"><button class="btn-delete" data-idx="' + i + '" onclick="deleteAccount(this)">Delete</button></td>' +
       '</tr>';
   });
 
-  // Add row
-  html += '<tr class="add-row">' +
-    '<td><input type="text" id="newAcctId" placeholder="ACCT_ID" style="width:100px"></td>' +
-    '<td><input type="text" id="newAcctName" placeholder="Account Name"></td>' +
-    '<td><select id="newAcctType"><option value="Broker">Broker</option><option value="Cash">Cash</option></select></td>' +
-    '<td><input type="text" id="newAcctCurrency" value="EUR" style="width:60px"></td>' +
-    '<td style="text-align:center"><input type="checkbox" id="newAcctNW" checked></td>' +
-    '<td style="text-align:center"><input type="checkbox" id="newAcctPerf"></td>' +
-    '<td><button class="btn-add" onclick="addAccount()">+ Add</button></td>' +
-    '</tr>';
-
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   container.innerHTML = html;
 
-  // Bind change events
   container.querySelectorAll('.acct-field').forEach(function(el) {
     el.addEventListener('change', function() {
       var idx = parseInt(this.dataset.idx);
@@ -258,11 +318,16 @@ function deleteAccount(btn) {
 }
 
 function addAccount() {
-  var id = document.getElementById('newAcctId').value.trim().toUpperCase();
-  var name = document.getElementById('newAcctName').value.trim();
+  var idEl = document.getElementById('newAcctId');
+  var nameEl = document.getElementById('newAcctName');
+  var id = idEl.value.trim().toUpperCase();
+  var name = nameEl.value.trim();
 
-  if (!id) { document.getElementById('newAcctId').classList.add('input-error'); return; }
-  if (!name) { document.getElementById('newAcctName').classList.add('input-error'); return; }
+  idEl.classList.remove('input-error');
+  nameEl.classList.remove('input-error');
+
+  if (!id) { idEl.classList.add('input-error'); return; }
+  if (!name) { nameEl.classList.add('input-error'); return; }
   if (AdminState.accounts.some(function(a) { return a.account_id === id; })) {
     alert('Account ID "' + id + '" already exists.');
     return;
@@ -278,6 +343,7 @@ function addAccount() {
   });
   markDirty();
   renderAccounts();
+  showToast('Account added');
 }
 
 // --- Budget Tab ---
@@ -286,12 +352,35 @@ function renderBudget() {
   var container = document.getElementById('budgetTable');
   var items = AdminState.budgetItems;
 
-  var html = '<table class="admin-table"><thead><tr>' +
-    '<th>ID</th><th>Name</th><th>Type</th><th>Amount</th><th>Frequency</th><th>Category</th><th>Active</th><th>Actions</th>' +
+  var html = '<div class="section-header">' +
+    '<h2>Budget Items</h2>' +
+    '<p class="section-desc">Monthly budget items used for savings rate and operating reserve calculations. Yearly/quarterly amounts are automatically prorated to monthly.</p>' +
+    '</div>';
+
+  // Add form at top
+  html += '<div class="add-form-card">' +
+    '<div class="add-form-title">Add Budget Item</div>' +
+    '<div class="add-form-row">' +
+    '<div class="add-form-field"><label>ID</label><input type="text" id="newBudgetId" placeholder="item_id" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Name</label><input type="text" id="newBudgetName" placeholder="Name" style="width:150px"></div>' +
+    '<div class="add-form-field"><label>Type</label><select id="newBudgetType"><option value="fixed">fixed</option><option value="variable">variable</option></select></div>' +
+    '<div class="add-form-field"><label>Amount</label><input type="number" step="any" id="newBudgetAmount" placeholder="0" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Frequency</label><select id="newBudgetFreq"><option value="monthly">monthly</option><option value="quarterly">quarterly</option><option value="yearly">yearly</option></select></div>' +
+    '<div class="add-form-field"><label>Category</label><input type="text" id="newBudgetCategory" placeholder="Category" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Active</label><input type="checkbox" id="newBudgetActive" checked></div>' +
+    '<button class="btn-add" onclick="addBudget()">Add Item</button>' +
+    '</div></div>';
+
+  html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
+    '<th>ID</th><th>Name</th><th>Type</th><th>Amount</th><th>Frequency</th><th>Category</th><th style="text-align:center">Active</th><th></th>' +
     '</tr></thead><tbody>';
 
+  if (!items.length) {
+    html += '<tr><td colspan="8"><div class="empty-state">No budget items yet. Add one above.</div></td></tr>';
+  }
+
   items.forEach(function(b, i) {
-    html += '<tr>' +
+    html += '<tr' + (!b.active ? ' style="opacity:0.5"' : '') + '>' +
       '<td class="cell-id">' + escHtml(b.item_id) + '</td>' +
       '<td><input type="text" value="' + escHtml(b.name) + '" data-idx="' + i + '" data-field="name" class="budget-field"></td>' +
       '<td><select data-idx="' + i + '" data-field="type" class="budget-field">' +
@@ -306,26 +395,13 @@ function renderBudget() {
       '</select></td>' +
       '<td><input type="text" value="' + escHtml(b.category) + '" data-idx="' + i + '" data-field="category" class="budget-field" style="width:120px"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (b.active ? ' checked' : '') + ' data-idx="' + i + '" class="budget-active"></td>' +
-      '<td><button class="btn-delete" data-idx="' + i + '" onclick="deleteBudget(this)">Delete</button></td>' +
+      '<td style="width:60px"><button class="btn-delete" data-idx="' + i + '" onclick="deleteBudget(this)">Delete</button></td>' +
       '</tr>';
   });
 
-  // Add row
-  html += '<tr class="add-row">' +
-    '<td><input type="text" id="newBudgetId" placeholder="item_id" style="width:100px"></td>' +
-    '<td><input type="text" id="newBudgetName" placeholder="Name"></td>' +
-    '<td><select id="newBudgetType"><option value="fixed">fixed</option><option value="variable">variable</option></select></td>' +
-    '<td><input type="number" step="any" id="newBudgetAmount" placeholder="0" style="width:100px"></td>' +
-    '<td><select id="newBudgetFreq"><option value="monthly">monthly</option><option value="quarterly">quarterly</option><option value="yearly">yearly</option></select></td>' +
-    '<td><input type="text" id="newBudgetCategory" placeholder="Category" style="width:120px"></td>' +
-    '<td style="text-align:center"><input type="checkbox" id="newBudgetActive" checked></td>' +
-    '<td><button class="btn-add" onclick="addBudget()">+ Add</button></td>' +
-    '</tr>';
-
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   container.innerHTML = html;
 
-  // Bind change events
   container.querySelectorAll('.budget-field').forEach(function(el) {
     el.addEventListener('change', function() {
       var idx = parseInt(this.dataset.idx);
@@ -350,6 +426,7 @@ function renderBudget() {
       var idx = parseInt(this.dataset.idx);
       AdminState.budgetItems[idx].active = this.checked;
       markDirty();
+      renderBudget();
     });
   });
 }
@@ -363,13 +440,20 @@ function deleteBudget(btn) {
 }
 
 function addBudget() {
-  var id = document.getElementById('newBudgetId').value.trim().toLowerCase();
-  var name = document.getElementById('newBudgetName').value.trim();
-  var amount = parseFloat(document.getElementById('newBudgetAmount').value);
+  var idEl = document.getElementById('newBudgetId');
+  var nameEl = document.getElementById('newBudgetName');
+  var amtEl = document.getElementById('newBudgetAmount');
+  var id = idEl.value.trim().toLowerCase();
+  var name = nameEl.value.trim();
+  var amount = parseFloat(amtEl.value);
 
-  if (!id) { document.getElementById('newBudgetId').classList.add('input-error'); return; }
-  if (!name) { document.getElementById('newBudgetName').classList.add('input-error'); return; }
-  if (isNaN(amount) || amount <= 0) { document.getElementById('newBudgetAmount').classList.add('input-error'); return; }
+  idEl.classList.remove('input-error');
+  nameEl.classList.remove('input-error');
+  amtEl.classList.remove('input-error');
+
+  if (!id) { idEl.classList.add('input-error'); return; }
+  if (!name) { nameEl.classList.add('input-error'); return; }
+  if (isNaN(amount) || amount <= 0) { amtEl.classList.add('input-error'); return; }
   if (AdminState.budgetItems.some(function(b) { return b.item_id === id; })) {
     alert('Budget item "' + id + '" already exists.');
     return;
@@ -386,13 +470,14 @@ function addBudget() {
   });
   markDirty();
   renderBudget();
+  showToast('Budget item added');
 }
 
 // --- MonthEnd Tab ---
 
 function getFilteredData() {
   var rows = AdminState.data.slice();
-  // Sort desc by month, then account
+  // Sort descending by month, then by account_id
   rows.sort(function(a, b) {
     if (a.month !== b.month) return b.month.localeCompare(a.month);
     return a.account_id.localeCompare(b.account_id);
@@ -403,7 +488,6 @@ function getFilteredData() {
   }
 
   if (AdminState.filterMonths > 0) {
-    // Get unique months and take the last N
     var months = [];
     rows.forEach(function(r) { if (months.indexOf(r.month) === -1) months.push(r.month); });
     months.sort().reverse();
@@ -417,17 +501,42 @@ function getFilteredData() {
 function renderMonthEnd() {
   var container = document.getElementById('monthendContent');
   var acctIds = AdminState.accounts.map(function(a) { return a.account_id; });
+  var acctNames = {};
+  AdminState.accounts.forEach(function(a) { acctNames[a.account_id] = a.account_name; });
+
+  var html = '<div class="section-header">' +
+    '<h2>Month-End Balances</h2>' +
+    '<p class="section-desc">End-of-month account values and net contributions. Each row is a unique (month, account) pair. Sorted newest first.</p>' +
+    '</div>';
+
+  // Add form at top
+  var defaultMonth = nextMonth();
+  html += '<div class="add-form-card">' +
+    '<div class="add-form-title">Add Month-End Row</div>' +
+    '<div class="add-form-row">' +
+    '<div class="add-form-field"><label>Month</label><input type="text" id="newMeMonth" value="' + defaultMonth + '" placeholder="YYYY-MM" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Account</label><select id="newMeAccount">';
+  acctIds.forEach(function(id) {
+    html += '<option value="' + escHtml(id) + '">' + escHtml(id) + '</option>';
+  });
+  html += '</select></div>' +
+    '<div class="add-form-field"><label>End Value</label><input type="number" step="0.01" id="newMeEndValue" placeholder="0.00" style="width:130px"></div>' +
+    '<div class="add-form-field"><label>Net Contribution</label><input type="number" step="0.01" id="newMeContribution" placeholder="0.00" style="width:130px"></div>' +
+    '<div class="add-form-field"><label>Notes</label><input type="text" id="newMeNotes" placeholder="" style="width:140px"></div>' +
+    '<button class="btn-add" onclick="addMonthEnd()">Add Row</button>' +
+    '</div></div>';
 
   // Filters
-  var filtersHtml = '<div class="admin-filters">' +
+  html += '<div class="admin-filters">' +
     '<label>Account:</label>' +
     '<select id="meFilterAccount"><option value="ALL">All Accounts</option>';
   acctIds.forEach(function(id) {
-    filtersHtml += '<option value="' + escHtml(id) + '"' + (AdminState.filterAccount === id ? ' selected' : '') + '>' + escHtml(id) + '</option>';
+    html += '<option value="' + escHtml(id) + '"' + (AdminState.filterAccount === id ? ' selected' : '') + '>' + escHtml(id) + ' — ' + escHtml(acctNames[id] || '') + '</option>';
   });
-  filtersHtml += '</select>' +
+  html += '</select>' +
     '<label>Show last:</label>' +
     '<select id="meFilterMonths">' +
+    '<option value="6"' + (AdminState.filterMonths === 6 ? ' selected' : '') + '>6 months</option>' +
     '<option value="12"' + (AdminState.filterMonths === 12 ? ' selected' : '') + '>12 months</option>' +
     '<option value="24"' + (AdminState.filterMonths === 24 ? ' selected' : '') + '>24 months</option>' +
     '<option value="36"' + (AdminState.filterMonths === 36 ? ' selected' : '') + '>36 months</option>' +
@@ -436,43 +545,35 @@ function renderMonthEnd() {
 
   var filtered = getFilteredData();
 
-  var html = filtersHtml +
-    '<div class="row-count">' + filtered.length + ' rows (of ' + AdminState.data.length + ' total)</div>' +
+  html += '<div class="row-count">' + filtered.length + ' rows shown (of ' + AdminState.data.length + ' total)</div>' +
     '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
-    '<th>Month</th><th>Account</th><th>End Value</th><th>Net Contribution</th><th>Notes</th><th>Actions</th>' +
+    '<th>Month</th><th>Account</th><th style="text-align:right">End Value</th><th style="text-align:right">Net Contribution</th><th>Notes</th><th></th>' +
     '</tr></thead><tbody>';
 
+  if (!filtered.length) {
+    html += '<tr><td colspan="6"><div class="empty-state">No rows match the current filters.</div></td></tr>';
+  }
+
+  // Track month groups for visual separation
+  var lastMonth = null;
   filtered.forEach(function(r) {
-    // Find the actual index in AdminState.data
     var dataIdx = AdminState.data.indexOf(r);
-    html += '<tr>' +
+    var monthChanged = r.month !== lastMonth;
+    lastMonth = r.month;
+
+    html += '<tr' + (monthChanged && lastMonth ? ' style="border-top:2px solid var(--border)"' : '') + '>' +
       '<td><input type="text" value="' + escHtml(r.month) + '" data-idx="' + dataIdx + '" data-field="month" class="me-field" style="width:100px"></td>' +
       '<td><select data-idx="' + dataIdx + '" data-field="account_id" class="me-field">';
     acctIds.forEach(function(id) {
       html += '<option value="' + escHtml(id) + '"' + (r.account_id === id ? ' selected' : '') + '>' + escHtml(id) + '</option>';
     });
     html += '</select></td>' +
-      '<td><input type="number" step="0.01" value="' + r.end_value + '" data-idx="' + dataIdx + '" data-field="end_value" class="me-num" style="width:120px"></td>' +
-      '<td><input type="number" step="0.01" value="' + r.net_contribution + '" data-idx="' + dataIdx + '" data-field="net_contribution" class="me-num" style="width:120px"></td>' +
+      '<td style="text-align:right"><input type="number" step="0.01" value="' + r.end_value + '" data-idx="' + dataIdx + '" data-field="end_value" class="me-num" style="width:130px; text-align:right"></td>' +
+      '<td style="text-align:right"><input type="number" step="0.01" value="' + r.net_contribution + '" data-idx="' + dataIdx + '" data-field="net_contribution" class="me-num" style="width:130px; text-align:right"></td>' +
       '<td><input type="text" value="' + escHtml(r.notes || '') + '" data-idx="' + dataIdx + '" data-field="notes" class="me-field"></td>' +
-      '<td><button class="btn-delete" data-idx="' + dataIdx + '" onclick="deleteMonthEnd(this)">Delete</button></td>' +
+      '<td style="width:60px"><button class="btn-delete" data-idx="' + dataIdx + '" onclick="deleteMonthEnd(this)">Delete</button></td>' +
       '</tr>';
   });
-
-  // Add row — default month to latest + 1
-  var defaultMonth = nextMonth();
-  html += '<tr class="add-row">' +
-    '<td><input type="text" id="newMeMonth" value="' + defaultMonth + '" style="width:100px"></td>' +
-    '<td><select id="newMeAccount">';
-  acctIds.forEach(function(id) {
-    html += '<option value="' + escHtml(id) + '">' + escHtml(id) + '</option>';
-  });
-  html += '</select></td>' +
-    '<td><input type="number" step="0.01" id="newMeEndValue" placeholder="0.00" style="width:120px"></td>' +
-    '<td><input type="number" step="0.01" id="newMeContribution" placeholder="0.00" style="width:120px"></td>' +
-    '<td><input type="text" id="newMeNotes" placeholder=""></td>' +
-    '<td><button class="btn-add" onclick="addMonthEnd()">+ Add</button></td>' +
-    '</tr>';
 
   html += '</tbody></table></div>';
   container.innerHTML = html;
@@ -487,7 +588,6 @@ function renderMonthEnd() {
     renderMonthEnd();
   });
 
-  // Bind field events
   container.querySelectorAll('.me-field').forEach(function(el) {
     el.addEventListener('change', function() {
       var idx = parseInt(this.dataset.idx);
@@ -529,20 +629,25 @@ function deleteMonthEnd(btn) {
 }
 
 function addMonthEnd() {
-  var month = document.getElementById('newMeMonth').value.trim();
+  var monthEl = document.getElementById('newMeMonth');
+  var endValEl = document.getElementById('newMeEndValue');
+  var contribEl = document.getElementById('newMeContribution');
+  var month = monthEl.value.trim();
   var accountId = document.getElementById('newMeAccount').value;
-  var endValue = parseFloat(document.getElementById('newMeEndValue').value);
-  var contribution = parseFloat(document.getElementById('newMeContribution').value);
+  var endValue = parseFloat(endValEl.value);
+  var contribution = parseFloat(contribEl.value);
+
+  monthEl.classList.remove('input-error');
+  endValEl.classList.remove('input-error');
 
   if (!/^\d{4}-\d{2}$/.test(month)) {
-    document.getElementById('newMeMonth').classList.add('input-error');
+    monthEl.classList.add('input-error');
     alert('Month must be in YYYY-MM format.');
     return;
   }
-  if (isNaN(endValue)) { document.getElementById('newMeEndValue').classList.add('input-error'); return; }
+  if (isNaN(endValue)) { endValEl.classList.add('input-error'); return; }
   if (isNaN(contribution)) contribution = 0;
 
-  // Check uniqueness
   var dup = AdminState.data.some(function(r) { return r.month === month && r.account_id === accountId; });
   if (dup) {
     alert('A row for ' + month + ' / ' + accountId + ' already exists.');
@@ -558,6 +663,7 @@ function addMonthEnd() {
   });
   markDirty();
   renderMonthEnd();
+  showToast('Row added: ' + month + ' / ' + accountId);
 }
 
 // --- Validation ---
@@ -565,14 +671,12 @@ function addMonthEnd() {
 function validate() {
   var errors = [];
 
-  // Config: all values numeric
   Object.keys(AdminState.config).forEach(function(key) {
     if (typeof AdminState.config[key] !== 'number' || isNaN(AdminState.config[key])) {
       errors.push('Config: "' + key + '" must be a number.');
     }
   });
 
-  // Accounts: no duplicate IDs, required fields
   var acctIds = {};
   AdminState.accounts.forEach(function(a) {
     if (!a.account_id) errors.push('Accounts: missing account_id.');
@@ -581,7 +685,6 @@ function validate() {
     acctIds[a.account_id] = true;
   });
 
-  // Budget: no duplicate IDs, amount > 0
   var budgetIds = {};
   AdminState.budgetItems.forEach(function(b) {
     if (!b.item_id) errors.push('Budget: missing item_id.');
@@ -590,7 +693,6 @@ function validate() {
     if (typeof b.amount !== 'number' || b.amount <= 0) errors.push('Budget: "' + b.item_id + '" amount must be > 0.');
   });
 
-  // MonthEnd: no duplicate (month, account_id), valid month format
   var meKeys = {};
   AdminState.data.forEach(function(r) {
     if (!/^\d{4}-\d{2}$/.test(r.month)) errors.push('MonthEnd: invalid month "' + r.month + '".');
@@ -610,15 +712,15 @@ async function save() {
     var errHtml = '<div class="validation-errors"><strong>Validation errors:</strong><ul>' +
       errors.map(function(e) { return '<li>' + escHtml(e) + '</li>'; }).join('') +
       '</ul></div>';
-    // Show errors in the active tab
     var activeContent = document.querySelector('.admin-content.active');
     var existing = activeContent.querySelector('.validation-errors');
     if (existing) existing.remove();
     activeContent.insertAdjacentHTML('afterbegin', errHtml);
+    activeContent.scrollTop = 0;
+    window.scrollTo(0, 0);
     return;
   }
 
-  // Remove any existing validation errors
   document.querySelectorAll('.validation-errors').forEach(function(el) { el.remove(); });
 
   var btn = document.getElementById('saveBtn');
@@ -626,7 +728,7 @@ async function save() {
   btn.textContent = 'Saving...';
 
   try {
-    // 1. Download backup of original file
+    // 1. Download backup
     var now = new Date();
     var ts = now.getFullYear() +
       pad2(now.getMonth() + 1) + pad2(now.getDate()) + '-' +
@@ -655,10 +757,10 @@ async function save() {
 
     downloadFile(output, filename);
 
-    // Update originalFileText so next save has the new version as backup
     AdminState.originalFileText = output;
     AdminState.dirty = false;
     document.querySelector('.dirty-indicator').classList.remove('visible');
+    showToast('Saved successfully');
   } catch (e) {
     alert('Save failed: ' + e.message);
   }

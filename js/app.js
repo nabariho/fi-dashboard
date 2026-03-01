@@ -268,3 +268,17 @@ document.getElementById('passphrase').addEventListener('keydown', function(e) {
     document.getElementById('decryptBtn').click();
   }
 });
+
+// Hamburger menu toggle
+(function() {
+  var btn = document.getElementById('menuBtn');
+  var menu = document.getElementById('navMenu');
+  if (!btn || !menu) return;
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    menu.classList.toggle('open');
+  });
+  document.addEventListener('click', function() {
+    menu.classList.remove('open');
+  });
+})();

@@ -26,7 +26,7 @@ body.admin-body { padding-bottom: 80px; }
 
 .admin-header a:hover { text-decoration: underline; }
 
-/* === ADMIN TABS === */
+/* === TAB BADGES (item counts) === */
 .admin-tabs {
   display: flex;
   gap: 0;
@@ -52,8 +52,41 @@ body.admin-body { padding-bottom: 80px; }
   border-bottom-color: var(--primary);
 }
 
+.tab-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--text-secondary);
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: 6px;
+}
+
+.admin-tab.active .tab-badge {
+  background: #e8f0fe;
+  color: var(--primary);
+}
+
 .admin-content { display: none; }
 .admin-content.active { display: block; }
+
+/* === SECTION HEADER (tab title + description) === */
+.section-header {
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.section-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
 
 /* === EDITABLE TABLES === */
 .admin-table-container {
@@ -101,6 +134,7 @@ body.admin-body { padding-bottom: 80px; }
   font-family: inherit;
   background: var(--card-bg);
   min-width: 80px;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .admin-table input[type="text"]:focus,
@@ -110,7 +144,8 @@ body.admin-body { padding-bottom: 80px; }
   box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.15);
 }
 
-.admin-table input.input-error {
+.admin-table input.input-error,
+.add-form-card input.input-error {
   border-color: var(--negative);
   box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.15);
 }
@@ -138,44 +173,122 @@ body.admin-body { padding-bottom: 80px; }
   color: var(--text-secondary);
 }
 
+/* === CONFIG — Description column === */
+.config-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  max-width: 280px;
+}
+
 /* === ACTION BUTTONS === */
 .btn-delete {
   padding: 4px 12px;
-  border: 1px solid var(--negative);
+  border: 1px solid var(--border);
   border-radius: 6px;
   background: transparent;
-  color: var(--negative);
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.15s;
 }
 
 .btn-delete:hover {
+  border-color: var(--negative);
   background: var(--negative);
   color: white;
 }
 
-/* === ADD ROW === */
-.add-row td {
-  background: var(--bg);
-  border-top: 2px solid var(--border);
+/* === ADD FORM CARD (replaces in-table add row) === */
+.add-form-card {
+  background: var(--card-bg);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.add-form-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.add-form-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.add-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.add-form-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.add-form-field input[type="text"],
+.add-form-field input[type="number"] {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--card-bg);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.add-form-field input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.15);
+}
+
+.add-form-field select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--card-bg);
+  cursor: pointer;
+}
+
+.add-form-field input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  align-self: center;
+  margin-top: 4px;
 }
 
 .btn-add {
-  padding: 6px 16px;
-  border: 1px dashed var(--primary);
+  padding: 8px 20px;
+  border: none;
   border-radius: 6px;
-  background: transparent;
-  color: var(--primary);
+  background: var(--primary);
+  color: white;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.15s;
 }
 
 .btn-add:hover {
-  background: rgba(26, 115, 232, 0.08);
+  background: #1557b0;
 }
 
 /* === FILTERS (MonthEnd) === */
@@ -231,6 +344,12 @@ body.admin-body { padding-bottom: 80px; }
   height: 8px;
   border-radius: 50%;
   background: #f9ab00;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .btn-save {
@@ -247,6 +366,29 @@ body.admin-body { padding-bottom: 80px; }
 
 .btn-save:hover { background: #1557b0; }
 .btn-save:disabled { background: #ccc; cursor: not-allowed; }
+
+/* === TOAST NOTIFICATION === */
+.toast {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  background: var(--positive);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 200;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
 
 /* === VALIDATION ERRORS === */
 .validation-errors {
@@ -269,4 +411,96 @@ body.admin-body { padding-bottom: 80px; }
   font-size: 12px;
   color: var(--text-secondary);
   margin-bottom: 8px;
+}
+
+/* === EMPTY STATE === */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* === HAMBURGER MENU (dashboard) === */
+.hamburger-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.hamburger-btn:hover { background: var(--bg); }
+
+.hamburger-icon {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hamburger-icon span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--text-secondary);
+  border-radius: 1px;
+}
+
+.nav-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  min-width: 180px;
+  z-index: 200;
+  overflow: hidden;
+}
+
+.nav-menu.open { display: block; }
+
+.nav-menu a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.1s;
+}
+
+.nav-menu a:hover { background: var(--bg); }
+
+.nav-menu-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.menu-wrapper {
+  position: relative;
+}
+
+/* === KEYBOARD SHORTCUT HINTS === */
+.kbd {
+  display: inline-block;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text-secondary);
+  margin-left: auto;
 }
