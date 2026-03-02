@@ -67,11 +67,10 @@ var AnomalyCalculator = {
           // Flag if > 2 standard deviations from mean
           if (zScore > 2 && Math.abs(changePct) > 5) {
             var direction = changePct > 0 ? 'gained' : 'dropped';
-            var sign = changePct > 0 ? '+' : '';
             alerts.push({
               account: accountId,
               type: 'large_change',
-              message: name + ' ' + direction + ' ' + sign + Fmt.pctShort(changePct) + ' this month — unusual compared to its history (avg ' + Fmt.pctShort(stats.mean) + '/mo).',
+              message: name + ' ' + direction + ' ' + Fmt.pctShort(changePct) + ' this month — unusual compared to its history (avg ' + Fmt.pctShort(stats.mean) + '/mo).',
               severity: Math.abs(changePct) > 15 ? 'warning' : 'info'
             });
           }

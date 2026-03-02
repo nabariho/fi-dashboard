@@ -2,63 +2,69 @@
 // Wires data services to UI renderers. Handles events and initialization.
 
 var mortgageData = null;
+var milestonesData = [];
 
 // --- Monthly Summary (always visible) ---
 
 function refreshSummary() {
   if (typeof SummaryCalculator === 'undefined' || typeof SummaryRenderer === 'undefined') return;
 
-  var accountIds = AccountService.getNetworthAccountIds();
-  var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
-  if (nwData.length < 2) { SummaryRenderer.renderEmptyState(); return; }
+  try {
+    var accountIds = AccountService.getNetworthAccountIds();
+    var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+    if (nwData.length < 2) { SummaryRenderer.renderEmptyState(); return; }
 
-  // Compute goals for summary context
-  var goals = null;
-  if (typeof GoalsCalculator !== 'undefined') {
-    var emergencyTarget = appConfig.emergency_fund_target || 40000;
-    var houseTarget = appConfig.house_downpayment_target || 80000;
-    var operatingReserve = 0;
-    if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
-      operatingReserve = BudgetCalculator.computeOperatingReserve(budgetItems);
+    // Compute goals for summary context
+    var goals = null;
+    if (typeof GoalsCalculator !== 'undefined') {
+      var emergencyTarget = appConfig.emergency_fund_target || 40000;
+      var houseTarget = appConfig.house_downpayment_target || 80000;
+      var operatingReserve = 0;
+      if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+        operatingReserve = BudgetCalculator.computeOperatingReserve(budgetItems);
+      }
+      var latest = nwData[nwData.length - 1].accounts;
+      goals = {
+        emergency: GoalsCalculator.computeEmergencyFund(latest, emergencyTarget),
+        house: GoalsCalculator.computeHouseDownPayment(latest, houseTarget, operatingReserve)
+      };
     }
-    var latest = nwData[nwData.length - 1].accounts;
-    goals = {
-      emergency: GoalsCalculator.computeEmergencyFund(latest, emergencyTarget),
-      house: GoalsCalculator.computeHouseDownPayment(latest, houseTarget, operatingReserve)
-    };
+
+    // Compute milestones for summary context
+    var milestoneStatuses = [];
+    if (typeof MilestoneCalculator !== 'undefined' && milestonesData && milestonesData.length) {
+      var latestRow = nwData[nwData.length - 1];
+      var emergency = goals ? goals.emergency : { available: 0 };
+      var house = goals ? goals.house : { current: 0 };
+      var currentValues = {
+        total: latestRow.total || 0,
+        emergency_fund: emergency.available,
+        house_downpayment: house.current,
+        fi_networth: latestRow.total || 0
+      };
+      milestoneStatuses = MilestoneCalculator.computeAll(milestonesData, currentValues, nwData[0].month, latestRow.month);
+    }
+
+    // Compute mortgage summary
+    var mortgageSummary = null;
+    if (mortgageData && typeof MortgageCalculator !== 'undefined') {
+      mortgageSummary = MortgageCalculator.computeSummary(mortgageData);
+    }
+
+    var summary = SummaryCalculator.computeMonthlySummary(nwData, allData, goals, milestoneStatuses, mortgageSummary);
+    var narrative = SummaryCalculator.generateNarrative(summary);
+
+    // Detect anomalies
+    var anomalies = [];
+    if (typeof AnomalyCalculator !== 'undefined') {
+      anomalies = AnomalyCalculator.detectAnomalies(allData);
+    }
+
+    SummaryRenderer.renderMonthlySummary(summary, narrative, anomalies);
+  } catch (e) {
+    console.error('[Summary] Error computing monthly summary:', e);
+    SummaryRenderer.renderEmptyState();
   }
-
-  // Compute milestones for summary context
-  var milestoneStatuses = [];
-  if (typeof MilestoneCalculator !== 'undefined' && milestonesData && milestonesData.length) {
-    var latestRow = nwData[nwData.length - 1];
-    var emergency = goals ? goals.emergency : { available: 0 };
-    var house = goals ? goals.house : { current: 0 };
-    var currentValues = {
-      total: latestRow.total || 0,
-      emergency_fund: emergency.available,
-      house_downpayment: house.current,
-      fi_networth: latestRow.total || 0
-    };
-    milestoneStatuses = MilestoneCalculator.computeAll(milestonesData, currentValues, nwData[0].month, latestRow.month);
-  }
-
-  // Compute mortgage summary
-  var mortgageSummary = null;
-  if (mortgageData && typeof MortgageCalculator !== 'undefined') {
-    mortgageSummary = MortgageCalculator.computeSummary(mortgageData);
-  }
-
-  var summary = SummaryCalculator.computeMonthlySummary(nwData, allData, goals, milestoneStatuses, mortgageSummary);
-  var narrative = SummaryCalculator.generateNarrative(summary);
-
-  // Detect anomalies
-  var anomalies = [];
-  if (typeof AnomalyCalculator !== 'undefined') {
-    anomalies = AnomalyCalculator.detectAnomalies(allData);
-  }
-
-  SummaryRenderer.renderMonthlySummary(summary, narrative, anomalies);
 }
 
 // --- FI Progress (always visible) ---

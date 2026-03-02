@@ -718,9 +718,15 @@ function renderMortgageAdmin() {
   if (!m) {
     html += '<div class="add-form-card mortgage-section">' +
       '<div class="add-form-title">Mortgage Parameters</div>' +
-      '<p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px">No mortgage configured yet.</p>' +
+      '<p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px">No mortgage configured yet. Fill in your mortgage details to get started.</p>' +
+      '<div class="add-form-row">' +
+      '<div class="add-form-field"><label>Purchase Price</label><input type="number" step="any" id="newMtgPurchasePrice" placeholder="310000" style="width:140px"></div>' +
+      '<div class="add-form-field"><label>Down Payment</label><input type="number" step="any" id="newMtgDownPayment" placeholder="60000" style="width:140px"></div>' +
+      '<div class="add-form-field"><label>Annual Rate (%)</label><input type="number" step="0.01" id="newMtgRate" value="2.75" style="width:100px"></div>' +
+      '<div class="add-form-field"><label>Term (years)</label><input type="number" step="1" id="newMtgTerm" value="30" style="width:80px"></div>' +
+      '<div class="add-form-field"><label>Start Date</label><input type="text" id="newMtgStart" value="' + nextMonth() + '" placeholder="YYYY-MM" style="width:100px"></div>' +
       '<button class="btn-add" onclick="createMortgage()">Create Mortgage</button>' +
-      '</div>';
+      '</div></div>';
     container.innerHTML = html;
     return;
   }
@@ -856,18 +862,41 @@ function renderMortgageAdmin() {
 }
 
 function createMortgage() {
+  var purchasePrice = parseFloat(document.getElementById('newMtgPurchasePrice').value) || 0;
+  var downPayment = parseFloat(document.getElementById('newMtgDownPayment').value) || 0;
+  var rate = parseFloat(document.getElementById('newMtgRate').value);
+  var term = parseInt(document.getElementById('newMtgTerm').value);
+  var startDate = document.getElementById('newMtgStart').value.trim();
+
+  // Validate
+  if (isNaN(rate) || isNaN(term) || !/^\d{4}-\d{2}$/.test(startDate)) {
+    showToast('Please fill in all fields correctly');
+    return;
+  }
+
+  var principal = purchasePrice > 0 ? purchasePrice - downPayment : 250000;
+  if (principal <= 0) {
+    showToast('Down payment cannot exceed purchase price');
+    return;
+  }
+
+  var valuations = [];
+  if (purchasePrice > 0) {
+    valuations.push({ date: startDate, market_value: purchasePrice });
+  }
+
   AdminState.mortgage = {
-    principal: 250000,
-    annual_rate: 0.0275,
-    term_years: 30,
-    start_date: nextMonth(),
+    principal: principal,
+    annual_rate: rate / 100,
+    term_years: term,
+    start_date: startDate,
     extra_payments: [],
     actual_payments: [],
-    house_valuations: []
+    house_valuations: valuations
   };
   markDirty();
   renderMortgageAdmin();
-  showToast('Mortgage created');
+  showToast('Mortgage created — principal: ' + principal.toLocaleString('es-ES') + ' €');
 }
 
 function deleteMortgage() {

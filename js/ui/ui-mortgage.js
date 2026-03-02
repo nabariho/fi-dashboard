@@ -83,7 +83,7 @@ var MortgageRenderer = {
   _renderBalanceChart: function() {
     return '<div class="chart-container">' +
       '<div class="chart-header">' +
-      '<h2>Mortgage Balance</h2>' +
+      '<h2>Payment Breakdown</h2>' +
       '<div class="legend" id="mortgageLegend"></div>' +
       '</div>' +
       '<canvas id="mortgageChart"></canvas>' +
@@ -100,67 +100,60 @@ var MortgageRenderer = {
       this._chartInstance = null;
     }
 
-    var labels = schedule.map(function(s) { return s.month; });
-    var balanceData = schedule.map(function(s) { return s.balance; });
-    var principalData = schedule.map(function(s) { return s.cum_principal; });
+    // Aggregate by year for readability (monthly bars are too dense for 30yr mortgage)
+    var yearData = {};
+    schedule.forEach(function(s) {
+      var year = s.month.substring(0, 4);
+      if (!yearData[year]) yearData[year] = { principal: 0, interest: 0, extra: 0 };
+      yearData[year].principal += s.principal_paid;
+      yearData[year].interest += s.interest_paid;
+      yearData[year].extra += s.extra;
+    });
+
+    var labels = Object.keys(yearData).sort();
+    var principalData = labels.map(function(y) { return yearData[y].principal; });
+    var interestData = labels.map(function(y) { return yearData[y].interest; });
+    var extraData = labels.map(function(y) { return yearData[y].extra; });
 
     var datasets = [
       {
-        label: 'Remaining Balance',
-        data: balanceData,
-        borderColor: '#d93025',
-        backgroundColor: 'rgba(217, 48, 37, 0.08)',
-        fill: true,
-        tension: 0.1,
-        pointRadius: 0,
-        borderWidth: 2
+        label: 'Principal',
+        data: principalData,
+        backgroundColor: '#0d904f',
+        borderRadius: 2
       },
       {
-        label: 'Principal Paid',
-        data: principalData,
-        borderColor: '#0d904f',
-        backgroundColor: 'rgba(13, 144, 79, 0.08)',
-        fill: true,
-        tension: 0.1,
-        pointRadius: 0,
-        borderWidth: 2
+        label: 'Interest',
+        data: interestData,
+        backgroundColor: '#d93025',
+        borderRadius: 2
       }
     ];
 
-    // Add market value line if valuations exist
-    var hasValuations = mortgage && mortgage.house_valuations && mortgage.house_valuations.length;
-    if (hasValuations) {
-      var marketData = labels.map(function(month) {
-        return MortgageCalculator._getMarketValueAtMonth(mortgage.house_valuations, month);
-      });
+    // Only add extra payments dataset if any exist
+    var hasExtras = extraData.some(function(v) { return v > 0; });
+    if (hasExtras) {
       datasets.push({
-        label: 'Market Value',
-        data: marketData,
-        borderColor: '#1a73e8',
-        borderDash: [6, 3],
-        fill: false,
-        tension: 0.1,
-        pointRadius: 0,
-        borderWidth: 2
+        label: 'Extra Payments',
+        data: extraData,
+        backgroundColor: '#1a73e8',
+        borderRadius: 2
       });
     }
 
     // Build legend
     var legendEl = document.getElementById('mortgageLegend');
     if (legendEl) {
-      var legendHtml = '<div class="legend-item"><div class="legend-dot" style="background:#d93025"></div>Balance</div>' +
-        '<div class="legend-item"><div class="legend-dot" style="background:#0d904f"></div>Principal Paid</div>';
-      if (hasValuations) {
-        legendHtml += '<div class="legend-item"><div class="legend-dot" style="background:#1a73e8"></div>Market Value</div>';
+      var legendHtml = '<div class="legend-item"><div class="legend-dot" style="background:#0d904f"></div>Principal</div>' +
+        '<div class="legend-item"><div class="legend-dot" style="background:#d93025"></div>Interest</div>';
+      if (hasExtras) {
+        legendHtml += '<div class="legend-item"><div class="legend-dot" style="background:#1a73e8"></div>Extra Payments</div>';
       }
       legendEl.innerHTML = legendHtml;
     }
 
-    // Show ~12 labels max
-    var step = Math.max(1, Math.floor(labels.length / 12));
-
     this._chartInstance = new Chart(canvas, {
-      type: 'line',
+      type: 'bar',
       data: { labels: labels, datasets: datasets },
       options: {
         responsive: true,
@@ -172,21 +165,21 @@ var MortgageRenderer = {
             callbacks: {
               label: function(ctx) {
                 return ctx.dataset.label + ': ' + Fmt.currency(ctx.parsed.y);
+              },
+              footer: function(items) {
+                var total = items.reduce(function(s, i) { return s + i.parsed.y; }, 0);
+                return 'Total: ' + Fmt.currency(total);
               }
             }
           }
         },
         scales: {
           x: {
-            ticks: {
-              maxTicksLimit: 12,
-              callback: function(val, idx) {
-                return idx % step === 0 ? labels[idx] : '';
-              }
-            },
+            stacked: true,
             grid: { display: false }
           },
           y: {
+            stacked: true,
             ticks: {
               callback: function(val) { return Fmt.currency(val); }
             },

@@ -130,9 +130,9 @@ var SummaryCalculator = {
 
     // NW change
     var direction = summary.nwChange >= 0 ? 'grew' : 'declined';
-    var sign = summary.nwChange >= 0 ? '+' : '';
-    parts.push('Net worth ' + direction + ' ' + sign + Fmt.currency(summary.nwChange) +
-      ' (' + sign + Fmt.pctShort(summary.nwChangePct) + ') in ' +
+    parts.push('Net worth ' + direction + ' ' +
+      Fmt.currency(Math.abs(summary.nwChange)) +
+      ' (' + Fmt.pctShort(summary.nwChangePct) + ') in ' +
       this._monthName(summary.month) + '.');
 
     // Attribution
@@ -140,9 +140,9 @@ var SummaryCalculator = {
       var contribPart = '';
       var marketPart = '';
       if (summary.marketChange >= 0) {
-        marketPart = 'market returns contributed +' + Fmt.currency(summary.marketChange);
+        marketPart = 'market returns contributed ' + Fmt.currency(summary.marketChange);
       } else {
-        marketPart = 'markets pulled ' + Fmt.currency(summary.marketChange);
+        marketPart = 'markets pulled ' + Fmt.currency(Math.abs(summary.marketChange));
       }
       if (summary.contributions > 0) {
         contribPart = 'you saved ' + Fmt.currency(summary.contributions);
@@ -159,7 +159,7 @@ var SummaryCalculator = {
     // Best/worst account
     if (summary.best && summary.best.change > 0) {
       parts.push('Best performer: ' + summary.best.name +
-        ' (+' + Fmt.currency(summary.best.change) + ').');
+        ' (' + Fmt.currency(summary.best.change) + ').');
     }
 
     // Goals
