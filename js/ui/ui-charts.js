@@ -71,6 +71,139 @@ var ChartRenderer = {
     });
   },
 
+  // Render per-account returns comparison bar chart
+  renderAccountComparison: function(canvasId, comparison) {
+    var ctx = document.getElementById(canvasId).getContext('2d');
+    if (window._acctCompChart) window._acctCompChart.destroy();
+
+    var ids = Object.keys(comparison.accounts);
+    var labels = ids.map(function(id) { return AccountService.getName(id); });
+    var monthlyData = ids.map(function(id) { return comparison.accounts[id].monthly; });
+    var ytdData = ids.map(function(id) { return comparison.accounts[id].ytd; });
+    var cumData = ids.map(function(id) { return comparison.accounts[id].cumReturn; });
+
+    window._acctCompChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Monthly',
+            data: monthlyData,
+            backgroundColor: 'rgba(26,115,232,0.7)',
+            borderRadius: 4
+          },
+          {
+            label: 'YTD',
+            data: ytdData,
+            backgroundColor: 'rgba(13,144,79,0.7)',
+            borderRadius: 4
+          },
+          {
+            label: 'All-Time',
+            data: cumData,
+            backgroundColor: 'rgba(147,52,230,0.7)',
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 12 }, usePointStyle: true, pointStyle: 'rectRounded' } },
+          tooltip: Object.assign({}, this._baseTooltip(), {
+            callbacks: {
+              label: function(ctx) { return '  ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2).replace('.', ',') + ' %'; }
+            }
+          })
+        },
+        scales: {
+          x: this._baseXScale(),
+          y: {
+            grid: { color: '#f0f0f0' },
+            ticks: { font: { size: 11 }, color: '#5f6368', callback: function(v) { return v.toFixed(0) + '%'; } }
+          }
+        }
+      }
+    });
+  },
+
+  // Render FI projection line chart
+  renderFIProjection: function(canvasId, projectionData, fiTarget, historicalNW) {
+    var ctx = document.getElementById(canvasId).getContext('2d');
+    if (window._fiProjChart) window._fiProjChart.destroy();
+
+    // Historical data points
+    var histLabels = historicalNW.map(function(r) { return r.month; });
+    var histValues = historicalNW.map(function(r) { return r.total; });
+
+    // Projection data points (labeled by year)
+    var now = new Date();
+    var projLabels = projectionData.map(function(p) { return (now.getFullYear() + p.yearsFromNow).toString(); });
+    var projValues = projectionData.map(function(p) { return p.value; });
+
+    // Merge: use historical months, then projected years (skip overlap)
+    var allLabels = histLabels.concat(projLabels.slice(1));
+    var histDataset = histValues.concat(new Array(projLabels.length - 1).fill(null));
+    var projDataset = new Array(histLabels.length - 1).fill(null).concat([histValues[histValues.length - 1]]).concat(projValues.slice(1));
+
+    // FI target line
+    var targetLine = allLabels.map(function() { return fiTarget; });
+
+    window._fiProjChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: allLabels,
+        datasets: [
+          {
+            label: 'Actual Net Worth',
+            data: histDataset,
+            borderColor: '#1a73e8',
+            backgroundColor: 'rgba(26,115,232,0.08)',
+            fill: true, tension: 0.3, pointRadius: 0, pointHitRadius: 10, borderWidth: 2.5
+          },
+          {
+            label: 'Projected',
+            data: projDataset,
+            borderColor: '#9334e6',
+            borderDash: [6, 4],
+            backgroundColor: 'rgba(147,52,230,0.06)',
+            fill: true, tension: 0.3, pointRadius: 0, pointHitRadius: 10, borderWidth: 2
+          },
+          {
+            label: 'FI Target',
+            data: targetLine,
+            borderColor: '#ea4335',
+            borderDash: [4, 4],
+            borderWidth: 1.5, pointRadius: 0, fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 12 }, usePointStyle: true, pointStyle: 'rectRounded' } },
+          tooltip: Object.assign({}, this._baseTooltip(), {
+            callbacks: {
+              label: function(ctx) {
+                if (ctx.parsed.y === null) return null;
+                return '  ' + ctx.dataset.label + ': ' + Fmt.currency(ctx.parsed.y);
+              }
+            }
+          })
+        },
+        scales: {
+          x: Object.assign({}, this._baseXScale(), { ticks: { font: { size: 11 }, color: '#5f6368', maxRotation: 0, autoSkip: true, maxTicksLimit: 15 } }),
+          y: {
+            grid: { color: '#f0f0f0' },
+            ticks: { font: { size: 11 }, color: '#5f6368', callback: function(v) { return Fmt.compact(v); } }
+          }
+        }
+      }
+    });
+  },
+
   // Render stacked area chart for net worth breakdown
   renderNetWorth: function(canvasId, legendId, labels, accountIds, data) {
     var ctx = document.getElementById(canvasId).getContext('2d');

@@ -38,6 +38,42 @@ var ReturnsCalculator = {
     return sortedMonthly;
   },
 
+  // Compute returns per individual account and return a summary for comparison.
+  // Input: raw allData array, array of account IDs to compare
+  // Returns: { accounts: { ID: { monthly, ytd, cumReturn, data: [...] } }, months: [...] }
+  compareAccounts: function(allData, accountIds) {
+    var result = { accounts: {}, months: [] };
+    var allMonths = {};
+
+    accountIds.forEach(function(id) {
+      var rows = allData.filter(function(r) { return r.account_id === id; })
+        .map(function(r) { return { month: r.month, end_value: r.end_value, net_contribution: r.net_contribution }; })
+        .sort(function(a, b) { return a.month.localeCompare(b.month); });
+
+      if (!rows.length) return;
+
+      ReturnsCalculator.compute(rows);
+      rows.forEach(function(r) { allMonths[r.month] = true; });
+
+      var last = rows[rows.length - 1];
+      var cumContrib = last.cum_contribution;
+      var cumReturn = cumContrib > 0 ? ((last.end_value - cumContrib) / cumContrib) * 100 : 0;
+
+      result.accounts[id] = {
+        monthly: last.monthly_return_pct,
+        ytd: last.ytd_return_pct,
+        cumReturn: cumReturn,
+        currentValue: last.end_value,
+        totalInvested: cumContrib,
+        profit: last.end_value - cumContrib,
+        data: rows
+      };
+    });
+
+    result.months = Object.keys(allMonths).sort();
+    return result;
+  },
+
   // Group data by year and month index (0-11) for the returns grid
   groupByYear: function(data) {
     var byYear = {};

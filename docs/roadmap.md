@@ -6,7 +6,7 @@ Living document tracking planned features, priorities, and progress.
 
 ## Phase 1: Quick Add Monthly Flow
 
-**Status:** Planned
+**Status:** Done (v1.1 — commit b3ec56b)
 **Priority:** Highest — this is the most frequent workflow (monthly)
 
 **Goal:** Make the monthly review a 2-minute task instead of row-by-row entry.
@@ -212,3 +212,4 @@ Living document tracking planned features, priorities, and progress.
 - [x] Persistent directory handle for Chrome (pick save folder once)
 - [x] Auto-export config for Safari/iOS iCloud Drive sync
 - [x] Admin CRUD editor (config, accounts, budget, month-end)
+- [x] Quick Add Monthly flow (Phase 1) — pre-filled grid for all accounts

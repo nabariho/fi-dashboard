@@ -42,6 +42,38 @@ var TableRenderer = {
     }).join('');
   },
 
+  // Render per-account comparison summary table
+  renderAccountComparison: function(elementId, comparison) {
+    var ids = Object.keys(comparison.accounts);
+    if (!ids.length) return;
+
+    var html = '<table class="returns-table"><thead><tr>' +
+      '<th>Account</th><th style="text-align:right">Value</th><th style="text-align:right">Invested</th>' +
+      '<th style="text-align:right">Profit</th><th style="text-align:right">Monthly</th>' +
+      '<th style="text-align:right">YTD</th><th style="text-align:right">All-Time</th></tr></thead><tbody>';
+
+    ids.forEach(function(id) {
+      var a = comparison.accounts[id];
+      var profitCls = a.profit >= 0 ? 'positive' : 'negative';
+      var momCls = a.monthly >= 0 ? 'positive' : 'negative';
+      var ytdCls = a.ytd >= 0 ? 'positive' : 'negative';
+      var cumCls = a.cumReturn >= 0 ? 'positive' : 'negative';
+
+      html += '<tr>' +
+        '<td>' + AccountService.getName(id) + '</td>' +
+        '<td style="text-align:right">' + Fmt.currency(a.currentValue) + '</td>' +
+        '<td style="text-align:right">' + Fmt.currency(a.totalInvested) + '</td>' +
+        '<td style="text-align:right" class="' + profitCls + '">' + Fmt.currency(a.profit) + '</td>' +
+        '<td style="text-align:right" class="' + momCls + '">' + TableRenderer._fmtPctES(a.monthly) + '</td>' +
+        '<td style="text-align:right" class="' + ytdCls + '">' + TableRenderer._fmtPctES(a.ytd) + '</td>' +
+        '<td style="text-align:right" class="' + cumCls + '">' + TableRenderer._fmtPctES(a.cumReturn) + '</td>' +
+        '</tr>';
+    });
+
+    html += '</tbody></table>';
+    document.getElementById(elementId).innerHTML = html;
+  },
+
   // Render the net worth monthly breakdown table with MoM deltas
   renderNetWorthBreakdown: function(data, brokerIds, cashIds) {
     // Show up to 6 most recent months from the (already time-filtered) data

@@ -62,6 +62,19 @@
       </div>
     </div>
 
+    <!-- FI Projection (collapsible, above tabs) -->
+    <div class="fi-progress" id="fiProjectionWrapper">
+      <div class="collapsible-header" data-panel="fi-projection">
+        <span class="fi-title">Path to Financial Independence</span>
+        <button class="collapse-toggle"><span class="collapse-chevron">&#9660;</span></button>
+      </div>
+      <div class="collapsible-body">
+        <div class="chart-container" style="height:280px">
+          <canvas id="fiProjChart"></canvas>
+        </div>
+      </div>
+    </div>
+
     <!-- Financial Goals (collapsible, above tabs) -->
     <div class="goals-panel" id="goalsPanelWrapper">
       <div class="collapsible-header" data-panel="goals-panel">
@@ -116,6 +129,20 @@
           </div>
         </div>
         <canvas id="chart"></canvas>
+      </div>
+
+      <!-- Per-account comparison (only shown when "All Accounts" selected) -->
+      <div id="accountCompSection" style="display:none;">
+        <div class="chart-container">
+          <div class="chart-header">
+            <h2>Account Comparison</h2>
+          </div>
+          <canvas id="acctCompChart"></canvas>
+        </div>
+        <div class="table-container">
+          <div class="table-header-row"><h2>Performance by Account</h2></div>
+          <div class="nw-table-scroll" id="acctCompTable"></div>
+        </div>
       </div>
 
       <div class="table-container">
