@@ -813,19 +813,20 @@ async function save() {
     AdminState.dirty = false;
     document.querySelector('.dirty-indicator').classList.remove('visible');
 
-    // 4. Write back to file handle (Chrome) or export download
+    // 4. Write to file/directory (Chrome) or export download (Safari)
     var toastMsg = 'Saved';
     if (typeof window.showOpenFilePicker === 'function') {
-      // File System Access API available — try write-back to handle
+      // File System Access API available (Chrome/Edge)
       try {
         var method = await FileManager.save(output, filename);
         if (method === 'handle') {
           toastMsg = 'Saved to ' + filename;
+        } else if (method === 'directory') {
+          toastMsg = 'Saved to folder';
         }
       } catch (e) {
         if (e.name === 'AbortError') {
-          // User cancelled file picker — data is already in IDB, that's fine
-          toastMsg = 'Saved (file export cancelled)';
+          toastMsg = 'Saved (folder selection cancelled)';
         } else {
           throw e;
         }

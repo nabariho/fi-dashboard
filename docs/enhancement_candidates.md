@@ -34,10 +34,16 @@ Future improvements tracked here. These are known gaps accepted as edge cases fo
 
 ---
 
-## 4. Avoid File Picker on Save (Chrome without Handle)
+## ~~4. Avoid File Picker on Save (Chrome without Handle)~~ ✓ Resolved
 
-**Problem:** On Chrome, if the session was restored from IDB (no file handle), `FileManager.save()` falls through to `_saveWithPicker()`, which opens a save-file dialog the user can cancel. The data is safe in IDB, but the UX is confusing — the user didn't ask for a picker, and the cancel path is error-prone.
+Resolved by persisting a directory handle in IDB. On Chrome, users pick a save folder once via `showDirectoryPicker()`, and subsequent saves write there silently. The handle survives across sessions.
 
-**Solution:** When there's no `_handle` and File System Access is available, treat it the same as Safari: skip the picker entirely and only trigger a download if `auto_export` is enabled. Reserve the file picker for the explicit "open" flow that establishes a handle. Alternatively, persist the handle via IDB (handles are serializable with `idb-keyval`) so restored sessions can write back silently.
+---
 
-**Trigger:** Current implementation — revisit when polishing the save flow.
+## 5. Multi-Device File Path Sync (Safari/iOS)
+
+**Problem:** On Safari/iOS there is no File System Access API. Every save with `auto_export` triggers a download, and the user must manually tap "Save to Files" → pick iCloud Drive each time. There's no way to remember a save location.
+
+**Solution:** Research options: (a) Origin Private File System (OPFS) — available in Safari 15.2+ but sandboxed, not visible in Files app; (b) Web Share Target API — could allow the app to receive files shared from Files app; (c) PWA with file handling — `file_handlers` manifest field (not yet in Safari). Most likely this remains a Safari platform limitation until Apple adds directory picker support.
+
+**Trigger:** User finds the manual "Save to Files" flow too painful on iOS.

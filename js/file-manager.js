@@ -1,9 +1,12 @@
 // === FILE MANAGER — File I/O + Session Bridge ===
 // Shared module for opening/saving files and passing data between pages.
+// Supports File System Access API (Chrome) with persistent directory handles,
+// and falls back to download for Safari/iOS.
 
 var FileManager = (function() {
   var SESSION_KEY = 'fi_dashboard_session';
-  var _handle = null; // File System Access API handle (page-local)
+  var _handle = null;    // File handle from open (page-local, lost on reload)
+  var _dirHandle = null; // Directory handle (persisted in IDB across sessions)
 
   var hasFileSystemAccess = typeof window.showOpenFilePicker === 'function';
 
@@ -68,11 +71,20 @@ var FileManager = (function() {
   // --- Save ---
 
   async function save(content, filename) {
+    // Priority: file handle → directory handle → pick directory → download
     if (_handle) {
       return _writeToHandle(content);
     }
     if (hasFileSystemAccess) {
-      return _saveWithPicker(content, filename);
+      // Try directory handle (persisted from previous session)
+      if (!_dirHandle) {
+        await _restoreDirHandle();
+      }
+      if (_dirHandle) {
+        return _writeToDirHandle(content, filename);
+      }
+      // No handle at all — pick a directory
+      return _pickDirAndWrite(content, filename);
     }
     _download(content, filename);
     return 'download';
@@ -85,16 +97,41 @@ var FileManager = (function() {
     return 'handle';
   }
 
-  async function _saveWithPicker(content, filename) {
-    var pickerOpts = {
-      suggestedName: filename,
-      types: [{
-        description: 'FI Data Files',
-        accept: { 'application/json': ['.fjson', '.json'] }
-      }]
-    };
-    _handle = await window.showSaveFilePicker(pickerOpts);
-    return _writeToHandle(content);
+  // --- Directory Handle (Chrome persistent save location) ---
+
+  async function _restoreDirHandle() {
+    try {
+      var handle = await DataCache.loadDirHandle();
+      if (!handle) return;
+      // Re-verify permission (Chrome may prompt)
+      var perm = await handle.requestPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        _dirHandle = handle;
+      }
+    } catch (e) {
+      // IDB unavailable or permission denied — fall through
+      _dirHandle = null;
+    }
+  }
+
+  async function _writeToDirHandle(content, filename) {
+    var fileHandle = await _dirHandle.getFileHandle(filename, { create: true });
+    var writable = await fileHandle.createWritable();
+    await writable.write(content);
+    await writable.close();
+    return 'directory';
+  }
+
+  async function _pickDirAndWrite(content, filename) {
+    _dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    // Persist for future sessions
+    DataCache.saveDirHandle(_dirHandle).catch(function() {});
+    return _writeToDirHandle(content, filename);
+  }
+
+  async function setDirectory() {
+    _dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await DataCache.saveDirHandle(_dirHandle);
   }
 
   // --- Export (triggers download for iCloud Drive sync, etc.) ---
@@ -148,6 +185,7 @@ var FileManager = (function() {
     open: open,
     save: save,
     export: exportFile,
+    setDirectory: setDirectory,
     stashToSession: stashToSession,
     loadFromSession: loadFromSession,
     clearSession: clearSession
