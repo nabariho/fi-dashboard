@@ -221,6 +221,10 @@ function showDashboard() {
   document.getElementById('unlock').style.display = 'none';
   document.getElementById('app').style.display = 'block';
 
+  // Always show refresh button once dashboard is loaded
+  var refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) refreshBtn.style.display = '';
+
   refreshFIProgress();
   refreshGoals();
   refreshInvestments();
