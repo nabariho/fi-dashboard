@@ -31,7 +31,7 @@ Living document tracking planned features, priorities, and progress.
 
 ## Phase 2: Investment Analysis
 
-**Status:** Planned
+**Status:** Done (v1.3.0) — 2a+2b complete, 2c deferred, 2d removed (redundant)
 **Priority:** High — key insight the user needs to optimize their portfolio
 
 **Goal:** Understand how profitable investments are, compare accounts, and spot improvement opportunities.
@@ -213,3 +213,7 @@ Living document tracking planned features, priorities, and progress.
 - [x] Auto-export config for Safari/iOS iCloud Drive sync
 - [x] Admin CRUD editor (config, accounts, budget, month-end)
 - [x] Quick Add Monthly flow (Phase 1) — pre-filled grid for all accounts
+- [x] Per-account returns comparison table (Phase 2a)
+- [x] Growth decomposition: savings vs market attribution (Phase 2b)
+- [ ] Benchmark tracking (Phase 2c) — deferred to future
+- [x] FI projection chart (Phase 2d) — removed, redundant with FI progress bar
