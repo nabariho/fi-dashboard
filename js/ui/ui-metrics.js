@@ -76,14 +76,18 @@ var MetricsRenderer = {
     var profit = current.end_value - invested;
     var ytd = current.ytd_return_pct;
     var mom = current.monthly_return_pct;
+    var savingsPct = current.end_value > 0 ? (invested / current.end_value * 100) : 0;
+    var marketPct = current.end_value > 0 ? (profit / current.end_value * 100) : 0;
 
     document.getElementById('metrics').innerHTML =
-      this._card('Current Value', Fmt.currency(current.end_value), '',
+      this._card('Portfolio Value', Fmt.currency(current.end_value), '',
         Fmt.pct(mom) + ' this month', mom >= 0 ? 'positive' : 'negative') +
-      this._card('Total Invested', Fmt.currency(invested), '',
-        Fmt.currency(profit) + ' profit', profit >= 0 ? 'positive' : 'negative') +
-      this._card('YTD Return', Fmt.pct(ytd), ytd >= 0 ? 'positive' : 'negative') +
-      this._card('Monthly Return', Fmt.pct(mom), mom >= 0 ? 'positive' : 'negative');
+      this._card('Your Savings', Fmt.currency(invested), '',
+        Fmt.pctShort(savingsPct) + ' of portfolio') +
+      this._card('Market Growth', Fmt.currency(profit), profit >= 0 ? 'positive' : 'negative',
+        Fmt.pctShort(marketPct) + ' of portfolio', profit >= 0 ? 'positive' : 'negative') +
+      this._card('YTD Return', Fmt.pct(ytd), ytd >= 0 ? 'positive' : 'negative',
+        Fmt.pct(mom) + ' this month', mom >= 0 ? 'positive' : 'negative');
   },
 
   renderNetWorth: function(current, mom, ytd) {

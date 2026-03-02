@@ -47,10 +47,20 @@ var TableRenderer = {
     var ids = Object.keys(comparison.accounts);
     if (!ids.length) return;
 
+    // Compute totals for the summary row
+    var totalValue = 0, totalInvested = 0;
+    ids.forEach(function(id) {
+      totalValue += comparison.accounts[id].currentValue;
+      totalInvested += comparison.accounts[id].totalInvested;
+    });
+    var totalProfit = totalValue - totalInvested;
+    var totalMarketPct = totalValue > 0 ? (totalProfit / totalValue * 100) : 0;
+
     var html = '<table class="returns-table"><thead><tr>' +
       '<th>Account</th><th style="text-align:right">Value</th><th style="text-align:right">Invested</th>' +
-      '<th style="text-align:right">Profit</th><th style="text-align:right">Monthly</th>' +
-      '<th style="text-align:right">YTD</th><th style="text-align:right">All-Time</th></tr></thead><tbody>';
+      '<th style="text-align:right">Market Growth</th><th style="text-align:right">Market %</th>' +
+      '<th style="text-align:right">Monthly</th><th style="text-align:right">YTD</th>' +
+      '<th style="text-align:right">All-Time</th></tr></thead><tbody>';
 
     ids.forEach(function(id) {
       var a = comparison.accounts[id];
@@ -58,17 +68,31 @@ var TableRenderer = {
       var momCls = a.monthly >= 0 ? 'positive' : 'negative';
       var ytdCls = a.ytd >= 0 ? 'positive' : 'negative';
       var cumCls = a.cumReturn >= 0 ? 'positive' : 'negative';
+      var marketPct = a.currentValue > 0 ? (a.profit / a.currentValue * 100) : 0;
+      var marketPctCls = marketPct >= 0 ? 'positive' : 'negative';
 
       html += '<tr>' +
         '<td>' + AccountService.getName(id) + '</td>' +
         '<td style="text-align:right">' + Fmt.currency(a.currentValue) + '</td>' +
         '<td style="text-align:right">' + Fmt.currency(a.totalInvested) + '</td>' +
         '<td style="text-align:right" class="' + profitCls + '">' + Fmt.currency(a.profit) + '</td>' +
+        '<td style="text-align:right" class="' + marketPctCls + '">' + TableRenderer._fmtPctES(marketPct) + '</td>' +
         '<td style="text-align:right" class="' + momCls + '">' + TableRenderer._fmtPctES(a.monthly) + '</td>' +
         '<td style="text-align:right" class="' + ytdCls + '">' + TableRenderer._fmtPctES(a.ytd) + '</td>' +
         '<td style="text-align:right" class="' + cumCls + '">' + TableRenderer._fmtPctES(a.cumReturn) + '</td>' +
         '</tr>';
     });
+
+    // Total row
+    var totalProfitCls = totalProfit >= 0 ? 'positive' : 'negative';
+    var totalMarketCls = totalMarketPct >= 0 ? 'positive' : 'negative';
+    html += '<tr class="total-row">' +
+      '<td>TOTAL</td>' +
+      '<td style="text-align:right">' + Fmt.currency(totalValue) + '</td>' +
+      '<td style="text-align:right">' + Fmt.currency(totalInvested) + '</td>' +
+      '<td style="text-align:right" class="' + totalProfitCls + '">' + Fmt.currency(totalProfit) + '</td>' +
+      '<td style="text-align:right" class="' + totalMarketCls + '">' + TableRenderer._fmtPctES(totalMarketPct) + '</td>' +
+      '<td colspan="3"></td></tr>';
 
     html += '</tbody></table>';
     document.getElementById(elementId).innerHTML = html;
