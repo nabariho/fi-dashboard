@@ -72,12 +72,27 @@ function refreshGoalsDetail() {
   var nwData = NetWorthCalculator.compute(allData, accountIds);
   if (!nwData.length) return;
 
-  var latest = nwData[nwData.length - 1].accounts;
+  var latestRow = nwData[nwData.length - 1];
+  var latest = latestRow.accounts;
 
   var emergency = GoalsCalculator.computeEmergencyFund(latest, emergencyTarget);
   var house = GoalsCalculator.computeHouseDownPayment(latest, houseTarget, operatingReserve);
 
-  GoalsRenderer.renderGoalsDetail(emergency, house, latest);
+  // Compute milestone statuses
+  var milestoneStatuses = [];
+  if (milestonesData && milestonesData.length) {
+    var startDate = nwData[0].month;
+    var currentDate = latestRow.month;
+    var currentValues = {
+      total: latestRow.total || 0,
+      emergency_fund: emergency.available,
+      house_downpayment: house.current,
+      fi_networth: latestRow.total || 0
+    };
+    milestoneStatuses = MilestoneCalculator.computeAll(milestonesData, currentValues, startDate, currentDate);
+  }
+
+  GoalsRenderer.renderGoalsDetail(emergency, house, latest, milestoneStatuses);
 }
 
 // --- Budget Tab ---
@@ -246,6 +261,7 @@ function loadData(data) {
   accountsConfig = data.accounts || [];
   allData = data.data || [];
   budgetItems = data.budgetItems || [];
+  milestonesData = data.milestones || [];
 }
 
 // --- Cache Status + Refresh ---

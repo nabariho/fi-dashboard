@@ -69,7 +69,7 @@ var GoalsRenderer = {
   },
 
   // Detailed goals breakdown for the Goals tab
-  renderGoalsDetail: function(emergency, house, accounts) {
+  renderGoalsDetail: function(emergency, house, accounts, milestoneStatuses) {
     var el = document.getElementById('goalsDetail');
     if (!el) return;
 
@@ -234,6 +234,103 @@ var GoalsRenderer = {
         '</div></div>';
     }
 
+    // === MILESTONES ===
+    if (milestoneStatuses && milestoneStatuses.length) {
+      html += this._renderMilestones(milestoneStatuses);
+    }
+
     el.innerHTML = html;
+  },
+
+  // Render all milestone cards
+  _renderMilestones: function(milestoneStatuses) {
+    var self = this;
+    var html = '<div class="table-container">' +
+      '<div class="table-header-row"><h2>Milestones</h2></div>' +
+      '<div class="milestones-list">';
+
+    milestoneStatuses.forEach(function(ms) {
+      html += self._renderMilestoneCard(ms);
+    });
+
+    html += '</div></div>';
+    return html;
+  },
+
+  // Render a single milestone card
+  _renderMilestoneCard: function(ms) {
+    var statusLabels = { achieved: 'Achieved', ahead: 'Ahead', 'on-track': 'On Track', behind: 'Behind' };
+    var statusColors = { achieved: 'green', ahead: 'green', 'on-track': 'blue', behind: 'red' };
+    var statusColor = statusColors[ms.status] || 'blue';
+
+    var html = '<div class="milestone-card">' +
+      '<div class="milestone-header">' +
+        '<div class="milestone-title">' +
+          '<span class="status-dot status-' + statusColor + '"></span>' +
+          ms.name +
+        '</div>' +
+        '<span class="goal-status-badge status-' + statusColor + '">' + statusLabels[ms.status] + '</span>' +
+      '</div>';
+
+    // Target date and time remaining
+    var dateLabel = ms.targetDate;
+    if (ms.monthsLeft > 0) {
+      var yrs = Math.floor(ms.monthsLeft / 12);
+      var mos = ms.monthsLeft % 12;
+      var timeStr = yrs > 0 ? yrs + 'y ' + mos + 'm' : mos + ' months';
+      dateLabel += ' (' + timeStr + ' left)';
+    } else if (ms.status === 'achieved') {
+      dateLabel += ' (achieved)';
+    } else {
+      dateLabel += ' (overdue)';
+    }
+    html += '<div class="milestone-date">' + dateLabel + '</div>';
+
+    // Overall progress bar
+    html += '<div class="milestone-progress">' +
+      '<div class="milestone-progress-labels">' +
+        '<span>' + Fmt.currencyShort(ms.currentTotal) + ' / ' + Fmt.currencyShort(ms.totalTarget) + '</span>' +
+        '<span>' + ms.progressPct.toFixed(1) + '%</span>' +
+      '</div>' +
+      '<div class="goal-bar-container">' +
+        '<div class="goal-bar status-' + statusColor + '" style="width:' + Math.max(ms.progressPct, 2).toFixed(1) + '%"></div>';
+
+    // Expected progress marker (glide path indicator)
+    if (ms.status !== 'achieved' && ms.expectedPct > 0 && ms.expectedPct < 100) {
+      html += '<div class="milestone-expected-marker" style="left:' + ms.expectedPct.toFixed(1) + '%" title="Expected: ' + ms.expectedPct.toFixed(1) + '%"></div>';
+    }
+
+    html += '</div></div>';
+
+    // Monthly needed
+    if (ms.status !== 'achieved' && ms.monthsLeft > 0) {
+      html += '<div class="milestone-monthly-needed">Need ' + Fmt.currencyShort(ms.monthlyNeeded) + '/month to stay on track</div>';
+    }
+
+    // Sub-target breakdown
+    if (ms.subProgress && ms.subProgress.length) {
+      html += '<div class="milestone-subs">';
+      var goalLabels = { emergency_fund: 'Emergency Fund', house_downpayment: 'House Down Payment', fi_networth: 'FI Net Worth' };
+
+      ms.subProgress.forEach(function(sub) {
+        var subLabel = goalLabels[sub.goal] || sub.goal;
+        var subColor = sub.pct >= 100 ? 'green' : (sub.pct >= 50 ? 'blue' : 'yellow');
+        html += '<div class="milestone-sub">' +
+          '<div class="milestone-sub-header">' +
+            '<span>' + subLabel + '</span>' +
+            '<span>' + Fmt.currencyShort(sub.current) + ' / ' + Fmt.currencyShort(sub.target) +
+              ' (' + sub.pct.toFixed(0) + '%)</span>' +
+          '</div>' +
+          '<div class="goal-bar-container milestone-sub-bar">' +
+            '<div class="goal-bar status-' + subColor + '" style="width:' + Math.max(sub.pct, 2).toFixed(1) + '%"></div>' +
+          '</div>' +
+        '</div>';
+      });
+
+      html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
   }
 };

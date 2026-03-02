@@ -88,7 +88,7 @@ Living document tracking planned features, priorities, and progress.
 
 ## Phase 3: Milestones & Goal Tracking
 
-**Status:** Planned
+**Status:** Done (v1.4.0)
 **Priority:** Medium — important for motivation and staying on track
 
 **Goal:** Define time-bound targets at both total and per-goal levels, and track progress against a glide path.
@@ -217,3 +217,7 @@ Living document tracking planned features, priorities, and progress.
 - [x] Growth decomposition: savings vs market attribution (Phase 2b)
 - [ ] Benchmark tracking (Phase 2c) — deferred to future
 - [x] FI projection chart (Phase 2d) — removed, redundant with FI progress bar
+- [x] Milestone data structure + admin CRUD (Phase 3a)
+- [x] Glide path visualization on Goals tab (Phase 3b)
+- [x] Status indicators: ahead/on-track/behind (Phase 3c)
+- [x] Per-goal milestone breakdown (Phase 3d)

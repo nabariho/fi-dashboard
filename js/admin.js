@@ -17,6 +17,7 @@ var AdminState = {
   accounts: [],
   data: [],
   budgetItems: [],
+  milestones: [],
   originalFileText: null,
   filename: null,
   wasEncrypted: false,
@@ -45,9 +46,11 @@ function updateTabBadges() {
   var b2 = document.getElementById('badge-accounts');
   var b3 = document.getElementById('badge-budget');
   var b4 = document.getElementById('badge-monthend');
+  var b5 = document.getElementById('badge-milestones');
   if (b1) b1.textContent = Object.keys(AdminState.config).length;
   if (b2) b2.textContent = AdminState.accounts.length;
   if (b3) b3.textContent = AdminState.budgetItems.length;
+  if (b5) b5.textContent = AdminState.milestones.length;
   if (b4) b4.textContent = AdminState.data.length;
 }
 
@@ -159,6 +162,9 @@ function loadAdminData(data) {
   AdminState.accounts = (data.accounts || []).map(function(a) { return Object.assign({}, a); });
   AdminState.data = (data.data || []).map(function(r) { return Object.assign({}, r); });
   AdminState.budgetItems = (data.budgetItems || []).map(function(b) { return Object.assign({}, b); });
+  AdminState.milestones = (data.milestones || []).map(function(m) {
+    return Object.assign({}, m, { sub_targets: (m.sub_targets || []).map(function(s) { return Object.assign({}, s); }) });
+  });
 }
 
 function showAdmin() {
@@ -206,6 +212,7 @@ function renderActiveTab() {
   if (tab === 'config') renderConfig();
   else if (tab === 'accounts') renderAccounts();
   else if (tab === 'budget') renderBudget();
+  else if (tab === 'milestones') renderMilestones();
   else if (tab === 'monthend') renderMonthEnd();
 }
 
@@ -522,6 +529,165 @@ function addBudget() {
   markDirty();
   renderBudget();
   showToast('Budget item added');
+}
+
+// --- Milestones Tab ---
+
+var GOAL_LABELS = {
+  emergency_fund: 'Emergency Fund',
+  house_downpayment: 'House Down Payment',
+  fi_networth: 'FI Net Worth'
+};
+
+function renderMilestones() {
+  var container = document.getElementById('milestonesTable');
+  var milestones = AdminState.milestones;
+
+  var html = '<div class="section-header">' +
+    '<h2>Milestones</h2>' +
+    '<p class="section-desc">Time-bound financial targets. Each milestone has an overall target and optional per-goal sub-targets.</p>' +
+    '</div>';
+
+  // Add form
+  html += '<div class="add-form-card">' +
+    '<div class="add-form-title">Add Milestone</div>' +
+    '<div class="add-form-row">' +
+    '<div class="add-form-field"><label>ID</label><input type="text" id="newMsId" placeholder="end_2026" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Name</label><input type="text" id="newMsName" placeholder="End of 2026" style="width:160px"></div>' +
+    '<div class="add-form-field"><label>Target Date</label><input type="text" id="newMsDate" placeholder="YYYY-MM" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Total Target</label><input type="number" step="any" id="newMsTotal" placeholder="220000" style="width:130px"></div>' +
+    '<button class="btn-add" onclick="addMilestone()">Add Milestone</button>' +
+    '</div></div>';
+
+  // Milestones list
+  if (!milestones.length) {
+    html += '<div class="empty-state" style="padding:24px; text-align:center; color:var(--text-secondary)">No milestones yet. Add one above.</div>';
+  }
+
+  milestones.forEach(function(m, i) {
+    html += '<div class="add-form-card" style="margin-bottom:12px" data-ms-idx="' + i + '">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">' +
+        '<div class="add-form-title" style="margin-bottom:0">' + escHtml(m.name) + ' (' + escHtml(m.milestone_id) + ')</div>' +
+        '<button class="btn-delete" onclick="deleteMilestone(' + i + ')">Delete</button>' +
+      '</div>' +
+      '<div class="add-form-row" style="margin-bottom:12px">' +
+        '<div class="add-form-field"><label>Name</label><input type="text" value="' + escHtml(m.name) + '" data-ms="' + i + '" data-field="name" class="ms-field" style="width:160px"></div>' +
+        '<div class="add-form-field"><label>Target Date</label><input type="text" value="' + escHtml(m.target_date) + '" data-ms="' + i + '" data-field="target_date" class="ms-field" style="width:100px"></div>' +
+        '<div class="add-form-field"><label>Total Target</label><input type="number" step="any" value="' + m.total_target + '" data-ms="' + i + '" data-field="total_target" class="ms-num" style="width:130px"></div>' +
+      '</div>';
+
+    // Sub-targets table
+    html += '<div style="margin-left:12px">' +
+      '<div style="font-size:12px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px">Sub-Targets</div>' +
+      '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
+      '<th>Goal</th><th style="text-align:right">Amount</th><th></th>' +
+      '</tr></thead><tbody>';
+
+    (m.sub_targets || []).forEach(function(st, j) {
+      html += '<tr>' +
+        '<td><select data-ms="' + i + '" data-st="' + j + '" data-field="goal" class="st-field">' +
+        Object.keys(GOAL_LABELS).map(function(g) {
+          return '<option value="' + g + '"' + (st.goal === g ? ' selected' : '') + '>' + GOAL_LABELS[g] + '</option>';
+        }).join('') +
+        '</select></td>' +
+        '<td style="text-align:right"><input type="number" step="any" value="' + st.amount + '" data-ms="' + i + '" data-st="' + j + '" data-field="amount" class="st-num" style="width:120px; text-align:right"></td>' +
+        '<td style="width:60px"><button class="btn-delete" onclick="deleteSubTarget(' + i + ',' + j + ')">Delete</button></td>' +
+        '</tr>';
+    });
+
+    html += '</tbody></table></div>' +
+      '<button class="btn-add" style="margin-top:8px; font-size:12px; padding:4px 12px" onclick="addSubTarget(' + i + ')">+ Sub-Target</button>' +
+      '</div></div>';
+  });
+
+  container.innerHTML = html;
+
+  // Bind milestone field events
+  container.querySelectorAll('.ms-field').forEach(function(el) {
+    el.addEventListener('change', function() {
+      AdminState.milestones[parseInt(this.dataset.ms)][this.dataset.field] = this.value;
+      markDirty();
+    });
+  });
+  container.querySelectorAll('.ms-num').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var val = parseFloat(this.value);
+      if (!isNaN(val)) {
+        AdminState.milestones[parseInt(this.dataset.ms)][this.dataset.field] = val;
+        markDirty();
+      }
+    });
+  });
+  container.querySelectorAll('.st-field').forEach(function(el) {
+    el.addEventListener('change', function() {
+      AdminState.milestones[parseInt(this.dataset.ms)].sub_targets[parseInt(this.dataset.st)][this.dataset.field] = this.value;
+      markDirty();
+    });
+  });
+  container.querySelectorAll('.st-num').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var val = parseFloat(this.value);
+      if (!isNaN(val)) {
+        AdminState.milestones[parseInt(this.dataset.ms)].sub_targets[parseInt(this.dataset.st)][this.dataset.field] = val;
+        markDirty();
+      }
+    });
+  });
+}
+
+function addMilestone() {
+  var idEl = document.getElementById('newMsId');
+  var nameEl = document.getElementById('newMsName');
+  var dateEl = document.getElementById('newMsDate');
+  var totalEl = document.getElementById('newMsTotal');
+  var id = idEl.value.trim().toLowerCase().replace(/\s+/g, '_');
+  var name = nameEl.value.trim();
+  var date = dateEl.value.trim();
+  var total = parseFloat(totalEl.value);
+
+  idEl.classList.remove('input-error');
+  nameEl.classList.remove('input-error');
+  dateEl.classList.remove('input-error');
+  totalEl.classList.remove('input-error');
+
+  if (!id) { idEl.classList.add('input-error'); return; }
+  if (!name) { nameEl.classList.add('input-error'); return; }
+  if (!/^\d{4}-\d{2}$/.test(date)) { dateEl.classList.add('input-error'); return; }
+  if (isNaN(total) || total <= 0) { totalEl.classList.add('input-error'); return; }
+  if (AdminState.milestones.some(function(m) { return m.milestone_id === id; })) {
+    alert('Milestone "' + id + '" already exists.');
+    return;
+  }
+
+  AdminState.milestones.push({
+    milestone_id: id,
+    name: name,
+    target_date: date,
+    total_target: total,
+    sub_targets: []
+  });
+  markDirty();
+  renderMilestones();
+  showToast('Milestone added');
+}
+
+function deleteMilestone(idx) {
+  if (!confirm('Delete milestone "' + AdminState.milestones[idx].name + '"?')) return;
+  AdminState.milestones.splice(idx, 1);
+  markDirty();
+  renderMilestones();
+}
+
+function addSubTarget(msIdx) {
+  AdminState.milestones[msIdx].sub_targets.push({ goal: 'fi_networth', amount: 0 });
+  markDirty();
+  renderMilestones();
+}
+
+function deleteSubTarget(msIdx, stIdx) {
+  AdminState.milestones[msIdx].sub_targets.splice(stIdx, 1);
+  markDirty();
+  renderMilestones();
 }
 
 // --- MonthEnd Tab ---
@@ -909,7 +1075,8 @@ async function save() {
       config: AdminState.config,
       accounts: AdminState.accounts,
       data: AdminState.data,
-      budgetItems: AdminState.budgetItems
+      budgetItems: AdminState.budgetItems,
+      milestones: AdminState.milestones
     };
 
     // 2. Encrypt or keep as plain JSON
