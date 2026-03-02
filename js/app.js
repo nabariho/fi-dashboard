@@ -233,11 +233,45 @@ function loadData(data) {
   budgetItems = data.budgetItems || [];
 }
 
+// --- Cache Status + Refresh ---
+
+function showCacheStatus(cachedAt) {
+  var el = document.getElementById('cacheStatus');
+  var btn = document.getElementById('refreshBtn');
+  if (!el || !cachedAt) return;
+
+  var ago = Date.now() - cachedAt;
+  var label;
+  if (ago < 3600000) label = 'Cached just now';
+  else if (ago < 86400000) label = 'Cached ' + Math.floor(ago / 3600000) + 'h ago';
+  else label = 'Cached ' + Math.floor(ago / 86400000) + 'd ago';
+
+  el.textContent = label;
+  el.style.display = '';
+  if (btn) btn.style.display = '';
+}
+
+function refreshAll() {
+  // Destroy existing charts to avoid canvas reuse errors
+  Chart.helpers.each(Chart.instances, function(instance) { instance.destroy(); });
+
+  refreshFIProgress();
+  refreshGoals();
+  refreshInvestments();
+
+  // Update last-updated badge
+  if (allData.length) {
+    var months = allData.map(function(r) { return r.month; }).sort();
+    MetricsRenderer.renderLastUpdated(months[months.length - 1]);
+  }
+}
+
 // --- Unlock Screen ---
 
 // State for the opened file
 var _fileText = null;
 var _fileName = null;
+var _cachedPassphrase = null;
 
 function updateFilePickerUI() {
   var picker = document.getElementById('filePicker');
@@ -299,13 +333,15 @@ document.getElementById('decryptBtn').addEventListener('click', async function()
     // Check if this is an unencrypted JSON (for dev/testing with sample.json)
     if (fileData.config && fileData.accounts && fileData.data && !fileData.v) {
       loadData(fileData);
-      FileManager.stashToSession({
+      var sessionData = {
         decryptedData: fileData,
         passphrase: null,
         wasEncrypted: false,
         originalFileText: _fileText,
         filename: _fileName
-      });
+      };
+      FileManager.stashToSession(sessionData);
+      DataCache.save(sessionData).catch(function() {});
       showDashboard();
       return;
     }
@@ -321,13 +357,16 @@ document.getElementById('decryptBtn').addEventListener('click', async function()
 
     var decrypted = await Crypto.decrypt(fileData, passphrase);
     loadData(decrypted);
-    FileManager.stashToSession({
+    _cachedPassphrase = passphrase;
+    var sessionData2 = {
       decryptedData: decrypted,
       passphrase: passphrase,
       wasEncrypted: true,
       originalFileText: _fileText,
       filename: _fileName
-    });
+    };
+    FileManager.stashToSession(sessionData2);
+    DataCache.save(sessionData2).catch(function() {});
     showDashboard();
   } catch (e) {
     errorEl.textContent = 'Decryption failed. Wrong passphrase or invalid file.';
@@ -375,10 +414,87 @@ document.getElementById('passphrase').addEventListener('keydown', function(e) {
   });
 })();
 
-// Auto-restore from sessionStorage (skip unlock when navigating back from admin)
-(function() {
+// Refresh button: re-open file from iCloud Drive
+document.getElementById('refreshBtn').addEventListener('click', async function() {
+  try {
+    var result = await FileManager.open();
+    var fileData = JSON.parse(result.text);
+    var decrypted;
+
+    if (fileData.config && fileData.accounts && fileData.data && !fileData.v) {
+      decrypted = fileData;
+    } else {
+      // Try cached passphrase first, then prompt
+      var pp = _cachedPassphrase;
+      if (!pp) pp = prompt('Enter passphrase:');
+      if (!pp) return;
+      try {
+        decrypted = await Crypto.decrypt(fileData, pp);
+      } catch (e) {
+        if (pp === _cachedPassphrase) {
+          pp = prompt('Cached passphrase failed. Enter passphrase:');
+          if (!pp) return;
+          decrypted = await Crypto.decrypt(fileData, pp);
+        } else { throw e; }
+      }
+      _cachedPassphrase = pp;
+    }
+
+    loadData(decrypted);
+    var sessionData = {
+      decryptedData: decrypted,
+      passphrase: _cachedPassphrase,
+      wasEncrypted: !!fileData.v,
+      originalFileText: result.text,
+      filename: result.filename
+    };
+    FileManager.stashToSession(sessionData);
+    DataCache.save(sessionData).catch(function() {});
+    showCacheStatus(Date.now());
+    refreshAll();
+  } catch (e) {
+    if (e.name !== 'AbortError' && e.message !== 'File selection cancelled') {
+      alert('Refresh failed: ' + e.message);
+    }
+  }
+});
+
+// Offline / Online listeners
+window.addEventListener('online', function() {
+  document.getElementById('offlineBanner').style.display = 'none';
+});
+window.addEventListener('offline', function() {
+  document.getElementById('offlineBanner').style.display = '';
+});
+if (!navigator.onLine) {
+  document.getElementById('offlineBanner').style.display = '';
+}
+
+// Auto-restore: sessionStorage → IndexedDB → unlock screen
+(async function() {
+  // 1. Try sessionStorage (same-tab navigation)
   var session = FileManager.loadFromSession();
-  if (!session || !session.decryptedData) return;
-  loadData(session.decryptedData);
-  showDashboard();
+  if (session && session.decryptedData) {
+    _cachedPassphrase = session.passphrase || null;
+    loadData(session.decryptedData);
+    showDashboard();
+    return;
+  }
+
+  // 2. Try IndexedDB (returning visit)
+  try {
+    var cached = await DataCache.load();
+    if (cached && cached.decryptedData) {
+      _cachedPassphrase = cached.passphrase || null;
+      loadData(cached.decryptedData);
+      FileManager.stashToSession(cached);
+      showDashboard();
+      showCacheStatus(cached.cachedAt);
+      return;
+    }
+  } catch (e) {
+    // IndexedDB unavailable — fall through to unlock
+  }
+
+  // 3. Show unlock screen (first visit)
 })();

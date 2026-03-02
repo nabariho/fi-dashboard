@@ -3,10 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1a73e8">
   <title>Financial Independence Dashboard</title>
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.svg">
 </head>
 <body>
+
+  <!-- Offline banner -->
+  <div class="offline-banner" id="offlineBanner" style="display:none;">You are offline. Showing cached data.</div>
 
   <!-- Unlock screen (shown first) -->
   <div id="unlock">
@@ -33,6 +39,8 @@
     <div class="dashboard-header">
       <h1>Financial Independence Dashboard</h1>
       <span id="lastUpdated"></span>
+      <span id="cacheStatus" style="display:none;"></span>
+      <button class="refresh-btn" id="refreshBtn" style="display:none;" title="Re-open file from iCloud Drive">&#8635; Refresh</button>
       <div class="menu-wrapper">
         <button class="hamburger-btn" id="menuBtn" aria-label="Menu">
           <div class="hamburger-icon"><span></span><span></span><span></span></div>
@@ -197,8 +205,15 @@
   <script src="js/ui/ui-budget.js"></script>
   <script src="js/crypto.js"></script>
   <script src="js/file-manager.js"></script>
+  <script src="js/data-cache.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="js/app.js"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
 
 </body>
 </html>

@@ -117,6 +117,10 @@ document.getElementById('decryptBtn').addEventListener('click', async function()
     if (fileData.config && fileData.accounts && fileData.data && !fileData.v) {
       AdminState.wasEncrypted = false;
       loadAdminData(fileData);
+      DataCache.save({
+        decryptedData: fileData, passphrase: null, wasEncrypted: false,
+        originalFileText: _fileText, filename: _fileName
+      }).catch(function() {});
       showAdmin();
       return;
     }
@@ -133,6 +137,10 @@ document.getElementById('decryptBtn').addEventListener('click', async function()
     AdminState.wasEncrypted = true;
     AdminState.passphrase = passphrase;
     loadAdminData(decrypted);
+    DataCache.save({
+      decryptedData: decrypted, passphrase: passphrase, wasEncrypted: true,
+      originalFileText: _fileText, filename: _fileName
+    }).catch(function() {});
     showAdmin();
   } catch (e) {
     errorEl.textContent = 'Decryption failed. Wrong passphrase or invalid file.';
@@ -804,14 +812,16 @@ async function save() {
     AdminState.dirty = false;
     document.querySelector('.dirty-indicator').classList.remove('visible');
 
-    // 5. Update sessionStorage so dashboard picks up changes
-    FileManager.stashToSession({
+    // 5. Update sessionStorage + IndexedDB so dashboard picks up changes
+    var stashData = {
       decryptedData: updated,
       passphrase: AdminState.passphrase,
       wasEncrypted: AdminState.wasEncrypted,
       originalFileText: output,
       filename: filename
-    });
+    };
+    FileManager.stashToSession(stashData);
+    DataCache.save(stashData).catch(function() {});
 
     if (method === 'handle') {
       showToast('Saved to ' + filename);
@@ -840,14 +850,35 @@ function escHtml(str) {
 
 function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
-// Auto-restore from sessionStorage (skip unlock when navigating from dashboard)
-(function() {
+// Auto-restore: sessionStorage → IndexedDB → unlock screen
+(async function() {
+  function restoreFromSession(session) {
+    AdminState.originalFileText = session.originalFileText || null;
+    AdminState.filename = session.filename || null;
+    AdminState.wasEncrypted = !!session.wasEncrypted;
+    AdminState.passphrase = session.passphrase || null;
+    loadAdminData(session.decryptedData);
+    showAdmin();
+  }
+
+  // 1. Try sessionStorage
   var session = FileManager.loadFromSession();
-  if (!session || !session.decryptedData) return;
-  AdminState.originalFileText = session.originalFileText || null;
-  AdminState.filename = session.filename || null;
-  AdminState.wasEncrypted = !!session.wasEncrypted;
-  AdminState.passphrase = session.passphrase || null;
-  loadAdminData(session.decryptedData);
-  showAdmin();
+  if (session && session.decryptedData) {
+    restoreFromSession(session);
+    return;
+  }
+
+  // 2. Try IndexedDB
+  try {
+    var cached = await DataCache.load();
+    if (cached && cached.decryptedData) {
+      FileManager.stashToSession(cached);
+      restoreFromSession(cached);
+      return;
+    }
+  } catch (e) {
+    // IndexedDB unavailable — fall through to unlock
+  }
+
+  // 3. Show unlock screen (first visit)
 })();

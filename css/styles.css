@@ -166,6 +166,21 @@ body {
   margin-top: 16px;
 }
 
+/* === OFFLINE BANNER === */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 16px;
+  background: #5f6368;
+  color: #fff;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 1000;
+}
+
 /* === HEADER === */
 .dashboard-header {
   display: flex;
@@ -184,6 +199,32 @@ body {
   border-radius: 6px;
   border: 1px solid var(--border);
   white-space: nowrap;
+}
+
+#cacheStatus {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: #e8f0fe;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.refresh-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--card-bg);
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.refresh-btn:hover {
+  background: #e8f0fe;
 }
 
 #lastUpdated.stale {

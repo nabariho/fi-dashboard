@@ -1,0 +1,98 @@
+// === SERVICE WORKER — App Shell Cache ===
+// Caches static assets for offline/instant load. Never caches user data.
+
+var CACHE_NAME = 'fi-shell-v1';
+
+var SHELL_ASSETS = [
+  './',
+  './index.html',
+  './admin.html',
+  './css/styles.css',
+  './css/admin.css',
+  './js/lib/utils.js',
+  './js/data/account-service.js',
+  './js/data/data-service.js',
+  './js/data/returns-calc.js',
+  './js/data/networth-calc.js',
+  './js/data/fi-calc.js',
+  './js/data/goals-calc.js',
+  './js/data/budget-calc.js',
+  './js/ui/ui-metrics.js',
+  './js/ui/ui-charts.js',
+  './js/ui/ui-tables.js',
+  './js/ui/ui-goals.js',
+  './js/ui/ui-budget.js',
+  './js/crypto.js',
+  './js/file-manager.js',
+  './js/data-cache.js',
+  './js/app.js',
+  './js/admin.js',
+  './manifest.json',
+  './icons/icon-192.svg',
+  './icons/icon-512.svg'
+];
+
+var CDN_ASSETS = [
+  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
+];
+
+// Install: pre-cache app shell + CDN
+self.addEventListener('install', function(event) {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(function(cache) {
+      return cache.addAll(SHELL_ASSETS.concat(CDN_ASSETS));
+    }).then(function() {
+      return self.skipWaiting();
+    })
+  );
+});
+
+// Activate: delete old caches
+self.addEventListener('activate', function(event) {
+  event.waitUntil(
+    caches.keys().then(function(keys) {
+      return Promise.all(
+        keys.filter(function(k) { return k !== CACHE_NAME; })
+            .map(function(k) { return caches.delete(k); })
+      );
+    }).then(function() {
+      return self.clients.claim();
+    })
+  );
+});
+
+// Fetch: cache-first for local, stale-while-revalidate for CDN
+self.addEventListener('fetch', function(event) {
+  var url = new URL(event.request.url);
+
+  // Only handle GET requests
+  if (event.request.method !== 'GET') return;
+
+  // CDN: stale-while-revalidate
+  if (url.origin !== self.location.origin) {
+    event.respondWith(
+      caches.match(event.request).then(function(cached) {
+        var fetchPromise = fetch(event.request).then(function(response) {
+          if (response.ok) {
+            var clone = response.clone();
+            caches.open(CACHE_NAME).then(function(cache) {
+              cache.put(event.request, clone);
+            });
+          }
+          return response;
+        }).catch(function() {
+          return cached;
+        });
+        return cached || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // Local: cache-first
+  event.respondWith(
+    caches.match(event.request).then(function(cached) {
+      return cached || fetch(event.request);
+    })
+  );
+});
