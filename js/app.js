@@ -35,10 +35,6 @@ function refreshFIProgress() {
   }
 
   MetricsRenderer.renderFIProgress(progressPct, fiTarget, current.total, yearsToFI, passiveIncome, savingsRate, monthlyExpenses);
-
-  // FI Projection chart
-  var projection = FICalculator.projectFuture(current.total, avgSavings, expectedReturn, fiTarget, 30);
-  ChartRenderer.renderFIProjection('fiProjChart', projection, fiTarget, nwData);
 }
 
 // --- Financial Goals (always visible) ---
@@ -130,7 +126,6 @@ function refreshInvestments() {
     var perfIds = AccountService.getPerformanceAccounts().map(function(a) { return a.account_id; });
     var comparison = ReturnsCalculator.compareAccounts(allData, perfIds);
     compSection.style.display = '';
-    ChartRenderer.renderAccountComparison('acctCompChart', comparison);
     TableRenderer.renderAccountComparison('acctCompTable', comparison);
   } else {
     compSection.style.display = 'none';
