@@ -560,11 +560,50 @@ function renderMonthEnd() {
     '<p class="section-desc">End-of-month account values and net contributions. Each row is a unique (month, account) pair. Sorted newest first.</p>' +
     '</div>';
 
-  // Add form at top
+  // Quick Add Month — pre-filled grid for all accounts
   var defaultMonth = nextMonth();
-  html += '<div class="add-form-card">' +
-    '<div class="add-form-title">Add Month-End Row</div>' +
-    '<div class="add-form-row">' +
+  var lastMonthData = getLastMonthData();
+  var quickAddAlreadyExists = acctIds.every(function(id) {
+    return AdminState.data.some(function(r) { return r.month === defaultMonth && r.account_id === id; });
+  });
+
+  html += '<div class="add-form-card" id="quickAddCard">' +
+    '<div class="add-form-title">Quick Add Month</div>';
+
+  if (quickAddAlreadyExists) {
+    html += '<p style="color:var(--text-secondary); font-size:13px; margin:0">All accounts for <strong>' + escHtml(defaultMonth) + '</strong> already exist. Use "Add Single Row" below for corrections.</p>';
+  } else {
+    html += '<div class="add-form-row" style="margin-bottom:12px">' +
+      '<div class="add-form-field"><label>Month</label><input type="text" id="quickAddMonth" value="' + defaultMonth + '" placeholder="YYYY-MM" style="width:100px"></div>' +
+      '</div>' +
+      '<div class="admin-table-container"><table class="admin-table" id="quickAddTable"><thead><tr>' +
+      '<th>Account</th><th style="text-align:right">Last Month</th><th style="text-align:right">End Value</th><th style="text-align:right">Net Contribution</th><th>Notes</th>' +
+      '</tr></thead><tbody>';
+
+    acctIds.forEach(function(id) {
+      var prev = lastMonthData[id];
+      var prevDisplay = prev !== undefined ? formatQuickAddNum(prev) : '—';
+      html += '<tr>' +
+        '<td class="cell-id">' + escHtml(id) + ' <span style="color:var(--text-secondary);font-size:12px">' + escHtml(acctNames[id] || '') + '</span></td>' +
+        '<td style="text-align:right; color:var(--text-secondary)">' + prevDisplay + '</td>' +
+        '<td style="text-align:right"><input type="number" step="0.01" class="qa-end-value" data-account="' + escHtml(id) + '" placeholder="0.00" style="width:120px; text-align:right"></td>' +
+        '<td style="text-align:right"><input type="number" step="0.01" class="qa-contribution" data-account="' + escHtml(id) + '" value="0" style="width:120px; text-align:right"></td>' +
+        '<td><input type="text" class="qa-notes" data-account="' + escHtml(id) + '" placeholder="" style="width:120px"></td>' +
+        '</tr>';
+    });
+
+    html += '</tbody></table></div>' +
+      '<div style="margin-top:12px; display:flex; gap:12px; align-items:center">' +
+      '<button class="btn-add" id="quickAddBtn">Add All Rows</button>' +
+      '<span id="quickAddStatus" style="font-size:13px; color:var(--text-secondary)"></span>' +
+      '</div>';
+  }
+  html += '</div>';
+
+  // Single row add (collapsed by default)
+  html += '<details class="add-form-card" style="cursor:pointer">' +
+    '<summary class="add-form-title" style="margin-bottom:0">Add Single Row</summary>' +
+    '<div class="add-form-row" style="margin-top:12px">' +
     '<div class="add-form-field"><label>Month</label><input type="text" id="newMeMonth" value="' + defaultMonth + '" placeholder="YYYY-MM" style="width:100px"></div>' +
     '<div class="add-form-field"><label>Account</label><select id="newMeAccount">';
   acctIds.forEach(function(id) {
@@ -575,7 +614,7 @@ function renderMonthEnd() {
     '<div class="add-form-field"><label>Net Contribution</label><input type="number" step="0.01" id="newMeContribution" placeholder="0.00" style="width:130px"></div>' +
     '<div class="add-form-field"><label>Notes</label><input type="text" id="newMeNotes" placeholder="" style="width:140px"></div>' +
     '<button class="btn-add" onclick="addMonthEnd()">Add Row</button>' +
-    '</div></div>';
+    '</div></details>';
 
   // Filters
   html += '<div class="admin-filters">' +
@@ -657,6 +696,92 @@ function renderMonthEnd() {
       }
     });
   });
+
+  // Bind Quick Add button
+  var quickAddBtn = document.getElementById('quickAddBtn');
+  if (quickAddBtn) {
+    quickAddBtn.addEventListener('click', addQuickMonth);
+  }
+}
+
+// --- Quick Add Helpers ---
+
+function getLastMonthData() {
+  var months = [];
+  AdminState.data.forEach(function(r) { if (months.indexOf(r.month) === -1) months.push(r.month); });
+  months.sort();
+  var lastMonth = months.length ? months[months.length - 1] : null;
+  var result = {};
+  if (lastMonth) {
+    AdminState.data.forEach(function(r) {
+      if (r.month === lastMonth) result[r.account_id] = r.end_value;
+    });
+  }
+  return result;
+}
+
+function formatQuickAddNum(val) {
+  return val.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function addQuickMonth() {
+  var monthInput = document.getElementById('quickAddMonth');
+  var month = monthInput.value.trim();
+  var statusEl = document.getElementById('quickAddStatus');
+
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    monthInput.classList.add('input-error');
+    statusEl.textContent = 'Month must be YYYY-MM format.';
+    statusEl.style.color = 'var(--negative)';
+    return;
+  }
+  monthInput.classList.remove('input-error');
+
+  var acctIds = AdminState.accounts.map(function(a) { return a.account_id; });
+  var rows = [];
+  var errors = [];
+
+  acctIds.forEach(function(id) {
+    var endValInput = document.querySelector('.qa-end-value[data-account="' + id + '"]');
+    var contribInput = document.querySelector('.qa-contribution[data-account="' + id + '"]');
+    var notesInput = document.querySelector('.qa-notes[data-account="' + id + '"]');
+    var endValue = parseFloat(endValInput.value);
+    var contribution = parseFloat(contribInput.value);
+
+    endValInput.classList.remove('input-error');
+
+    if (isNaN(endValue)) {
+      endValInput.classList.add('input-error');
+      errors.push(id + ': end value required');
+      return;
+    }
+    if (isNaN(contribution)) contribution = 0;
+
+    var dup = AdminState.data.some(function(r) { return r.month === month && r.account_id === id; });
+    if (dup) {
+      errors.push(id + ': already exists for ' + month);
+      return;
+    }
+
+    rows.push({
+      month: month,
+      account_id: id,
+      end_value: endValue,
+      net_contribution: contribution,
+      notes: (notesInput.value || '').trim()
+    });
+  });
+
+  if (errors.length) {
+    statusEl.textContent = errors.join('; ');
+    statusEl.style.color = 'var(--negative)';
+    return;
+  }
+
+  rows.forEach(function(r) { AdminState.data.push(r); });
+  markDirty();
+  renderMonthEnd();
+  showToast(rows.length + ' rows added for ' + month);
 }
 
 function nextMonth() {
