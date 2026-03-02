@@ -97,9 +97,9 @@ var FileManager = (function() {
     return _writeToHandle(content);
   }
 
-  // --- Backup (always downloads, never overwrites handle) ---
+  // --- Export (triggers download for iCloud Drive sync, etc.) ---
 
-  function backup(content, filename) {
+  function exportFile(content, filename) {
     _download(content, filename);
   }
 
@@ -147,7 +147,7 @@ var FileManager = (function() {
   return {
     open: open,
     save: save,
-    backup: backup,
+    export: exportFile,
     stashToSession: stashToSession,
     loadFromSession: loadFromSession,
     clearSession: clearSession

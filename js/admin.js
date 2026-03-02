@@ -7,7 +7,8 @@ var CONFIG_DESCRIPTIONS = {
   expected_return: 'Expected annual investment return (e.g. 0.07 = 7%)',
   monthly_income: 'Gross monthly income for savings rate calculation',
   emergency_fund_target: 'Target amount for emergency fund reserve',
-  house_downpayment_target: 'Target amount for house down payment goal'
+  house_downpayment_target: 'Target amount for house down payment goal',
+  auto_export: 'Auto-download .fjson on every save for iCloud Drive sync (1 = on, 0 = off)'
 };
 
 // --- State ---
@@ -778,15 +779,7 @@ async function save() {
   btn.textContent = 'Saving...';
 
   try {
-    // 1. Download backup (always as a separate file)
-    var now = new Date();
-    var ts = now.getFullYear() +
-      pad2(now.getMonth() + 1) + pad2(now.getDate()) + '-' +
-      pad2(now.getHours()) + pad2(now.getMinutes()) + pad2(now.getSeconds());
-    var backupName = 'fi-data.backup-' + ts + (AdminState.wasEncrypted ? '.fjson' : '.json');
-    FileManager.backup(AdminState.originalFileText, backupName);
-
-    // 2. Build updated data
+    // 1. Build updated data
     var updated = {
       config: AdminState.config,
       accounts: AdminState.accounts,
@@ -794,7 +787,7 @@ async function save() {
       budgetItems: AdminState.budgetItems
     };
 
-    // 3. Encrypt or save as plain JSON
+    // 2. Encrypt or keep as plain JSON
     var output, filename;
     if (AdminState.wasEncrypted) {
       var encrypted = await Crypto.encrypt(updated, AdminState.passphrase);
@@ -805,14 +798,8 @@ async function save() {
       filename = AdminState.filename || 'fi-data.json';
     }
 
-    // 4. Save via File System Access API (write-back) or download fallback
-    var method = await FileManager.save(output, filename);
-
+    // 3. Save to IDB + sessionStorage first (working copy)
     AdminState.originalFileText = output;
-    AdminState.dirty = false;
-    document.querySelector('.dirty-indicator').classList.remove('visible');
-
-    // 5. Update sessionStorage + IndexedDB so dashboard picks up changes
     var stashData = {
       decryptedData: updated,
       passphrase: AdminState.passphrase,
@@ -821,19 +808,37 @@ async function save() {
       filename: filename
     };
     FileManager.stashToSession(stashData);
-    DataCache.save(stashData).catch(function() {});
+    await DataCache.save(stashData);
 
-    if (method === 'handle') {
-      showToast('Saved to ' + filename);
-    } else {
-      showToast('Saved (downloaded)');
+    AdminState.dirty = false;
+    document.querySelector('.dirty-indicator').classList.remove('visible');
+
+    // 4. Write back to file handle (Chrome) or export download
+    var toastMsg = 'Saved';
+    if (typeof window.showOpenFilePicker === 'function') {
+      // File System Access API available — try write-back to handle
+      try {
+        var method = await FileManager.save(output, filename);
+        if (method === 'handle') {
+          toastMsg = 'Saved to ' + filename;
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') {
+          // User cancelled file picker — data is already in IDB, that's fine
+          toastMsg = 'Saved (file export cancelled)';
+        } else {
+          throw e;
+        }
+      }
+    } else if (AdminState.config.auto_export) {
+      // No File System Access (Safari/iOS) — download if auto_export enabled
+      FileManager.export(output, filename);
+      toastMsg = 'Saved \u2014 export downloaded';
     }
+
+    showToast(toastMsg);
   } catch (e) {
-    if (e.name === 'AbortError') {
-      showToast('Save cancelled');
-    } else {
-      alert('Save failed: ' + e.message);
-    }
+    alert('Save failed: ' + e.message);
   }
 
   btn.disabled = false;
