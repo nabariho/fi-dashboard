@@ -1051,6 +1051,140 @@ tr:hover { background: var(--bg); }
 .milestone-sub-bar { height: 6px; }
 .milestone-sub-bar .goal-bar { border-radius: 3px; }
 
+/* === MONTHLY SUMMARY === */
+.summary-panel {
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.summary-title { font-size: 15px; font-weight: 600; }
+
+.summary-narrative {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.summary-card {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 12px 16px;
+  text-align: center;
+}
+
+.summary-card-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.summary-card-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.summary-card-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* Summary alerts */
+.summary-alerts {
+  margin-bottom: 14px;
+}
+
+.summary-alert {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.summary-alert:last-child { margin-bottom: 0; }
+
+.summary-alert-icon { flex-shrink: 0; }
+
+.summary-alert-warning {
+  background: #fef7e0;
+  color: #8a6d00;
+}
+
+.summary-alert-info {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+/* === MORTGAGE === */
+.mortgage-summary {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.amort-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.amort-table th {
+  text-align: left;
+  padding: 10px 16px;
+  border-bottom: 2px solid var(--border);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.amort-table td {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.amort-table tr:last-child td { border-bottom: none; }
+
+.extra-payment-row {
+  background: #fef7e0;
+}
+
+.extra-payment-row:hover {
+  background: #fef0c7 !important;
+}
+
+.amort-year-row {
+  background: var(--bg);
+}
+
+.amort-year-row td {
+  border-top: 2px solid var(--border);
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 13px;
+  color: var(--primary);
+}
+
+.equity-card .goals-detail-calc {
+  margin-top: 0;
+}
+
 /* === RESPONSIVE === */
 
 /* Tablet */
@@ -1098,6 +1232,8 @@ tr:hover { background: var(--bg); }
 
   .goals-panel { padding: 16px; }
   .fi-progress { padding: 16px; }
+  .summary-panel { padding: 16px; }
+  .summary-cards { grid-template-columns: repeat(2, 1fr); }
 
   .goal-header { flex-direction: column; align-items: flex-start; gap: 4px; }
   .milestone-header { flex-direction: column; align-items: flex-start; gap: 4px; }

@@ -535,6 +535,39 @@ details[open].add-form-card summary::before {
   position: relative;
 }
 
+/* === AUTO-FILL (Quick Add) === */
+.btn-autofill {
+  padding: 8px 16px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.btn-autofill:hover {
+  background: #e8f0fe;
+}
+
+.autofilled {
+  background: #e8f0fe !important;
+  border-color: var(--primary) !important;
+}
+
+/* === MORTGAGE ADMIN === */
+.mortgage-section {
+  margin-bottom: 16px;
+}
+
+.mortgage-section .add-form-title {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
 /* === KEYBOARD SHORTCUT HINTS === */
 .kbd {
   display: inline-block;

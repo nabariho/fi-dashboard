@@ -1,12 +1,72 @@
 // === APP — ORCHESTRATION LAYER ===
 // Wires data services to UI renderers. Handles events and initialization.
 
+var mortgageData = null;
+
+// --- Monthly Summary (always visible) ---
+
+function refreshSummary() {
+  if (typeof SummaryCalculator === 'undefined' || typeof SummaryRenderer === 'undefined') return;
+
+  var accountIds = AccountService.getNetworthAccountIds();
+  var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+  if (nwData.length < 2) { SummaryRenderer.renderEmptyState(); return; }
+
+  // Compute goals for summary context
+  var goals = null;
+  if (typeof GoalsCalculator !== 'undefined') {
+    var emergencyTarget = appConfig.emergency_fund_target || 40000;
+    var houseTarget = appConfig.house_downpayment_target || 80000;
+    var operatingReserve = 0;
+    if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+      operatingReserve = BudgetCalculator.computeOperatingReserve(budgetItems);
+    }
+    var latest = nwData[nwData.length - 1].accounts;
+    goals = {
+      emergency: GoalsCalculator.computeEmergencyFund(latest, emergencyTarget),
+      house: GoalsCalculator.computeHouseDownPayment(latest, houseTarget, operatingReserve)
+    };
+  }
+
+  // Compute milestones for summary context
+  var milestoneStatuses = [];
+  if (typeof MilestoneCalculator !== 'undefined' && milestonesData && milestonesData.length) {
+    var latestRow = nwData[nwData.length - 1];
+    var emergency = goals ? goals.emergency : { available: 0 };
+    var house = goals ? goals.house : { current: 0 };
+    var currentValues = {
+      total: latestRow.total || 0,
+      emergency_fund: emergency.available,
+      house_downpayment: house.current,
+      fi_networth: latestRow.total || 0
+    };
+    milestoneStatuses = MilestoneCalculator.computeAll(milestonesData, currentValues, nwData[0].month, latestRow.month);
+  }
+
+  // Compute mortgage summary
+  var mortgageSummary = null;
+  if (mortgageData && typeof MortgageCalculator !== 'undefined') {
+    mortgageSummary = MortgageCalculator.computeSummary(mortgageData);
+  }
+
+  var summary = SummaryCalculator.computeMonthlySummary(nwData, allData, goals, milestoneStatuses, mortgageSummary);
+  var narrative = SummaryCalculator.generateNarrative(summary);
+
+  // Detect anomalies
+  var anomalies = [];
+  if (typeof AnomalyCalculator !== 'undefined') {
+    anomalies = AnomalyCalculator.detectAnomalies(allData);
+  }
+
+  SummaryRenderer.renderMonthlySummary(summary, narrative, anomalies);
+}
+
 // --- FI Progress (always visible) ---
 
 function refreshFIProgress() {
   // Compute current net worth from all networth-flagged accounts
   var accountIds = AccountService.getNetworthAccountIds();
-  var nwData = NetWorthCalculator.compute(allData, accountIds);
+  var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
   if (!nwData.length) return;
 
   var current = nwData[nwData.length - 1];
@@ -50,7 +110,7 @@ function refreshGoals() {
 
   // Get latest month's account values from NW data
   var accountIds = AccountService.getNetworthAccountIds();
-  var nwData = NetWorthCalculator.compute(allData, accountIds);
+  var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
   if (!nwData.length) return;
 
   var latest = nwData[nwData.length - 1].accounts;
@@ -69,7 +129,7 @@ function refreshGoalsDetail() {
   var operatingReserve = getOperatingReserve();
 
   var accountIds = AccountService.getNetworthAccountIds();
-  var nwData = NetWorthCalculator.compute(allData, accountIds);
+  var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
   if (!nwData.length) return;
 
   var latestRow = nwData[nwData.length - 1];
@@ -100,6 +160,36 @@ function refreshGoalsDetail() {
 function refreshBudget() {
   var budget = BudgetCalculator.computeMonthlyBudget(budgetItems);
   BudgetRenderer.renderBudgetOverview(budget);
+}
+
+// --- Mortgage Tab ---
+
+function refreshMortgage() {
+  if (!mortgageData || typeof MortgageCalculator === 'undefined' || typeof MortgageRenderer === 'undefined') {
+    if (typeof MortgageRenderer !== 'undefined') MortgageRenderer.renderEmptyState();
+    return;
+  }
+
+  var schedule = MortgageCalculator.computeSchedule(mortgageData);
+  var summary = MortgageCalculator.computeSummary(mortgageData);
+  if (!summary) { MortgageRenderer.renderEmptyState(); return; }
+
+  // Get latest month from data for equity calculation
+  var latestMonth = null;
+  if (allData.length) {
+    var months = allData.map(function(r) { return r.month; }).sort();
+    latestMonth = months[months.length - 1];
+  }
+  var equity = latestMonth ? MortgageCalculator.computeEquity(mortgageData, latestMonth) : null;
+  var comparison = MortgageCalculator.compareActualVsPlanned(schedule, mortgageData.actual_payments);
+
+  MortgageRenderer.renderMortgage({
+    summary: summary,
+    schedule: schedule,
+    equity: equity,
+    comparison: comparison,
+    mortgage: mortgageData
+  });
 }
 
 // --- Investments Tab ---
@@ -154,7 +244,7 @@ function refreshNetWorth() {
   var rangeMonths = parseInt(rangeBtn.dataset.range);
 
   var accountIds = AccountService.getNetworthAccountIds();
-  var nwData = NetWorthCalculator.compute(allData, accountIds);
+  var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
   var data = DataService.applyTimeRange(nwData, rangeMonths);
 
   if (!data.length) {
@@ -203,6 +293,7 @@ function bindEvents() {
       else if (this.dataset.tab === 'networth') refreshNetWorth();
       else if (this.dataset.tab === 'goals') refreshGoalsDetail();
       else if (this.dataset.tab === 'budget') refreshBudget();
+      else if (this.dataset.tab === 'mortgage') refreshMortgage();
     });
   });
 
@@ -253,6 +344,7 @@ function showDashboard() {
 
   refreshFIProgress();
   refreshGoals();
+  refreshSummary();
   refreshInvestments();
 }
 
@@ -262,6 +354,7 @@ function loadData(data) {
   allData = data.data || [];
   budgetItems = data.budgetItems || [];
   milestonesData = data.milestones || [];
+  mortgageData = data.mortgage || null;
 }
 
 // --- Cache Status + Refresh ---
@@ -288,7 +381,9 @@ function refreshAll() {
 
   refreshFIProgress();
   refreshGoals();
+  refreshSummary();
   refreshInvestments();
+  refreshMortgage();
 
   // Update last-updated badge
   if (allData.length) {

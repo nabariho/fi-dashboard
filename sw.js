@@ -1,7 +1,7 @@
 // === SERVICE WORKER — App Shell Cache ===
 // Caches static assets for offline/instant load. Never caches user data.
 
-var CACHE_NAME = 'fi-shell-v1';
+var CACHE_NAME = 'fi-shell-v3';
 
 var SHELL_ASSETS = [
   './',
@@ -17,11 +17,17 @@ var SHELL_ASSETS = [
   './js/data/fi-calc.js',
   './js/data/goals-calc.js',
   './js/data/budget-calc.js',
+  './js/data/milestone-calc.js',
+  './js/data/mortgage-calc.js',
+  './js/data/summary-calc.js',
+  './js/data/anomaly-calc.js',
   './js/ui/ui-metrics.js',
   './js/ui/ui-charts.js',
   './js/ui/ui-tables.js',
   './js/ui/ui-goals.js',
   './js/ui/ui-budget.js',
+  './js/ui/ui-mortgage.js',
+  './js/ui/ui-summary.js',
   './js/crypto.js',
   './js/file-manager.js',
   './js/data-cache.js',

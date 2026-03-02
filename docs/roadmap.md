@@ -143,7 +143,7 @@ Living document tracking planned features, priorities, and progress.
 
 ## Phase 4: House & Mortgage Module
 
-**Status:** Future
+**Status:** Done (v1.5.0)
 **Priority:** Lower — needed when house purchase happens
 
 **Goal:** Track down payment progress, mortgage amortization, house equity, and integrate debt into FI calculations.
@@ -221,3 +221,10 @@ Living document tracking planned features, priorities, and progress.
 - [x] Glide path visualization on Goals tab (Phase 3b)
 - [x] Status indicators: ahead/on-track/behind (Phase 3c)
 - [x] Per-goal milestone breakdown (Phase 3d)
+- [x] Mortgage calculator + amortization schedule (Phase 4b)
+- [x] House equity tracking with sparse valuations (Phase 4c)
+- [x] Net worth integration with mortgage debt + house value (Phase 4d)
+- [x] Mortgage dashboard tab: summary cards, balance chart, amortization table (Phase 4)
+- [x] Mortgage admin CRUD: parameters, extra payments, actual payments, house valuations (Phase 4)
+- [x] Actual vs planned payment comparison (Phase 4)
+- [x] Extra payment strategies: reduce term or reduce payment (Phase 4)

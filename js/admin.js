@@ -18,6 +18,7 @@ var AdminState = {
   data: [],
   budgetItems: [],
   milestones: [],
+  mortgage: null,
   originalFileText: null,
   filename: null,
   wasEncrypted: false,
@@ -47,11 +48,13 @@ function updateTabBadges() {
   var b3 = document.getElementById('badge-budget');
   var b4 = document.getElementById('badge-monthend');
   var b5 = document.getElementById('badge-milestones');
+  var b6 = document.getElementById('badge-mortgage');
   if (b1) b1.textContent = Object.keys(AdminState.config).length;
   if (b2) b2.textContent = AdminState.accounts.length;
   if (b3) b3.textContent = AdminState.budgetItems.length;
   if (b5) b5.textContent = AdminState.milestones.length;
   if (b4) b4.textContent = AdminState.data.length;
+  if (b6) b6.textContent = AdminState.mortgage ? '1' : '0';
 }
 
 // --- Unlock ---
@@ -165,6 +168,15 @@ function loadAdminData(data) {
   AdminState.milestones = (data.milestones || []).map(function(m) {
     return Object.assign({}, m, { sub_targets: (m.sub_targets || []).map(function(s) { return Object.assign({}, s); }) });
   });
+  if (data.mortgage) {
+    AdminState.mortgage = Object.assign({}, data.mortgage, {
+      extra_payments: (data.mortgage.extra_payments || []).map(function(e) { return Object.assign({}, e); }),
+      actual_payments: (data.mortgage.actual_payments || []).map(function(a) { return Object.assign({}, a); }),
+      house_valuations: (data.mortgage.house_valuations || []).map(function(v) { return Object.assign({}, v); })
+    });
+  } else {
+    AdminState.mortgage = null;
+  }
 }
 
 function showAdmin() {
@@ -214,6 +226,7 @@ function renderActiveTab() {
   else if (tab === 'budget') renderBudget();
   else if (tab === 'milestones') renderMilestones();
   else if (tab === 'monthend') renderMonthEnd();
+  else if (tab === 'mortgage') renderMortgageAdmin();
 }
 
 // --- Config Tab ---
@@ -690,6 +703,277 @@ function deleteSubTarget(msIdx, stIdx) {
   renderMilestones();
 }
 
+// --- Mortgage Tab ---
+
+function renderMortgageAdmin() {
+  var container = document.getElementById('mortgageTable');
+  var m = AdminState.mortgage;
+
+  var html = '<div class="section-header">' +
+    '<h2>Mortgage</h2>' +
+    '<p class="section-desc">Configure your mortgage parameters, track extra payments, record actual payments, and log house valuations.</p>' +
+    '</div>';
+
+  // Section A: Mortgage Parameters
+  if (!m) {
+    html += '<div class="add-form-card mortgage-section">' +
+      '<div class="add-form-title">Mortgage Parameters</div>' +
+      '<p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px">No mortgage configured yet.</p>' +
+      '<button class="btn-add" onclick="createMortgage()">Create Mortgage</button>' +
+      '</div>';
+    container.innerHTML = html;
+    return;
+  }
+
+  html += '<div class="add-form-card mortgage-section">' +
+    '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">' +
+    '<div class="add-form-title" style="margin-bottom:0">Mortgage Parameters</div>' +
+    '<button class="btn-delete" onclick="deleteMortgage()">Delete Mortgage</button>' +
+    '</div>' +
+    '<div class="add-form-row">' +
+    '<div class="add-form-field"><label>Principal</label><input type="number" step="any" id="mtgPrincipal" value="' + m.principal + '" style="width:140px"></div>' +
+    '<div class="add-form-field"><label>Annual Rate (%)</label><input type="number" step="0.01" id="mtgRate" value="' + (m.annual_rate * 100).toFixed(2) + '" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Term (years)</label><input type="number" step="1" id="mtgTerm" value="' + m.term_years + '" style="width:80px"></div>' +
+    '<div class="add-form-field"><label>Start Date</label><input type="text" id="mtgStart" value="' + escHtml(m.start_date) + '" placeholder="YYYY-MM" style="width:100px"></div>' +
+    '</div></div>';
+
+  // Section B: Extra Payments
+  html += '<div class="add-form-card mortgage-section">' +
+    '<div class="add-form-title">Extra Payments</div>';
+
+  if (m.extra_payments.length) {
+    html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
+      '<th>Date</th><th style="text-align:right">Amount</th><th>Strategy</th><th></th>' +
+      '</tr></thead><tbody>';
+    m.extra_payments.forEach(function(ep, i) {
+      html += '<tr>' +
+        '<td>' + escHtml(ep.date) + '</td>' +
+        '<td style="text-align:right">' + ep.amount.toLocaleString('es-ES', {minimumFractionDigits: 2}) + '</td>' +
+        '<td>' + (ep.strategy === 'reduce_term' ? 'Reduce Term' : 'Reduce Payment') + '</td>' +
+        '<td style="width:60px"><button class="btn-delete" onclick="deleteExtraPayment(' + i + ')">Delete</button></td>' +
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+  } else {
+    html += '<p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px">No extra payments yet.</p>';
+  }
+
+  html += '<div class="add-form-row" style="margin-top:12px">' +
+    '<div class="add-form-field"><label>Date</label><input type="text" id="newEpDate" placeholder="YYYY-MM" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Amount</label><input type="number" step="0.01" id="newEpAmount" placeholder="5000" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Strategy</label><select id="newEpStrategy">' +
+    '<option value="reduce_term">Reduce Term</option>' +
+    '<option value="reduce_payment">Reduce Payment</option>' +
+    '</select></div>' +
+    '<button class="btn-add" onclick="addExtraPayment()">Add</button>' +
+    '</div></div>';
+
+  // Section C: Actual Payments
+  html += '<div class="add-form-card mortgage-section">' +
+    '<div class="add-form-title">Actual Payments</div>';
+
+  if (m.actual_payments.length) {
+    html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
+      '<th>Month</th><th style="text-align:right">Amount</th><th style="text-align:right">Principal</th><th style="text-align:right">Interest</th><th>Notes</th><th></th>' +
+      '</tr></thead><tbody>';
+    m.actual_payments.forEach(function(ap, i) {
+      html += '<tr>' +
+        '<td>' + escHtml(ap.month) + '</td>' +
+        '<td style="text-align:right">' + ap.amount.toLocaleString('es-ES', {minimumFractionDigits: 2}) + '</td>' +
+        '<td style="text-align:right">' + ap.principal_paid.toLocaleString('es-ES', {minimumFractionDigits: 2}) + '</td>' +
+        '<td style="text-align:right">' + ap.interest_paid.toLocaleString('es-ES', {minimumFractionDigits: 2}) + '</td>' +
+        '<td>' + escHtml(ap.notes || '') + '</td>' +
+        '<td style="width:60px"><button class="btn-delete" onclick="deleteActualPayment(' + i + ')">Delete</button></td>' +
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+  } else {
+    html += '<p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px">No actual payments recorded yet.</p>';
+  }
+
+  html += '<div class="add-form-row" style="margin-top:12px">' +
+    '<div class="add-form-field"><label>Month</label><input type="text" id="newApMonth" placeholder="YYYY-MM" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Amount</label><input type="number" step="0.01" id="newApAmount" placeholder="1020.56" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Principal Paid</label><input type="number" step="0.01" id="newApPrincipal" placeholder="447.23" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Interest Paid</label><input type="number" step="0.01" id="newApInterest" placeholder="573.33" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Notes</label><input type="text" id="newApNotes" placeholder="" style="width:120px"></div>' +
+    '<button class="btn-add" onclick="addActualPayment()">Add</button>' +
+    '</div></div>';
+
+  // Section D: House Valuations
+  html += '<div class="add-form-card mortgage-section">' +
+    '<div class="add-form-title">House Valuations</div>';
+
+  if (m.house_valuations.length) {
+    html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
+      '<th>Date</th><th style="text-align:right">Market Value</th><th></th>' +
+      '</tr></thead><tbody>';
+    m.house_valuations.forEach(function(v, i) {
+      html += '<tr>' +
+        '<td>' + escHtml(v.date) + '</td>' +
+        '<td style="text-align:right">' + v.market_value.toLocaleString('es-ES', {minimumFractionDigits: 2}) + '</td>' +
+        '<td style="width:60px"><button class="btn-delete" onclick="deleteHouseValuation(' + i + ')">Delete</button></td>' +
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+  } else {
+    html += '<p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px">No valuations yet. Add one to enable equity tracking.</p>';
+  }
+
+  html += '<div class="add-form-row" style="margin-top:12px">' +
+    '<div class="add-form-field"><label>Date</label><input type="text" id="newHvDate" placeholder="YYYY-MM" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Market Value</label><input type="number" step="0.01" id="newHvValue" placeholder="310000" style="width:140px"></div>' +
+    '<button class="btn-add" onclick="addHouseValuation()">Add</button>' +
+    '</div></div>';
+
+  container.innerHTML = html;
+
+  // Bind mortgage parameter change events
+  var fields = [
+    { id: 'mtgPrincipal', key: 'principal', parse: parseFloat },
+    { id: 'mtgRate', key: 'annual_rate', parse: function(v) { return parseFloat(v) / 100; } },
+    { id: 'mtgTerm', key: 'term_years', parse: parseInt },
+    { id: 'mtgStart', key: 'start_date', parse: function(v) { return v.trim(); } }
+  ];
+  fields.forEach(function(f) {
+    var el = document.getElementById(f.id);
+    if (el) {
+      el.addEventListener('change', function() {
+        var val = f.parse(this.value);
+        if (f.key === 'start_date') {
+          if (!/^\d{4}-\d{2}$/.test(val)) { this.classList.add('input-error'); return; }
+          this.classList.remove('input-error');
+        } else if (isNaN(val)) {
+          this.classList.add('input-error');
+          return;
+        }
+        this.classList.remove('input-error');
+        AdminState.mortgage[f.key] = val;
+        markDirty();
+      });
+    }
+  });
+}
+
+function createMortgage() {
+  AdminState.mortgage = {
+    principal: 250000,
+    annual_rate: 0.0275,
+    term_years: 30,
+    start_date: nextMonth(),
+    extra_payments: [],
+    actual_payments: [],
+    house_valuations: []
+  };
+  markDirty();
+  renderMortgageAdmin();
+  showToast('Mortgage created');
+}
+
+function deleteMortgage() {
+  if (!confirm('Delete mortgage? This will remove all mortgage data.')) return;
+  AdminState.mortgage = null;
+  markDirty();
+  renderMortgageAdmin();
+  showToast('Mortgage deleted');
+}
+
+function addExtraPayment() {
+  var dateEl = document.getElementById('newEpDate');
+  var amtEl = document.getElementById('newEpAmount');
+  var date = dateEl.value.trim();
+  var amount = parseFloat(amtEl.value);
+
+  dateEl.classList.remove('input-error');
+  amtEl.classList.remove('input-error');
+
+  if (!/^\d{4}-\d{2}$/.test(date)) { dateEl.classList.add('input-error'); return; }
+  if (isNaN(amount) || amount <= 0) { amtEl.classList.add('input-error'); return; }
+
+  AdminState.mortgage.extra_payments.push({
+    date: date,
+    amount: amount,
+    strategy: document.getElementById('newEpStrategy').value
+  });
+  AdminState.mortgage.extra_payments.sort(function(a, b) { return a.date.localeCompare(b.date); });
+  markDirty();
+  renderMortgageAdmin();
+  showToast('Extra payment added');
+}
+
+function deleteExtraPayment(idx) {
+  AdminState.mortgage.extra_payments.splice(idx, 1);
+  markDirty();
+  renderMortgageAdmin();
+}
+
+function addActualPayment() {
+  var monthEl = document.getElementById('newApMonth');
+  var amtEl = document.getElementById('newApAmount');
+  var princEl = document.getElementById('newApPrincipal');
+  var intEl = document.getElementById('newApInterest');
+  var month = monthEl.value.trim();
+  var amount = parseFloat(amtEl.value);
+  var principal = parseFloat(princEl.value);
+  var interest = parseFloat(intEl.value);
+
+  monthEl.classList.remove('input-error');
+  amtEl.classList.remove('input-error');
+  princEl.classList.remove('input-error');
+  intEl.classList.remove('input-error');
+
+  if (!/^\d{4}-\d{2}$/.test(month)) { monthEl.classList.add('input-error'); return; }
+  if (isNaN(amount) || amount <= 0) { amtEl.classList.add('input-error'); return; }
+  if (isNaN(principal)) { princEl.classList.add('input-error'); return; }
+  if (isNaN(interest)) { intEl.classList.add('input-error'); return; }
+
+  AdminState.mortgage.actual_payments.push({
+    month: month,
+    amount: amount,
+    principal_paid: principal,
+    interest_paid: interest,
+    notes: document.getElementById('newApNotes').value.trim()
+  });
+  AdminState.mortgage.actual_payments.sort(function(a, b) { return a.month.localeCompare(b.month); });
+  markDirty();
+  renderMortgageAdmin();
+  showToast('Actual payment recorded');
+}
+
+function deleteActualPayment(idx) {
+  AdminState.mortgage.actual_payments.splice(idx, 1);
+  markDirty();
+  renderMortgageAdmin();
+}
+
+function addHouseValuation() {
+  var dateEl = document.getElementById('newHvDate');
+  var valEl = document.getElementById('newHvValue');
+  var date = dateEl.value.trim();
+  var value = parseFloat(valEl.value);
+
+  dateEl.classList.remove('input-error');
+  valEl.classList.remove('input-error');
+
+  if (!/^\d{4}-\d{2}$/.test(date)) { dateEl.classList.add('input-error'); return; }
+  if (isNaN(value) || value <= 0) { valEl.classList.add('input-error'); return; }
+
+  AdminState.mortgage.house_valuations.push({
+    date: date,
+    market_value: value
+  });
+  AdminState.mortgage.house_valuations.sort(function(a, b) { return a.date.localeCompare(b.date); });
+  markDirty();
+  renderMortgageAdmin();
+  showToast('House valuation added');
+}
+
+function deleteHouseValuation(idx) {
+  AdminState.mortgage.house_valuations.splice(idx, 1);
+  markDirty();
+  renderMortgageAdmin();
+}
+
 // --- MonthEnd Tab ---
 
 function getFilteredData() {
@@ -739,21 +1023,28 @@ function renderMonthEnd() {
   if (quickAddAlreadyExists) {
     html += '<p style="color:var(--text-secondary); font-size:13px; margin:0">All accounts for <strong>' + escHtml(defaultMonth) + '</strong> already exist. Use "Add Single Row" below for corrections.</p>';
   } else {
-    html += '<div class="add-form-row" style="margin-bottom:12px">' +
+    var predictions = getPredictions();
+
+    html += '<div class="add-form-row" style="margin-bottom:12px; align-items:center">' +
       '<div class="add-form-field"><label>Month</label><input type="text" id="quickAddMonth" value="' + defaultMonth + '" placeholder="YYYY-MM" style="width:100px"></div>' +
+      '<button class="btn-autofill" id="autoFillBtn" style="margin-left:auto" title="Fill empty fields with predicted values based on recent trends">Auto-Fill Predictions</button>' +
       '</div>' +
       '<div class="admin-table-container"><table class="admin-table" id="quickAddTable"><thead><tr>' +
-      '<th>Account</th><th style="text-align:right">Last Month</th><th style="text-align:right">End Value</th><th style="text-align:right">Net Contribution</th><th>Notes</th>' +
+      '<th>Account</th><th style="text-align:right">Last Month</th><th style="text-align:right">Predicted</th><th style="text-align:right">End Value</th><th style="text-align:right">Net Contribution</th><th>Notes</th>' +
       '</tr></thead><tbody>';
 
     acctIds.forEach(function(id) {
       var prev = lastMonthData[id];
       var prevDisplay = prev !== undefined ? formatQuickAddNum(prev) : '—';
+      var pred = predictions[id];
+      var predDisplay = pred ? formatQuickAddNum(pred.predictedValue) : '—';
+      var predContrib = pred ? pred.predictedContribution : 0;
       html += '<tr>' +
         '<td class="cell-id">' + escHtml(id) + ' <span style="color:var(--text-secondary);font-size:12px">' + escHtml(acctNames[id] || '') + '</span></td>' +
         '<td style="text-align:right; color:var(--text-secondary)">' + prevDisplay + '</td>' +
-        '<td style="text-align:right"><input type="number" step="0.01" class="qa-end-value" data-account="' + escHtml(id) + '" placeholder="0.00" style="width:120px; text-align:right"></td>' +
-        '<td style="text-align:right"><input type="number" step="0.01" class="qa-contribution" data-account="' + escHtml(id) + '" value="0" style="width:120px; text-align:right"></td>' +
+        '<td style="text-align:right; color:var(--primary); font-size:12px" title="Predicted from recent trend">' + predDisplay + '</td>' +
+        '<td style="text-align:right"><input type="number" step="0.01" class="qa-end-value" data-account="' + escHtml(id) + '" data-predicted="' + (pred ? pred.predictedValue : '') + '" placeholder="0.00" style="width:120px; text-align:right"></td>' +
+        '<td style="text-align:right"><input type="number" step="0.01" class="qa-contribution" data-account="' + escHtml(id) + '" data-predicted="' + predContrib + '" value="0" style="width:120px; text-align:right"></td>' +
         '<td><input type="text" class="qa-notes" data-account="' + escHtml(id) + '" placeholder="" style="width:120px"></td>' +
         '</tr>';
     });
@@ -868,6 +1159,12 @@ function renderMonthEnd() {
   if (quickAddBtn) {
     quickAddBtn.addEventListener('click', addQuickMonth);
   }
+
+  // Bind Auto-Fill button
+  var autoFillBtn = document.getElementById('autoFillBtn');
+  if (autoFillBtn) {
+    autoFillBtn.addEventListener('click', autoFillPredictions);
+  }
 }
 
 // --- Quick Add Helpers ---
@@ -884,6 +1181,76 @@ function getLastMonthData() {
     });
   }
   return result;
+}
+
+// Predict next month values from recent history (last 3 months)
+function getPredictions() {
+  var months = [];
+  AdminState.data.forEach(function(r) { if (months.indexOf(r.month) === -1) months.push(r.month); });
+  months.sort();
+  if (months.length < 2) return {};
+
+  var recentMonths = months.slice(-3); // last 3 months
+  var predictions = {};
+
+  AdminState.accounts.forEach(function(a) {
+    var id = a.account_id;
+    var recent = recentMonths.map(function(m) {
+      return AdminState.data.find(function(r) { return r.month === m && r.account_id === id; });
+    }).filter(function(r) { return r; });
+
+    if (recent.length < 2) return;
+
+    // Average monthly change in end_value
+    var changes = [];
+    var contributions = [];
+    for (var i = 1; i < recent.length; i++) {
+      changes.push(recent[i].end_value - recent[i - 1].end_value);
+      contributions.push(recent[i].net_contribution || 0);
+    }
+    var avgChange = changes.reduce(function(s, v) { return s + v; }, 0) / changes.length;
+    var avgContrib = contributions.reduce(function(s, v) { return s + v; }, 0) / contributions.length;
+    var lastValue = recent[recent.length - 1].end_value;
+
+    predictions[id] = {
+      predictedValue: Math.round((lastValue + avgChange) * 100) / 100,
+      predictedContribution: Math.round(avgContrib * 100) / 100,
+      avgChange: avgChange
+    };
+  });
+
+  return predictions;
+}
+
+function autoFillPredictions() {
+  var filled = 0;
+  document.querySelectorAll('.qa-end-value').forEach(function(input) {
+    if (!input.value && input.dataset.predicted) {
+      input.value = input.dataset.predicted;
+      input.classList.add('autofilled');
+      filled++;
+    }
+  });
+  document.querySelectorAll('.qa-contribution').forEach(function(input) {
+    var predicted = parseFloat(input.dataset.predicted);
+    if (!isNaN(predicted) && predicted !== 0 && (input.value === '' || input.value === '0')) {
+      input.value = predicted;
+      input.classList.add('autofilled');
+    }
+  });
+
+  var statusEl = document.getElementById('quickAddStatus');
+  if (statusEl) {
+    statusEl.textContent = filled ? filled + ' fields auto-filled from predictions. Review and adjust.' : 'All fields already have values.';
+    statusEl.style.color = 'var(--primary)';
+  }
+
+  // Remove autofilled indicator on manual edit
+  document.querySelectorAll('.autofilled').forEach(function(input) {
+    input.addEventListener('input', function() {
+      this.classList.remove('autofilled');
+    }, { once: true });
+  });
 }
 
 function formatQuickAddNum(val) {
@@ -1078,6 +1445,9 @@ async function save() {
       budgetItems: AdminState.budgetItems,
       milestones: AdminState.milestones
     };
+    if (AdminState.mortgage) {
+      updated.mortgage = AdminState.mortgage;
+    }
 
     // 2. Encrypt or keep as plain JSON
     var output, filename;

@@ -3,10 +3,17 @@
 
 var NetWorthCalculator = {
   // Build monthly net worth rows from raw data.
-  // Returns array of: { month, total, investments, bank, accounts: { id: value } }
-  compute: function(data, accountIds) {
+  // Returns array of: { month, total, investments, bank, accounts: { id: value }, mortgage_balance?, house_value?, house_equity? }
+  // Optional 3rd param: mortgage object — if provided, integrates mortgage debt and house value.
+  compute: function(data, accountIds, mortgage) {
     var nwData = data.filter(function(r) { return accountIds.indexOf(r.account_id) >= 0; });
     var months = DataService.getUniqueMonths(nwData);
+
+    // Pre-compute mortgage schedule if provided
+    var mortgageSchedule = null;
+    if (mortgage && typeof MortgageCalculator !== 'undefined') {
+      mortgageSchedule = MortgageCalculator.computeSchedule(mortgage);
+    }
 
     return months.map(function(m) {
       var row = { month: m, total: 0, investments: 0, bank: 0, accounts: {} };
@@ -18,6 +25,17 @@ var NetWorthCalculator = {
         if (AccountService.isBroker(a)) row.investments += val;
         if (AccountService.isCash(a)) row.bank += val;
       });
+
+      // Integrate mortgage: subtract debt, add house market value
+      if (mortgage && mortgageSchedule) {
+        var mortgageBalance = MortgageCalculator.getBalanceAtMonth(mortgageSchedule, m, mortgage);
+        var marketValue = MortgageCalculator._getMarketValueAtMonth(mortgage.house_valuations, m);
+        row.mortgage_balance = mortgageBalance;
+        row.house_value = marketValue;
+        row.house_equity = marketValue - mortgageBalance;
+        row.total = row.total - mortgageBalance + marketValue;
+      }
+
       return row;
     });
   },

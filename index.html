@@ -73,12 +73,24 @@
       </div>
     </div>
 
+    <!-- Monthly Summary (collapsible, above tabs) -->
+    <div class="summary-panel" id="summaryPanelWrapper">
+      <div class="collapsible-header" data-panel="summary-panel">
+        <span class="summary-title">Monthly Summary</span>
+        <button class="collapse-toggle"><span class="collapse-chevron">&#9660;</span></button>
+      </div>
+      <div class="collapsible-body">
+        <div id="summaryPanel"></div>
+      </div>
+    </div>
+
     <!-- Navigation tabs -->
     <div class="nav-tabs">
       <button class="nav-tab active" data-tab="investments">Investments</button>
       <button class="nav-tab" data-tab="networth">Net Worth</button>
       <button class="nav-tab" data-tab="goals">Goals</button>
       <button class="nav-tab" data-tab="budget">Budget</button>
+      <button class="nav-tab" data-tab="mortgage">Mortgage</button>
     </div>
 
     <!-- ==================== INVESTMENTS TAB ==================== -->
@@ -195,6 +207,11 @@
       <div id="budgetDetail"></div>
     </div>
 
+    <!-- ==================== MORTGAGE TAB ==================== -->
+    <div class="tab-content" id="tab-mortgage">
+      <div id="mortgageContent"></div>
+    </div>
+
   </div>
 
   <!-- Scripts: lib → data → ui → crypto → app -->
@@ -207,11 +224,16 @@
   <script src="js/data/goals-calc.js"></script>
   <script src="js/data/milestone-calc.js"></script>
   <script src="js/data/budget-calc.js"></script>
+  <script src="js/data/mortgage-calc.js"></script>
+  <script src="js/data/summary-calc.js"></script>
+  <script src="js/data/anomaly-calc.js"></script>
   <script src="js/ui/ui-metrics.js"></script>
   <script src="js/ui/ui-charts.js"></script>
   <script src="js/ui/ui-tables.js"></script>
   <script src="js/ui/ui-goals.js"></script>
   <script src="js/ui/ui-budget.js"></script>
+  <script src="js/ui/ui-mortgage.js"></script>
+  <script src="js/ui/ui-summary.js"></script>
   <script src="js/crypto.js"></script>
   <script src="js/file-manager.js"></script>
   <script src="js/data-cache.js"></script>
