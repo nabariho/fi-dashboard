@@ -670,6 +670,28 @@ function updateDbModeUI() {
   }
 })();
 
+// Export Data (.xlsx) menu item
+(function() {
+  var exportBtn = document.getElementById('menuExportXlsx');
+  if (!exportBtn) return;
+  exportBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    try {
+      var data = {
+        config: appConfig,
+        accounts: accountsConfig,
+        data: allData,
+        budgetItems: budgetItems,
+        milestones: milestonesData,
+        mortgage: mortgageData
+      };
+      DataExport.exportXLSX(data);
+    } catch (err) {
+      alert('Export failed: ' + err.message);
+    }
+  });
+})();
+
 // "Switch to Cloud" menu item (visible when in file mode on dashboard)
 (function() {
   var switchBtn = document.getElementById('menuSwitchCloud');

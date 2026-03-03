@@ -1,7 +1,7 @@
 // === SERVICE WORKER — App Shell Cache ===
 // Caches static assets for offline/instant load. Never caches user data.
 
-var CACHE_NAME = 'fi-shell-v5';
+var CACHE_NAME = 'fi-shell-v6';
 
 var SHELL_ASSETS = [
   './',
@@ -33,6 +33,7 @@ var SHELL_ASSETS = [
   './js/db-service.js',
   './js/storage-manager.js',
   './js/config.js',
+  './js/data-export.js',
   './js/file-manager.js',
   './js/data-cache.js',
   './js/app.js',
@@ -44,7 +45,8 @@ var SHELL_ASSETS = [
 
 var CDN_ASSETS = [
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js'
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+  'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'
 ];
 
 // Install: pre-cache app shell + CDN

@@ -211,6 +211,21 @@ body {
   box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.15);
 }
 
+.auth-field {
+  margin-bottom: 12px;
+}
+
+.auth-field input {
+  margin-bottom: 4px;
+}
+
+.auth-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  padding: 0 4px;
+}
+
 .auth-buttons {
   display: flex;
   gap: 8px;

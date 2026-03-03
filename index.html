@@ -19,8 +19,14 @@
     <h1>Financial Independence Dashboard</h1>
     <div class="auth-form">
       <div class="auth-mode-label">Cloud Mode</div>
-      <input type="email" id="authEmail" placeholder="Email" autocomplete="email">
-      <input type="password" id="authPassphrase" placeholder="Passphrase" autocomplete="current-password">
+      <div class="auth-field">
+        <input type="email" id="authEmail" placeholder="Email" autocomplete="email">
+        <div class="auth-hint">Your account identity. Also used to derive your login key.</div>
+      </div>
+      <div class="auth-field">
+        <input type="password" id="authPassphrase" placeholder="Passphrase" autocomplete="current-password">
+        <div class="auth-hint">Choose a strong passphrase. It derives both your login and your encryption key. The server never sees it.</div>
+      </div>
       <div class="auth-buttons">
         <button id="signInBtn" class="btn-auth btn-auth-primary">Sign In</button>
         <button id="signUpBtn" class="btn-auth btn-auth-secondary">Create Account</button>
@@ -68,6 +74,7 @@
         </button>
         <div class="nav-menu" id="navMenu">
           <a href="admin.html"><span class="nav-menu-icon">&#9881;</span> Edit Data (Admin)</a>
+          <a href="#" id="menuExportXlsx"><span class="nav-menu-icon">&#128230;</span> Export Data (.xlsx)</a>
           <a href="#" id="menuSwitchCloud"><span class="nav-menu-icon">&#9729;</span> Switch to Cloud</a>
           <a href="#" id="menuSignOut" style="display:none;"><span class="nav-menu-icon">&#10149;</span> Sign Out</a>
         </div>
@@ -266,6 +273,8 @@
   <script src="js/db-crypto.js"></script>
   <script src="js/db-service.js"></script>
   <script src="js/storage-manager.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="js/data-export.js"></script>
   <script src="js/app.js"></script>
 
   <script>

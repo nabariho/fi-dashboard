@@ -1685,6 +1685,24 @@ function adminShowUnlockScreen() {
   }
 })();
 
+// Export current admin data as .xlsx
+function exportDataXlsx() {
+  try {
+    var data = {
+      config: AdminState.config,
+      accounts: AdminState.accounts,
+      data: AdminState.data,
+      budgetItems: AdminState.budgetItems,
+      milestones: AdminState.milestones,
+      mortgage: AdminState.mortgage
+    };
+    DataExport.exportXLSX(data);
+    showToast('Exported to fi-dashboard-export.xlsx');
+  } catch (e) {
+    alert('Export failed: ' + e.message);
+  }
+}
+
 // Import from .fjson into DB (admin)
 async function importFileToDb() {
   try {
