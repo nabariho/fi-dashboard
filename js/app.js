@@ -342,11 +342,16 @@ function showDashboard() {
   }
 
   document.getElementById('unlock').style.display = 'none';
+  var authScreen = document.getElementById('authScreen');
+  if (authScreen) authScreen.style.display = 'none';
   document.getElementById('app').style.display = 'block';
 
   // Always show refresh button once dashboard is loaded
   var refreshBtn = document.getElementById('refreshBtn');
   if (refreshBtn) refreshBtn.style.display = '';
+
+  // Toggle cloud/file menu items
+  if (typeof updateDbModeUI === 'function') updateDbModeUI();
 
   refreshFIProgress();
   refreshGoals();
@@ -551,10 +556,13 @@ function setAuthLoading(loading) {
 
 function updateDbModeUI() {
   var signOutBtn = document.getElementById('menuSignOut');
-  var syncStatus = document.getElementById('menuSyncStatus');
+  var switchCloud = document.getElementById('menuSwitchCloud');
   if (StorageManager.mode === 'db') {
     if (signOutBtn) signOutBtn.style.display = '';
-    if (syncStatus) syncStatus.style.display = '';
+    if (switchCloud) switchCloud.style.display = 'none';
+  } else {
+    if (signOutBtn) signOutBtn.style.display = 'none';
+    if (switchCloud) switchCloud.style.display = '';
   }
 }
 
@@ -662,6 +670,21 @@ function updateDbModeUI() {
   }
 })();
 
+// "Switch to Cloud" menu item (visible when in file mode on dashboard)
+(function() {
+  var switchBtn = document.getElementById('menuSwitchCloud');
+  if (!switchBtn) return;
+  switchBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    if (!AppConfig.SUPABASE_URL || !AppConfig.SUPABASE_ANON_KEY) {
+      alert('Cloud sync is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in js/config.js.');
+      return;
+    }
+    document.getElementById('app').style.display = 'none';
+    showAuthScreen();
+  });
+})();
+
 // Sign Out menu item
 (function() {
   var signOutBtn = document.getElementById('menuSignOut');
@@ -671,7 +694,6 @@ function updateDbModeUI() {
     try {
       await StorageManager.signOut();
       StorageManager.setMode('file');
-      // Clear session/cache
       FileManager.clearSession();
       DataCache.clear().catch(function() {});
       location.reload();
