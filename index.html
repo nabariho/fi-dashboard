@@ -14,7 +14,25 @@
   <!-- Offline banner -->
   <div class="offline-banner" id="offlineBanner" style="display:none;">You are offline. Showing cached data.</div>
 
-  <!-- Unlock screen (shown first) -->
+  <!-- Auth screen: Cloud sign-in (shown when DB mode or first visit) -->
+  <div id="authScreen" style="display:none;">
+    <h1>Financial Independence Dashboard</h1>
+    <div class="auth-form">
+      <div class="auth-mode-label">Cloud Mode</div>
+      <input type="email" id="authEmail" placeholder="Email" autocomplete="email">
+      <input type="password" id="authPassphrase" placeholder="Passphrase" autocomplete="current-password">
+      <div class="auth-buttons">
+        <button id="signInBtn" class="btn-auth btn-auth-primary">Sign In</button>
+        <button id="signUpBtn" class="btn-auth btn-auth-secondary">Create Account</button>
+      </div>
+      <div id="authError" class="auth-error"></div>
+      <div class="auth-alt-link">
+        <a href="#" id="useFileLink">Use local file instead</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unlock screen: File mode (shown first in file mode) -->
   <div id="unlock">
     <h1>Financial Independence Dashboard</h1>
     <div class="unlock-form">
@@ -30,6 +48,9 @@
         <button id="decryptBtn">Decrypt & Load</button>
       </div>
       <div id="unlockError"></div>
+      <div class="auth-alt-link">
+        <a href="#" id="useCloudLink">Use cloud sync instead</a>
+      </div>
     </div>
   </div>
 
@@ -47,6 +68,8 @@
         </button>
         <div class="nav-menu" id="navMenu">
           <a href="admin.html"><span class="nav-menu-icon">&#9881;</span> Edit Data (Admin)</a>
+          <a href="#" id="menuSyncStatus" style="display:none;"><span class="nav-menu-icon">&#9729;</span> <span id="syncLabel">Cloud Sync</span></a>
+          <a href="#" id="menuSignOut" style="display:none;"><span class="nav-menu-icon">&#10149;</span> Sign Out</a>
         </div>
       </div>
     </div>
@@ -238,6 +261,11 @@
   <script src="js/file-manager.js"></script>
   <script src="js/data-cache.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/db-crypto.js"></script>
+  <script src="js/db-service.js"></script>
+  <script src="js/storage-manager.js"></script>
   <script src="js/app.js"></script>
 
   <script>

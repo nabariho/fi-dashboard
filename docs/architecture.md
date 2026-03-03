@@ -2,6 +2,7 @@
 
 ## Data Flow
 
+### File Mode (original)
 ```
 [.fjson file in iCloud] → [File API] → [Crypto.decrypt] → [Global State]
                                                                 ↓
@@ -27,6 +28,21 @@
                                                     └────────┬─────────┘
                                                              ↓
                                                          [DOM]
+```
+
+### DB Mode (zero-knowledge cloud)
+```
+[Supabase] → DbService.fetchAllRecords → [encrypted blobs]
+                                                │
+                          DbCrypto.decryptRecord (each)
+                                                │
+                                    reassemble by type
+                                                │
+                          { config, accounts, data, ... }
+                                                │
+                                            loadData()     ← same entry point as file mode
+                                                │
+                                        [Global State → UI]
 ```
 
 ## Module Map
@@ -66,13 +82,58 @@
 
 ### Orchestration (`js/app.js`)
 - Unlock screen: File API + Crypto → populate globals → show dashboard
+- Auth screen: Cloud sign-in → StorageManager.load() → populate globals
 - `refresh*()` functions wire calculators to renderers
 - Event binding for tabs, filters, time ranges
 
-### Encryption (`js/crypto.js` + `cli/crypto.mjs`)
+### Encryption — File Mode (`js/crypto.js` + `cli/crypto.mjs`)
 - AES-256-GCM with PBKDF2 key derivation (100k iterations)
 - Browser uses Web Crypto API, CLI uses Node.js `crypto`
 - Same `.fjson` format — files are interchangeable
+
+### Encryption — DB Mode (`js/db-crypto.js`)
+- Separate crypto module for zero-knowledge database storage
+- `deriveAuthPassword`: PBKDF2 (1 iter, email as salt) → Supabase login password
+- `deriveEncryptionKey`: PBKDF2 (100k iter, random salt) → non-extractable AES-256-GCM key
+- `recordHash`: SHA-256 opaque hash for record identity
+- `encryptRecord`/`decryptRecord`: AES-256-GCM per-record encrypt/decrypt
+- Auth password ≠ encryption key — compromising auth does not reveal data
+
+### Database Service (`js/db-service.js`)
+- Supabase CRUD wrapper — the only module that touches the Supabase client
+- Auth (signUp, signIn, signOut, getSession), vault (getEncSalt), records (fetch, upsert, delete)
+
+### Storage Manager (`js/storage-manager.js`)
+- Unified interface over file and DB modes
+- Diff-based save: compares current vs last-saved record map, upserts only changes
+- Import/export between .fjson files and DB
+- Mode persisted in localStorage (`fi_storage_mode`)
+
+### Configuration (`js/config.js`)
+- Supabase URL and anon key (safe to expose — RLS protects data)
+
+### Cache (`js/data-cache.js`)
+- IDB v3: `cache` (file mode), `dir_handles`, `vault_cache` (encrypted DB records), `pending_sync`
+- No plaintext passphrase stored in IDB
+
+## Database Schema (Supabase)
+
+See `supabase-schema.sql` for the full SQL. Two tables:
+
+- `user_vaults`: `user_id` (PK), `enc_salt` (random 16-byte base64)
+- `vault_records`: `user_id`, `record_hash` (opaque SHA-256 hex), `iv`, `data` (AES-256-GCM ciphertext)
+
+RLS policies ensure users can only access their own rows. The server never sees plaintext.
+
+### Record types stored in DB
+| type | natural_key | example |
+|------|-------------|---------|
+| `config` | `main` | Single config record |
+| `account` | `BROKER_A` | One per account |
+| `monthend` | `2024-01\|BROKER_A` | One per month+account |
+| `budget` | `rent` | One per budget item |
+| `milestone` | `end_2026` | One per milestone |
+| `mortgage` | `main` | 0 or 1 |
 
 ## Data Format (`.fjson`)
 

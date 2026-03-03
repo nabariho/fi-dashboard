@@ -528,6 +528,159 @@ document.getElementById('passphrase').addEventListener('keydown', function(e) {
   });
 })();
 
+// --- Cloud Auth Screen ---
+
+function showAuthScreen() {
+  document.getElementById('unlock').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('authScreen').style.display = '';
+}
+
+function showUnlockScreen() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('unlock').style.display = '';
+}
+
+function setAuthLoading(loading) {
+  var signInBtn = document.getElementById('signInBtn');
+  var signUpBtn = document.getElementById('signUpBtn');
+  if (signInBtn) { signInBtn.disabled = loading; signInBtn.textContent = loading ? 'Signing in...' : 'Sign In'; }
+  if (signUpBtn) { signUpBtn.disabled = loading; }
+}
+
+function updateDbModeUI() {
+  var signOutBtn = document.getElementById('menuSignOut');
+  var syncStatus = document.getElementById('menuSyncStatus');
+  if (StorageManager.mode === 'db') {
+    if (signOutBtn) signOutBtn.style.display = '';
+    if (syncStatus) syncStatus.style.display = '';
+  }
+}
+
+// "Use cloud sync instead" link on unlock screen
+(function() {
+  var cloudLink = document.getElementById('useCloudLink');
+  if (cloudLink) {
+    cloudLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!AppConfig.SUPABASE_URL || !AppConfig.SUPABASE_ANON_KEY) {
+        alert('Cloud sync is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY in js/config.js.');
+        return;
+      }
+      showAuthScreen();
+    });
+  }
+})();
+
+// "Use local file instead" link on auth screen
+(function() {
+  var fileLink = document.getElementById('useFileLink');
+  if (fileLink) {
+    fileLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      StorageManager.setMode('file');
+      showUnlockScreen();
+    });
+  }
+})();
+
+// Sign In button
+(function() {
+  var signInBtn = document.getElementById('signInBtn');
+  if (!signInBtn) return;
+  signInBtn.addEventListener('click', async function() {
+    var email = document.getElementById('authEmail').value.trim();
+    var pass = document.getElementById('authPassphrase').value;
+    var errorEl = document.getElementById('authError');
+    errorEl.textContent = '';
+
+    if (!email || !pass) { errorEl.textContent = 'Please enter email and passphrase.'; return; }
+
+    setAuthLoading(true);
+    try {
+      StorageManager.init('db');
+      await StorageManager.signIn(email, pass);
+      var data = await StorageManager.load();
+      loadData(data);
+      // Stash for same-tab navigation
+      FileManager.stashToSession({
+        decryptedData: data, storageMode: 'db',
+        passphrase: null, wasEncrypted: false, originalFileText: null, filename: null
+      });
+      showDashboard();
+      updateDbModeUI();
+    } catch (e) {
+      errorEl.textContent = e.message || 'Sign in failed.';
+      setAuthLoading(false);
+    }
+  });
+})();
+
+// Sign Up button
+(function() {
+  var signUpBtn = document.getElementById('signUpBtn');
+  if (!signUpBtn) return;
+  signUpBtn.addEventListener('click', async function() {
+    var email = document.getElementById('authEmail').value.trim();
+    var pass = document.getElementById('authPassphrase').value;
+    var errorEl = document.getElementById('authError');
+    errorEl.textContent = '';
+
+    if (!email || !pass) { errorEl.textContent = 'Please enter email and passphrase.'; return; }
+    if (pass.length < 8) { errorEl.textContent = 'Passphrase must be at least 8 characters.'; return; }
+
+    this.disabled = true;
+    this.textContent = 'Creating...';
+    try {
+      StorageManager.init('db');
+      await StorageManager.signUp(email, pass);
+      // New account — load empty data
+      var data = await StorageManager.load();
+      loadData(data);
+      FileManager.stashToSession({
+        decryptedData: data, storageMode: 'db',
+        passphrase: null, wasEncrypted: false, originalFileText: null, filename: null
+      });
+      showDashboard();
+      updateDbModeUI();
+    } catch (e) {
+      errorEl.textContent = e.message || 'Sign up failed.';
+      this.disabled = false;
+      this.textContent = 'Create Account';
+    }
+  });
+})();
+
+// Allow Enter in auth passphrase field
+(function() {
+  var authPass = document.getElementById('authPassphrase');
+  if (authPass) {
+    authPass.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('signInBtn').click();
+    });
+  }
+})();
+
+// Sign Out menu item
+(function() {
+  var signOutBtn = document.getElementById('menuSignOut');
+  if (!signOutBtn) return;
+  signOutBtn.addEventListener('click', async function(e) {
+    e.preventDefault();
+    try {
+      await StorageManager.signOut();
+      StorageManager.setMode('file');
+      // Clear session/cache
+      FileManager.clearSession();
+      DataCache.clear().catch(function() {});
+      location.reload();
+    } catch (err) {
+      alert('Sign out failed: ' + err.message);
+    }
+  });
+})();
+
 // Collapsible panels (FI progress, Goals)
 (function() {
   document.querySelectorAll('.collapsible-header').forEach(function(header) {
@@ -602,18 +755,47 @@ if (!navigator.onLine) {
   document.getElementById('offlineBanner').style.display = '';
 }
 
-// Auto-restore: sessionStorage → IndexedDB → unlock screen
+// Auto-restore: DB session → sessionStorage → IndexedDB → unlock/auth screen
 (async function() {
-  // 1. Try sessionStorage (same-tab navigation)
+  var persistedMode = (typeof StorageManager !== 'undefined') ? StorageManager.getPersistedMode() : 'file';
+
+  // 0. DB mode: try restoring Supabase session
+  if (persistedMode === 'db' && typeof StorageManager !== 'undefined' && AppConfig.SUPABASE_URL && AppConfig.SUPABASE_ANON_KEY) {
+    try {
+      StorageManager.init('db');
+      var hasSession = await StorageManager.hasSession();
+      if (hasSession) {
+        // We have a session but need passphrase to derive encryption key.
+        // Try sessionStorage first for cached passphrase.
+        var sessionData = FileManager.loadFromSession();
+        if (sessionData && sessionData.decryptedData && sessionData.storageMode === 'db') {
+          loadData(sessionData.decryptedData);
+          showDashboard();
+          updateDbModeUI();
+          return;
+        }
+        // No cached passphrase — need to re-authenticate
+        showAuthScreen();
+        return;
+      }
+    } catch (e) {
+      // Session expired or error — fall through
+    }
+    // No valid session — show auth screen
+    showAuthScreen();
+    return;
+  }
+
+  // 1. Try sessionStorage (same-tab navigation, file mode)
   var session = FileManager.loadFromSession();
-  if (session && session.decryptedData) {
+  if (session && session.decryptedData && (!session.storageMode || session.storageMode === 'file')) {
     _cachedPassphrase = session.passphrase || null;
     loadData(session.decryptedData);
     showDashboard();
     return;
   }
 
-  // 2. Try IndexedDB (returning visit)
+  // 2. Try IndexedDB (returning visit, file mode)
   try {
     var cached = await DataCache.load();
     if (cached && cached.decryptedData) {
@@ -628,5 +810,5 @@ if (!navigator.onLine) {
     // IndexedDB unavailable — fall through to unlock
   }
 
-  // 3. Show unlock screen (first visit)
+  // 3. Show unlock screen (first visit, file mode)
 })();

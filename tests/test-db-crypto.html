@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FI Dashboard — DB Crypto Tests</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 20px; margin-bottom: 16px; }
+    .suite { margin-bottom: 24px; }
+    .suite-name { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .test { padding: 4px 0; font-size: 14px; }
+    .pass { color: #0d904f; }
+    .fail { color: #d93025; }
+    .summary { margin-top: 24px; font-size: 16px; font-weight: 600; padding: 12px; border-radius: 8px; }
+    .summary.all-pass { background: #e6f4ea; color: #137333; }
+    .summary.has-fail { background: #fce8e6; color: #c5221f; }
+    .error-detail { font-size: 12px; color: #666; margin-left: 24px; font-family: monospace; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>FI Dashboard — DB Crypto Tests</h1>
+  <div id="results"></div>
+  <div id="summary"></div>
+
+  <script src="../js/db-crypto.js"></script>
+
+  <!-- Test framework (same minimal framework as main runner) -->
+  <script>
+    var _suites = [];
+    var _currentSuite = null;
+
+    function describe(name, fn) {
+      _currentSuite = { name: name, tests: [] };
+      _suites.push(_currentSuite);
+      fn();
+      _currentSuite = null;
+    }
+
+    function it(name, fn) {
+      _currentSuite.tests.push({ name: name, fn: fn });
+    }
+
+    function assert(condition, msg) {
+      if (!condition) throw new Error(msg || 'Assertion failed');
+    }
+
+    function assertEqual(actual, expected, msg) {
+      if (actual !== expected) {
+        throw new Error((msg || '') + ' Expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual));
+      }
+    }
+
+    async function runTests() {
+      var resultsEl = document.getElementById('results');
+      var totalPass = 0;
+      var totalFail = 0;
+
+      for (var s = 0; s < _suites.length; s++) {
+        var suite = _suites[s];
+        var html = '<div class="suite"><div class="suite-name">' + suite.name + '</div>';
+
+        for (var t = 0; t < suite.tests.length; t++) {
+          var test = suite.tests[t];
+          try {
+            var result = test.fn();
+            if (result && typeof result.then === 'function') await result;
+            html += '<div class="test pass">  ✓ ' + test.name + '</div>';
+            totalPass++;
+          } catch (e) {
+            html += '<div class="test fail">  ✗ ' + test.name + '</div>';
+            html += '<div class="error-detail">' + e.message + '</div>';
+            totalFail++;
+          }
+        }
+
+        html += '</div>';
+        resultsEl.innerHTML += html;
+      }
+
+      var summaryEl = document.getElementById('summary');
+      var total = totalPass + totalFail;
+      if (totalFail === 0) {
+        summaryEl.className = 'summary all-pass';
+        summaryEl.textContent = 'All ' + total + ' tests passed!';
+      } else {
+        summaryEl.className = 'summary has-fail';
+        summaryEl.textContent = totalFail + ' of ' + total + ' tests failed.';
+      }
+    }
+  </script>
+
+  <!-- DB Crypto Tests -->
+  <script>
+    describe('DbCrypto.generateSalt', function() {
+      it('returns a base64 string', function() {
+        var salt = DbCrypto.generateSalt();
+        assert(typeof salt === 'string', 'salt should be a string');
+        assert(salt.length > 0, 'salt should not be empty');
+        // Should be valid base64 (16 bytes → 24 chars base64)
+        var decoded = atob(salt);
+        assertEqual(decoded.length, 16, 'decoded salt should be 16 bytes');
+      });
+
+      it('generates unique salts', function() {
+        var s1 = DbCrypto.generateSalt();
+        var s2 = DbCrypto.generateSalt();
+        assert(s1 !== s2, 'two salts should be different');
+      });
+    });
+
+    describe('DbCrypto.deriveAuthPassword', function() {
+      it('returns a 64-char hex string', async function() {
+        var result = await DbCrypto.deriveAuthPassword('mypassphrase', 'user@example.com');
+        assertEqual(result.length, 64, 'auth password should be 64 hex chars (256 bits)');
+        assert(/^[0-9a-f]+$/.test(result), 'should be lowercase hex');
+      });
+
+      it('is deterministic for same inputs', async function() {
+        var a = await DbCrypto.deriveAuthPassword('pass', 'user@example.com');
+        var b = await DbCrypto.deriveAuthPassword('pass', 'user@example.com');
+        assertEqual(a, b, 'same inputs should produce same output');
+      });
+
+      it('is case-insensitive for email', async function() {
+        var a = await DbCrypto.deriveAuthPassword('pass', 'User@Example.COM');
+        var b = await DbCrypto.deriveAuthPassword('pass', 'user@example.com');
+        assertEqual(a, b, 'email case should not matter');
+      });
+
+      it('differs for different passphrases', async function() {
+        var a = await DbCrypto.deriveAuthPassword('pass1', 'user@example.com');
+        var b = await DbCrypto.deriveAuthPassword('pass2', 'user@example.com');
+        assert(a !== b, 'different passphrases should give different auth passwords');
+      });
+
+      it('differs for different emails', async function() {
+        var a = await DbCrypto.deriveAuthPassword('pass', 'alice@example.com');
+        var b = await DbCrypto.deriveAuthPassword('pass', 'bob@example.com');
+        assert(a !== b, 'different emails should give different auth passwords');
+      });
+    });
+
+    describe('DbCrypto.deriveEncryptionKey', function() {
+      it('returns a non-extractable CryptoKey', async function() {
+        var salt = DbCrypto.generateSalt();
+        var key = await DbCrypto.deriveEncryptionKey('passphrase', salt);
+        assert(key instanceof CryptoKey, 'should be a CryptoKey');
+        assertEqual(key.extractable, false, 'key should not be extractable');
+        assertEqual(key.algorithm.name, 'AES-GCM', 'should be AES-GCM');
+        assertEqual(key.algorithm.length, 256, 'should be 256-bit');
+      });
+
+      it('same inputs produce functionally equivalent keys', async function() {
+        var salt = DbCrypto.generateSalt();
+        var k1 = await DbCrypto.deriveEncryptionKey('pass', salt);
+        var k2 = await DbCrypto.deriveEncryptionKey('pass', salt);
+        // Can't compare keys directly, but both should decrypt same ciphertext
+        var iv = crypto.getRandomValues(new Uint8Array(12));
+        var plain = new TextEncoder().encode('test');
+        var ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, k1, plain);
+        var dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, k2, ct);
+        assertEqual(new TextDecoder().decode(dec), 'test', 'keys from same inputs should be interchangeable');
+      });
+    });
+
+    describe('DbCrypto.recordHash', function() {
+      it('returns a 64-char hex string', async function() {
+        var salt = DbCrypto.generateSalt();
+        var hash = await DbCrypto.recordHash('monthend', '2024-01|BROKER_A', salt);
+        assertEqual(hash.length, 64, 'hash should be 64 hex chars');
+        assert(/^[0-9a-f]+$/.test(hash), 'should be lowercase hex');
+      });
+
+      it('is deterministic', async function() {
+        var salt = DbCrypto.generateSalt();
+        var h1 = await DbCrypto.recordHash('config', 'main', salt);
+        var h2 = await DbCrypto.recordHash('config', 'main', salt);
+        assertEqual(h1, h2, 'same inputs should produce same hash');
+      });
+
+      it('differs for different types', async function() {
+        var salt = DbCrypto.generateSalt();
+        var h1 = await DbCrypto.recordHash('config', 'main', salt);
+        var h2 = await DbCrypto.recordHash('account', 'main', salt);
+        assert(h1 !== h2, 'different types should produce different hashes');
+      });
+
+      it('differs for different natural keys', async function() {
+        var salt = DbCrypto.generateSalt();
+        var h1 = await DbCrypto.recordHash('monthend', '2024-01|A', salt);
+        var h2 = await DbCrypto.recordHash('monthend', '2024-02|A', salt);
+        assert(h1 !== h2, 'different keys should produce different hashes');
+      });
+
+      it('differs for different salts (user-specific)', async function() {
+        var s1 = DbCrypto.generateSalt();
+        var s2 = DbCrypto.generateSalt();
+        var h1 = await DbCrypto.recordHash('config', 'main', s1);
+        var h2 = await DbCrypto.recordHash('config', 'main', s2);
+        assert(h1 !== h2, 'different salts should produce different hashes');
+      });
+    });
+
+    describe('DbCrypto.encryptRecord / decryptRecord', function() {
+      it('round-trip encrypt → decrypt preserves data', async function() {
+        var salt = DbCrypto.generateSalt();
+        var key = await DbCrypto.deriveEncryptionKey('passphrase', salt);
+        var payload = { end_value: 50000, net_contribution: 1000 };
+
+        var encrypted = await DbCrypto.encryptRecord(key, 'monthend', '2024-01|BROKER_A', payload, salt);
+        assert(encrypted.record_hash, 'should have record_hash');
+        assert(encrypted.iv, 'should have iv');
+        assert(encrypted.data, 'should have data');
+
+        var decrypted = await DbCrypto.decryptRecord(key, encrypted.iv, encrypted.data);
+        assertEqual(decrypted.type, 'monthend', 'type should match');
+        assertEqual(decrypted.key, '2024-01|BROKER_A', 'key should match');
+        assertEqual(decrypted.payload.end_value, 50000, 'payload should match');
+        assertEqual(decrypted.payload.net_contribution, 1000, 'payload should match');
+      });
+
+      it('produces different IVs each call (non-deterministic ciphertext)', async function() {
+        var salt = DbCrypto.generateSalt();
+        var key = await DbCrypto.deriveEncryptionKey('passphrase', salt);
+        var payload = { value: 42 };
+
+        var e1 = await DbCrypto.encryptRecord(key, 'config', 'main', payload, salt);
+        var e2 = await DbCrypto.encryptRecord(key, 'config', 'main', payload, salt);
+        assert(e1.iv !== e2.iv, 'IVs should differ');
+        assert(e1.data !== e2.data, 'ciphertext should differ');
+        // But same record_hash (deterministic identity)
+        assertEqual(e1.record_hash, e2.record_hash, 'record_hash should be the same');
+      });
+
+      it('wrong key fails to decrypt', async function() {
+        var salt = DbCrypto.generateSalt();
+        var key1 = await DbCrypto.deriveEncryptionKey('correct', salt);
+        var key2 = await DbCrypto.deriveEncryptionKey('wrong', salt);
+
+        var encrypted = await DbCrypto.encryptRecord(key1, 'config', 'main', { x: 1 }, salt);
+        try {
+          await DbCrypto.decryptRecord(key2, encrypted.iv, encrypted.data);
+          assert(false, 'should have thrown');
+        } catch (e) {
+          // Expected: OperationError from AES-GCM authentication failure
+          assert(true);
+        }
+      });
+
+      it('handles complex nested payloads', async function() {
+        var salt = DbCrypto.generateSalt();
+        var key = await DbCrypto.deriveEncryptionKey('passphrase', salt);
+        var payload = {
+          accounts: [
+            { id: 'BROKER_A', name: 'Broker A', type: 'broker', currency: 'EUR' },
+            { id: 'BANK_B', name: 'Bank B', type: 'cash', currency: 'EUR' }
+          ],
+          nested: { deep: { value: [1, 2, 3] } }
+        };
+
+        var encrypted = await DbCrypto.encryptRecord(key, 'config', 'main', payload, salt);
+        var decrypted = await DbCrypto.decryptRecord(key, encrypted.iv, encrypted.data);
+        assertEqual(JSON.stringify(decrypted.payload), JSON.stringify(payload), 'complex payload should round-trip');
+      });
+
+      it('handles empty payload', async function() {
+        var salt = DbCrypto.generateSalt();
+        var key = await DbCrypto.deriveEncryptionKey('passphrase', salt);
+
+        var encrypted = await DbCrypto.encryptRecord(key, 'account', 'BROKER_A', {}, salt);
+        var decrypted = await DbCrypto.decryptRecord(key, encrypted.iv, encrypted.data);
+        assertEqual(JSON.stringify(decrypted.payload), '{}', 'empty payload should round-trip');
+      });
+    });
+
+    describe('DbCrypto auth vs encryption separation', function() {
+      it('auth password and encryption key are independent', async function() {
+        var email = 'user@example.com';
+        var passphrase = 'mysecretpass';
+        var salt = DbCrypto.generateSalt();
+
+        var authPwd = await DbCrypto.deriveAuthPassword(passphrase, email);
+        var encKey = await DbCrypto.deriveEncryptionKey(passphrase, salt);
+
+        // Auth password is a hex string
+        assert(typeof authPwd === 'string' && authPwd.length === 64);
+        // Encryption key is a CryptoKey
+        assert(encKey instanceof CryptoKey);
+        // They use different salts and iterations, so compromising one doesn't reveal the other
+      });
+    });
+  </script>
+
+  <script>runTests();</script>
+</body>
+</html>

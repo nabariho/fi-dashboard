@@ -11,7 +11,25 @@
 </head>
 <body class="admin-body">
 
-  <!-- Unlock screen -->
+  <!-- Auth screen: Cloud sign-in -->
+  <div id="authScreen" style="display:none;">
+    <h1>FI Dashboard — Admin</h1>
+    <div class="auth-form">
+      <div class="auth-mode-label">Cloud Mode</div>
+      <input type="email" id="authEmail" placeholder="Email" autocomplete="email">
+      <input type="password" id="authPassphrase" placeholder="Passphrase" autocomplete="current-password">
+      <div class="auth-buttons">
+        <button id="signInBtn" class="btn-auth btn-auth-primary">Sign In</button>
+        <button id="signUpBtn" class="btn-auth btn-auth-secondary">Create Account</button>
+      </div>
+      <div id="authError" class="auth-error"></div>
+      <div class="auth-alt-link">
+        <a href="#" id="useFileLink">Use local file instead</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unlock screen: File mode -->
   <div id="unlock">
     <h1>FI Dashboard — Admin</h1>
     <div class="unlock-form">
@@ -27,6 +45,9 @@
         <button id="decryptBtn">Decrypt & Load</button>
       </div>
       <div id="unlockError"></div>
+      <div class="auth-alt-link">
+        <a href="#" id="useCloudLink">Use cloud sync instead</a>
+      </div>
     </div>
   </div>
 
@@ -36,6 +57,10 @@
     <div class="admin-header">
       <h1>FI Dashboard — Admin</h1>
       <div class="header-links">
+        <span id="adminDbActions" style="display:none;">
+          <button class="btn-import" onclick="importFileToDb()">Import .fjson</button>
+          <button class="btn-export" onclick="exportDbToFile()">Export .fjson</button>
+        </span>
         <a href="index.html">Back to Dashboard</a>
       </div>
     </div>
@@ -98,6 +123,11 @@
   <script src="js/crypto.js"></script>
   <script src="js/file-manager.js"></script>
   <script src="js/data-cache.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/db-crypto.js"></script>
+  <script src="js/db-service.js"></script>
+  <script src="js/storage-manager.js"></script>
   <script src="js/admin.js"></script>
 
   <script>

@@ -26,6 +26,24 @@ body.admin-body { padding-bottom: 80px; }
 
 .admin-header a:hover { text-decoration: underline; }
 
+/* === IMPORT / EXPORT BUTTONS === */
+.btn-import, .btn-export {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-import:hover, .btn-export:hover {
+  background: var(--bg);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 /* === TAB BADGES (item counts) === */
 .admin-tabs {
   display: flex;

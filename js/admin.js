@@ -26,7 +26,8 @@ var AdminState = {
   dirty: false,
   activeTab: 'config',
   filterAccount: 'ALL',
-  filterMonths: 24
+  filterMonths: 24,
+  storageMode: 'file'  // 'file' or 'db'
 };
 
 function markDirty() {
@@ -181,7 +182,12 @@ function loadAdminData(data) {
 
 function showAdmin() {
   document.getElementById('unlock').style.display = 'none';
+  var authScreen = document.getElementById('authScreen');
+  if (authScreen) authScreen.style.display = 'none';
   document.getElementById('adminApp').style.display = 'block';
+  // Show import/export buttons in DB mode
+  var dbActions = document.getElementById('adminDbActions');
+  if (dbActions && AdminState.storageMode === 'db') dbActions.style.display = '';
   updateTabBadges();
   bindAdminEvents();
   renderActiveTab();
@@ -1478,57 +1484,78 @@ async function save() {
       updated.mortgage = AdminState.mortgage;
     }
 
-    // 2. Encrypt or keep as plain JSON
-    var output, filename;
-    if (AdminState.wasEncrypted) {
-      var encrypted = await Crypto.encrypt(updated, AdminState.passphrase);
-      output = JSON.stringify(encrypted);
-      filename = AdminState.filename || 'fi-data.fjson';
+    // --- DB MODE: use StorageManager ---
+    if (AdminState.storageMode === 'db') {
+      var result = await StorageManager.save(updated);
+      // Also stash to session for fast page navigation
+      var dbStash = {
+        decryptedData: updated,
+        storageMode: 'db',
+        passphrase: null,
+        wasEncrypted: false,
+        originalFileText: null,
+        filename: null
+      };
+      FileManager.stashToSession(dbStash);
+
+      AdminState.dirty = false;
+      document.querySelector('.dirty-indicator').classList.remove('visible');
+      showToast('Synced (' + result.upserted + ' updated, ' + result.deleted + ' deleted)');
     } else {
-      output = JSON.stringify(updated, null, 2);
-      filename = AdminState.filename || 'fi-data.json';
-    }
+      // --- FILE MODE: existing flow ---
 
-    // 3. Save to IDB + sessionStorage first (working copy)
-    AdminState.originalFileText = output;
-    var stashData = {
-      decryptedData: updated,
-      passphrase: AdminState.passphrase,
-      wasEncrypted: AdminState.wasEncrypted,
-      originalFileText: output,
-      filename: filename
-    };
-    FileManager.stashToSession(stashData);
-    await DataCache.save(stashData);
-
-    AdminState.dirty = false;
-    document.querySelector('.dirty-indicator').classList.remove('visible');
-
-    // 4. Write to file/directory (Chrome) or export download (Safari)
-    var toastMsg = 'Saved';
-    if (typeof window.showOpenFilePicker === 'function') {
-      // File System Access API available (Chrome/Edge)
-      try {
-        var method = await FileManager.save(output, filename);
-        if (method === 'handle') {
-          toastMsg = 'Saved to ' + filename;
-        } else if (method === 'directory') {
-          toastMsg = 'Saved to folder';
-        }
-      } catch (e) {
-        if (e.name === 'AbortError') {
-          toastMsg = 'Saved (folder selection cancelled)';
-        } else {
-          throw e;
-        }
+      // 2. Encrypt or keep as plain JSON
+      var output, filename;
+      if (AdminState.wasEncrypted) {
+        var encrypted = await Crypto.encrypt(updated, AdminState.passphrase);
+        output = JSON.stringify(encrypted);
+        filename = AdminState.filename || 'fi-data.fjson';
+      } else {
+        output = JSON.stringify(updated, null, 2);
+        filename = AdminState.filename || 'fi-data.json';
       }
-    } else if (AdminState.config.auto_export) {
-      // No File System Access (Safari/iOS) — download if auto_export enabled
-      FileManager.export(output, filename);
-      toastMsg = 'Saved \u2014 export downloaded';
-    }
 
-    showToast(toastMsg);
+      // 3. Save to IDB + sessionStorage first (working copy)
+      AdminState.originalFileText = output;
+      var stashData = {
+        decryptedData: updated,
+        passphrase: AdminState.passphrase,
+        wasEncrypted: AdminState.wasEncrypted,
+        originalFileText: output,
+        filename: filename
+      };
+      FileManager.stashToSession(stashData);
+      await DataCache.save(stashData);
+
+      AdminState.dirty = false;
+      document.querySelector('.dirty-indicator').classList.remove('visible');
+
+      // 4. Write to file/directory (Chrome) or export download (Safari)
+      var toastMsg = 'Saved';
+      if (typeof window.showOpenFilePicker === 'function') {
+        // File System Access API available (Chrome/Edge)
+        try {
+          var method = await FileManager.save(output, filename);
+          if (method === 'handle') {
+            toastMsg = 'Saved to ' + filename;
+          } else if (method === 'directory') {
+            toastMsg = 'Saved to folder';
+          }
+        } catch (e) {
+          if (e.name === 'AbortError') {
+            toastMsg = 'Saved (folder selection cancelled)';
+          } else {
+            throw e;
+          }
+        }
+      } else if (AdminState.config.auto_export) {
+        // No File System Access (Safari/iOS) — download if auto_export enabled
+        FileManager.export(output, filename);
+        toastMsg = 'Saved \u2014 export downloaded';
+      }
+
+      showToast(toastMsg);
+    }
   } catch (e) {
     alert('Save failed: ' + e.message);
   }
@@ -1547,25 +1574,214 @@ function escHtml(str) {
 
 function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
-// Auto-restore: sessionStorage → IndexedDB → unlock screen
+// --- Admin Cloud Auth ---
+
+function adminShowAuthScreen() {
+  document.getElementById('unlock').style.display = 'none';
+  document.getElementById('adminApp').style.display = 'none';
+  document.getElementById('authScreen').style.display = '';
+}
+
+function adminShowUnlockScreen() {
+  var authScreen = document.getElementById('authScreen');
+  if (authScreen) authScreen.style.display = 'none';
+  document.getElementById('adminApp').style.display = 'none';
+  document.getElementById('unlock').style.display = '';
+}
+
+// "Use cloud sync instead" link
+(function() {
+  var cloudLink = document.getElementById('useCloudLink');
+  if (cloudLink) {
+    cloudLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!AppConfig.SUPABASE_URL || !AppConfig.SUPABASE_ANON_KEY) {
+        alert('Cloud sync not configured. Set values in js/config.js.');
+        return;
+      }
+      adminShowAuthScreen();
+    });
+  }
+})();
+
+// "Use local file instead" link
+(function() {
+  var fileLink = document.getElementById('useFileLink');
+  if (fileLink) {
+    fileLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (typeof StorageManager !== 'undefined') StorageManager.setMode('file');
+      adminShowUnlockScreen();
+    });
+  }
+})();
+
+// Sign In button (admin)
+(function() {
+  var signInBtn = document.getElementById('signInBtn');
+  if (!signInBtn) return;
+  signInBtn.addEventListener('click', async function() {
+    var email = document.getElementById('authEmail').value.trim();
+    var pass = document.getElementById('authPassphrase').value;
+    var errorEl = document.getElementById('authError');
+    errorEl.textContent = '';
+
+    if (!email || !pass) { errorEl.textContent = 'Please enter email and passphrase.'; return; }
+
+    signInBtn.disabled = true;
+    signInBtn.textContent = 'Signing in...';
+    try {
+      StorageManager.init('db');
+      await StorageManager.signIn(email, pass);
+      var data = await StorageManager.load();
+      AdminState.storageMode = 'db';
+      loadAdminData(data);
+      showAdmin();
+    } catch (e) {
+      errorEl.textContent = e.message || 'Sign in failed.';
+      signInBtn.disabled = false;
+      signInBtn.textContent = 'Sign In';
+    }
+  });
+})();
+
+// Sign Up button (admin)
+(function() {
+  var signUpBtn = document.getElementById('signUpBtn');
+  if (!signUpBtn) return;
+  signUpBtn.addEventListener('click', async function() {
+    var email = document.getElementById('authEmail').value.trim();
+    var pass = document.getElementById('authPassphrase').value;
+    var errorEl = document.getElementById('authError');
+    errorEl.textContent = '';
+
+    if (!email || !pass) { errorEl.textContent = 'Please enter email and passphrase.'; return; }
+    if (pass.length < 8) { errorEl.textContent = 'Passphrase must be at least 8 characters.'; return; }
+
+    signUpBtn.disabled = true;
+    signUpBtn.textContent = 'Creating...';
+    try {
+      StorageManager.init('db');
+      await StorageManager.signUp(email, pass);
+      var data = await StorageManager.load();
+      AdminState.storageMode = 'db';
+      loadAdminData(data);
+      showAdmin();
+    } catch (e) {
+      errorEl.textContent = e.message || 'Sign up failed.';
+      signUpBtn.disabled = false;
+      signUpBtn.textContent = 'Create Account';
+    }
+  });
+})();
+
+// Enter in auth passphrase
+(function() {
+  var authPass = document.getElementById('authPassphrase');
+  if (authPass) {
+    authPass.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('signInBtn').click();
+    });
+  }
+})();
+
+// Import from .fjson into DB (admin)
+async function importFileToDb() {
+  try {
+    var result = await FileManager.open();
+    var fileData = JSON.parse(result.text);
+    var decrypted;
+
+    if (fileData.config && fileData.accounts && fileData.data && !fileData.v) {
+      decrypted = fileData;
+    } else {
+      var pp = prompt('Enter file passphrase:');
+      if (!pp) return;
+      decrypted = await Crypto.decrypt(fileData, pp);
+    }
+
+    await StorageManager.importFromDecrypted(decrypted);
+    loadAdminData(decrypted);
+    renderActiveTab();
+    showToast('Imported ' + (decrypted.data || []).length + ' month-end records to cloud');
+  } catch (e) {
+    if (e.name !== 'AbortError' && e.message !== 'File selection cancelled') {
+      alert('Import failed: ' + e.message);
+    }
+  }
+}
+
+// Export from DB to .fjson (admin)
+async function exportDbToFile() {
+  try {
+    var data = await StorageManager.exportData();
+    var pp = prompt('Enter passphrase for exported file:');
+    if (!pp) return;
+
+    var encrypted = await Crypto.encrypt(data, pp);
+    var output = JSON.stringify(encrypted);
+    var filename = 'fi-data-export.fjson';
+
+    // Download
+    var blob = new Blob([output], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToast('Exported to ' + filename);
+  } catch (e) {
+    alert('Export failed: ' + e.message);
+  }
+}
+
+// Auto-restore: DB session → sessionStorage → IndexedDB → unlock/auth screen
 (async function() {
+  var persistedMode = (typeof StorageManager !== 'undefined') ? StorageManager.getPersistedMode() : 'file';
+
   function restoreFromSession(session) {
     AdminState.originalFileText = session.originalFileText || null;
     AdminState.filename = session.filename || null;
     AdminState.wasEncrypted = !!session.wasEncrypted;
     AdminState.passphrase = session.passphrase || null;
+    AdminState.storageMode = session.storageMode || 'file';
     loadAdminData(session.decryptedData);
     showAdmin();
   }
 
-  // 1. Try sessionStorage
+  // 0. DB mode: try restoring Supabase session
+  if (persistedMode === 'db' && typeof StorageManager !== 'undefined' && AppConfig.SUPABASE_URL && AppConfig.SUPABASE_ANON_KEY) {
+    try {
+      StorageManager.init('db');
+      var hasSession = await StorageManager.hasSession();
+      if (hasSession) {
+        // Try sessionStorage for cached data
+        var sessionData = FileManager.loadFromSession();
+        if (sessionData && sessionData.decryptedData && sessionData.storageMode === 'db') {
+          AdminState.storageMode = 'db';
+          loadAdminData(sessionData.decryptedData);
+          showAdmin();
+          return;
+        }
+        // Need passphrase — show auth
+        adminShowAuthScreen();
+        return;
+      }
+    } catch (e) { /* fall through */ }
+    adminShowAuthScreen();
+    return;
+  }
+
+  // 1. Try sessionStorage (file mode)
   var session = FileManager.loadFromSession();
-  if (session && session.decryptedData) {
+  if (session && session.decryptedData && (!session.storageMode || session.storageMode === 'file')) {
     restoreFromSession(session);
     return;
   }
 
-  // 2. Try IndexedDB
+  // 2. Try IndexedDB (file mode)
   try {
     var cached = await DataCache.load();
     if (cached && cached.decryptedData) {
@@ -1577,5 +1793,5 @@ function pad2(n) { return n < 10 ? '0' + n : '' + n; }
     // IndexedDB unavailable — fall through to unlock
   }
 
-  // 3. Show unlock screen (first visit)
+  // 3. Show unlock screen (first visit, file mode)
 })();
