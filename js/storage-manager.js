@@ -319,6 +319,11 @@ var StorageManager = (function() {
           return false;
         }
 
+        // Verify the key is a usable CryptoKey by doing a test encrypt
+        var testIv = crypto.getRandomValues(new Uint8Array(12));
+        var testData = new TextEncoder().encode('test');
+        await crypto.subtle.encrypt({ name: 'AES-GCM', iv: testIv }, entry.key, testData);
+
         _userId = session.user.id;
         _encSalt = entry.meta.encSalt;
         _cryptoKey = entry.key;
@@ -327,6 +332,8 @@ var StorageManager = (function() {
 
         return true;
       } catch (e) {
+        // Key is invalid or lost its CryptoKey type after IDB round-trip
+        DataCache.clearSessionKey('db_encryption').catch(function() {});
         return false;
       }
     },

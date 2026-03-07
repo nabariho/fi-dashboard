@@ -936,16 +936,21 @@ if (!navigator.onLine) {
       StorageManager.init('db');
       var hasSession = await StorageManager.hasSession();
       if (hasSession) {
-        // Try sessionStorage first (same-tab navigation)
-        var sessionData = await FileManager.loadFromSession();
-        if (sessionData && sessionData.decryptedData && sessionData.storageMode === 'db') {
-          loadData(sessionData.decryptedData);
-          showDashboard();
-          updateDbModeUI();
-          return;
-        }
-        // Try cached CryptoKey from IDB (cross-page navigation, within TTL)
+        // Restore CryptoKey first (needed for any save operations later)
         var restored = await StorageManager.restoreFromCachedKey();
+
+        // Try sessionStorage for cached data (avoids re-fetching from Supabase)
+        if (restored) {
+          var sessionData = await FileManager.loadFromSession();
+          if (sessionData && sessionData.decryptedData && sessionData.storageMode === 'db') {
+            loadData(sessionData.decryptedData);
+            showDashboard();
+            updateDbModeUI();
+            return;
+          }
+        }
+
+        // CryptoKey restored but no session data — fetch from Supabase
         if (restored) {
           var data = await StorageManager.load();
           loadData(data);

@@ -2066,16 +2066,21 @@ async function exportDbToFile() {
       StorageManager.init('db');
       var hasSession = await StorageManager.hasSession();
       if (hasSession) {
-        // Try sessionStorage for cached data
-        var sessionData = await FileManager.loadFromSession();
-        if (sessionData && sessionData.decryptedData && sessionData.storageMode === 'db') {
-          AdminState.storageMode = 'db';
-          loadAdminData(sessionData.decryptedData);
-          showAdmin();
-          return;
-        }
-        // Try cached CryptoKey from IDB (cross-page navigation, within TTL)
+        // Try cached CryptoKey from IDB first (needed for save operations)
         var restored = await StorageManager.restoreFromCachedKey();
+
+        // Try sessionStorage for cached data (avoids re-fetching from Supabase)
+        if (restored) {
+          var sessionData = await FileManager.loadFromSession();
+          if (sessionData && sessionData.decryptedData && sessionData.storageMode === 'db') {
+            AdminState.storageMode = 'db';
+            loadAdminData(sessionData.decryptedData);
+            showAdmin();
+            return;
+          }
+        }
+
+        // CryptoKey restored but no session data — fetch from Supabase
         if (restored) {
           var data = await StorageManager.load();
           AdminState.storageMode = 'db';
