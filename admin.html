@@ -14,10 +14,10 @@
   <!-- Auth screen: Cloud sign-in -->
   <div id="authScreen" style="display:none;">
     <h1>FI Dashboard — Admin</h1>
-    <form id="adminAuthForm" class="auth-form" autocomplete="on" method="post">
+    <form id="adminAuthForm" class="auth-form" autocomplete="on" method="post" action="/fi-dashboard/admin.html">
       <div class="auth-mode-label">Cloud Mode</div>
       <div class="auth-field">
-        <input type="email" id="authEmail" name="email" placeholder="Email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        <input type="email" id="authEmail" name="username" placeholder="Email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required>
         <div class="auth-hint">Your account identity. Also used to derive your login key.</div>
       </div>
       <div class="auth-field">
@@ -50,7 +50,7 @@
         </div>
       </div>
       <div class="unlock-step disabled" id="passphraseStep">
-        <input type="password" id="passphrase" placeholder="Enter passphrase">
+        <input type="password" id="passphrase" name="file_passphrase" placeholder="Enter passphrase" autocomplete="off" autocapitalize="none" spellcheck="false">
         <button id="decryptBtn">Decrypt & Load</button>
       </div>
       <div id="unlockError"></div>
