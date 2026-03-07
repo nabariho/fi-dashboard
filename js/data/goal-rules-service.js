@@ -100,7 +100,8 @@ var GoalRulesService = {
       shortfall_total: rows.reduce(function(sum, g) { return sum + g.shortfall; }, 0),
       unallocated_surplus: allocation.unallocated_surplus,
       goals: rows,
-      conflicts: conflicts
+      conflicts: conflicts,
+      account_ledger: funding.accountLedger || {}
     };
   }
 };

@@ -75,6 +75,34 @@ var PlannerRenderer = {
     });
 
     html += '</tbody></table></div></div>';
+
+    // Account-level ledger for auditability
+    var ledger = plan.account_ledger || {};
+    var accountIds = Object.keys(ledger).sort();
+    if (accountIds.length) {
+      html += '<div class="table-container"><div class="table-header-row"><h2>Account Ledger Integrity</h2></div>' +
+        '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+        '<th>Account</th><th style="text-align:right">Balance</th><th style="text-align:right">Manual Claims</th>' +
+        '<th style="text-align:right">Tracked Claims</th><th style="text-align:right">Total Claimed</th><th style="text-align:right">Unassigned</th>' +
+        '</tr></thead><tbody>';
+
+      accountIds.forEach(function(accountId) {
+        var row = ledger[accountId];
+        var totalClaimed = (row.manual_claims || 0) + (row.tracked_claims || 0);
+        var over = totalClaimed > (row.balance || 0) + 0.01;
+        html += '<tr>' +
+          '<td>' + AccountService.getName(accountId) + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(row.balance || 0) + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(row.manual_claims || 0) + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(row.tracked_claims || 0) + '</td>' +
+          '<td style="text-align:right" class="' + (over ? 'negative' : 'positive') + '">' + Fmt.currency(totalClaimed) + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(row.unassigned || 0) + '</td>' +
+        '</tr>';
+      });
+
+      html += '</tbody></table></div></div>';
+    }
+
     el.innerHTML = html;
   }
 };
