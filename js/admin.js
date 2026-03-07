@@ -573,6 +573,12 @@ function renderPlanning() {
   var container = document.getElementById('planningTable');
   var goals = AdminState.plannerGoals;
   var accountIds = AdminState.accounts.map(function(a) { return a.account_id; });
+  function fundingSummary(ids) {
+    ids = ids || [];
+    if (!ids.length) return 'Select accounts';
+    if (ids.length <= 2) return ids.join(', ');
+    return ids.length + ' accounts selected';
+  }
   var addGoalAccountChecks = accountIds.map(function(id) {
     return '<label class="acct-check-item"><input type="checkbox" class="new-goal-account-check" value="' + escHtml(id) + '"> ' + escHtml(id) + '</label>';
   }).join('');
@@ -590,7 +596,7 @@ function renderPlanning() {
     '<div class="add-form-field"><label>Target</label><input type="number" step="any" id="newGoalTarget" placeholder="40000" style="width:120px"></div>' +
     '<div class="add-form-field"><label>Current</label><input type="number" step="any" id="newGoalCurrent" placeholder="0" style="width:120px"></div>' +
     '<div class="add-form-field"><label>Target Date</label><input type="month" id="newGoalDate" style="width:130px"></div>' +
-    '<div class="add-form-field"><label>Funding Accounts</label><div id="newGoalFunding" class="acct-checklist">' + addGoalAccountChecks + '</div></div>' +
+    '<div class="add-form-field"><label>Funding Accounts</label><details class="acct-picker" id="newGoalFundingPicker"><summary class="acct-picker-summary" id="newGoalFundingSummary">Select accounts</summary><div id="newGoalFunding" class="acct-checklist">' + addGoalAccountChecks + '</div></details></div>' +
     '<div class="add-form-field"><label>Priority</label><input type="number" step="1" id="newGoalPriority" value="2" style="width:80px"></div>' +
     '<div class="add-form-field"><label>Track from Accounts</label><input type="checkbox" id="newGoalTrackFromAccounts" checked></div>' +
     '<div class="add-form-field"><label>Active</label><input type="checkbox" id="newGoalActive" checked></div>' +
@@ -619,7 +625,7 @@ function renderPlanning() {
       '<td style="text-align:right"><input type="number" step="any" value="' + (g.target_amount || 0) + '" data-idx="' + i + '" data-field="target_amount" class="goal-num" style="width:120px; text-align:right"></td>' +
       '<td style="text-align:right"><input type="number" step="any" value="' + (g.current_amount || 0) + '" data-idx="' + i + '" data-field="current_amount" class="goal-num" style="width:120px; text-align:right"' + (g.track_current_from_accounts !== false ? ' disabled' : '') + '></td>' +
       '<td><input type="month" value="' + escHtml(g.target_date || '') + '" data-idx="' + i + '" data-field="target_date" class="goal-field" style="width:130px"></td>' +
-      '<td><div class="acct-checklist">' + rowAccountChecks + '</div></td>' +
+      '<td><details class="acct-picker"><summary class="acct-picker-summary">' + escHtml(fundingSummary(g.funding_accounts || [])) + '</summary><div class="acct-checklist">' + rowAccountChecks + '</div></details></td>' +
       '<td><input type="number" step="1" value="' + (g.priority || 3) + '" data-idx="' + i + '" data-field="priority" class="goal-int" style="width:70px"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (g.track_current_from_accounts !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-track"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (g.active !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-active"></td>' +
@@ -664,7 +670,18 @@ function renderPlanning() {
         container.querySelectorAll('.goal-accounts-check[data-idx="' + idx + '"]:checked')
       ).map(function(o) { return (o.value || '').trim().toUpperCase(); })
         .filter(function(s) { return !!s; });
+      var summary = this.closest('.acct-picker').querySelector('.acct-picker-summary');
+      if (summary) summary.textContent = fundingSummary(AdminState.plannerGoals[idx].funding_accounts);
       markDirty();
+    });
+  });
+  container.querySelectorAll('.new-goal-account-check').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var selected = Array.prototype.slice.call(container.querySelectorAll('.new-goal-account-check:checked'))
+        .map(function(o) { return (o.value || '').trim().toUpperCase(); })
+        .filter(function(s) { return !!s; });
+      var summary = document.getElementById('newGoalFundingSummary');
+      if (summary) summary.textContent = fundingSummary(selected);
     });
   });
   container.querySelectorAll('.goal-track').forEach(function(el) {
