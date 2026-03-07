@@ -249,15 +249,20 @@ function refreshPlanning() {
   }
 
   var asOfMonth = '2025-01';
+  var latestAccounts = {};
   if (allData.length) {
     var months = allData.map(function(r) { return r.month; }).sort();
     asOfMonth = months[months.length - 1];
+    allData.forEach(function(r) {
+      if (r.month === asOfMonth) latestAccounts[r.account_id] = r.end_value || 0;
+    });
   }
 
   var plan = GoalPlannerCalculator.plan(plannerGoalsData || [], {
     monthlyIncome: monthlyIncome,
     monthlyExpenses: monthlyExpenses,
-    asOfMonth: asOfMonth
+    asOfMonth: asOfMonth,
+    latestAccounts: latestAccounts
   });
 
   PlannerRenderer.render(plan);
@@ -424,6 +429,7 @@ function showDashboard() {
   refreshGoals();
   refreshSummary();
   refreshInvestments();
+  refreshPlanning();
 }
 
 function loadData(data) {
@@ -433,7 +439,12 @@ function loadData(data) {
   budgetItems = data.budgetItems || [];
   milestonesData = data.milestones || [];
   mortgageData = data.mortgage || null;
-  plannerGoalsData = data.plannerGoals || [];
+  plannerGoalsData = (data.plannerGoals || []).map(function(g) {
+    var clone = Object.assign({}, g);
+    clone.funding_accounts = (clone.funding_accounts || []).map(function(id) { return (id || '').toUpperCase(); });
+    if (typeof clone.track_current_from_accounts === 'undefined') clone.track_current_from_accounts = true;
+    return clone;
+  });
 }
 
 // --- Cache Status + Refresh ---

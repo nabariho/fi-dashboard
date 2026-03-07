@@ -102,7 +102,7 @@ var DataExport = (function() {
     XLSX.utils.book_append_sheet(wb, wsBudget, 'Budget');
 
     // --- Planner goals sheet ---
-    var plannerRows = [['goal_id', 'name', 'target_amount', 'current_amount', 'target_date', 'priority', 'active']];
+    var plannerRows = [['goal_id', 'name', 'target_amount', 'current_amount', 'target_date', 'priority', 'active', 'track_current_from_accounts', 'funding_accounts_csv']];
     var plannerGoals = data.plannerGoals || [];
     for (var pg = 0; pg < plannerGoals.length; pg++) {
       var g = plannerGoals[pg];
@@ -113,11 +113,13 @@ var DataExport = (function() {
         g.current_amount || 0,
         g.target_date || '',
         g.priority || 3,
-        g.active !== false
+        g.active !== false,
+        g.track_current_from_accounts !== false,
+        (g.funding_accounts || []).join(',')
       ]);
     }
     var wsPlanner = XLSX.utils.aoa_to_sheet(plannerRows);
-    wsPlanner['!cols'] = [{ wch: 18 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 9 }, { wch: 8 }];
+    wsPlanner['!cols'] = [{ wch: 18 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 9 }, { wch: 8 }, { wch: 16 }, { wch: 28 }];
     XLSX.utils.book_append_sheet(wb, wsPlanner, 'Planner');
 
     // --- Milestones sheet ---

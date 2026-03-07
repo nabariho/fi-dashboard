@@ -7,12 +7,14 @@ var PlannerRenderer = {
     if (status === 'on_track') return 'On Track';
     if (status === 'at_risk') return 'At Risk';
     if (status === 'unfundable') return 'Unfundable';
+    if (status === 'source_conflict') return 'Source Conflict';
+    if (status === 'invalid_source') return 'Invalid Source';
     return 'Pending';
   },
 
   _statusClass: function(status) {
     if (status === 'funded' || status === 'on_track') return 'positive';
-    if (status === 'at_risk' || status === 'unfundable') return 'negative';
+    if (status === 'at_risk' || status === 'unfundable' || status === 'source_conflict' || status === 'invalid_source') return 'negative';
     return '';
   },
 
@@ -41,7 +43,7 @@ var PlannerRenderer = {
       html += '<div class="summary-alerts">';
       plan.conflicts.forEach(function(g) {
         html += '<div class="summary-alert summary-alert-warning">' +
-          '&#9888; ' + g.name + ': shortfall ' + Fmt.currency(g.shortfall) + '/mo at priority ' + g.priority +
+          '&#9888; ' + g.message +
           '</div>';
       });
       html += '</div>';
@@ -49,16 +51,19 @@ var PlannerRenderer = {
 
     html += '<div class="table-container"><div class="table-header-row"><h2>Goal Funding Plan</h2></div>' +
       '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th>Goal</th><th>Priority</th><th>Target Date</th><th style="text-align:right">Remaining</th>' +
+      '<th>Goal</th><th>Priority</th><th>Funding Accounts</th><th style="text-align:right">Source Balance</th><th>Target Date</th><th style="text-align:right">Remaining</th>' +
       '<th style="text-align:right">Required/mo</th><th style="text-align:right">Allocated/mo</th>' +
       '<th style="text-align:right">Shortfall</th><th>Status</th><th>Projected Completion</th>' +
       '</tr></thead><tbody>';
 
     plan.goals.forEach(function(g) {
       var cls = PlannerRenderer._statusClass(g.status);
+      var sources = (g.funding_accounts || []).length ? g.funding_accounts.map(function(id) { return AccountService.getName(id); }).join(', ') : '-';
       html += '<tr>' +
         '<td>' + g.name + '</td>' +
         '<td>P' + g.priority + '</td>' +
+        '<td>' + sources + '</td>' +
+        '<td style="text-align:right">' + Fmt.currency(g.source_balance || 0) + '</td>' +
         '<td>' + (g.target_date || '-') + '</td>' +
         '<td style="text-align:right">' + Fmt.currency(g.remaining) + '</td>' +
         '<td style="text-align:right">' + Fmt.currency(g.required_monthly) + '</td>' +

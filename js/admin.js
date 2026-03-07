@@ -169,7 +169,12 @@ function loadAdminData(data) {
   AdminState.accounts = (data.accounts || []).map(function(a) { return Object.assign({}, a); });
   AdminState.data = (data.data || []).map(function(r) { return Object.assign({}, r); });
   AdminState.budgetItems = (data.budgetItems || []).map(function(b) { return Object.assign({}, b); });
-  AdminState.plannerGoals = (data.plannerGoals || []).map(function(g) { return Object.assign({}, g); });
+  AdminState.plannerGoals = (data.plannerGoals || []).map(function(g) {
+    var clone = Object.assign({}, g);
+    clone.funding_accounts = (clone.funding_accounts || []).map(function(id) { return (id || '').toUpperCase(); });
+    if (typeof clone.track_current_from_accounts === 'undefined') clone.track_current_from_accounts = true;
+    return clone;
+  });
   AdminState.milestones = (data.milestones || []).map(function(m) {
     return Object.assign({}, m, { sub_targets: (m.sub_targets || []).map(function(s) { return Object.assign({}, s); }) });
   });
@@ -567,10 +572,11 @@ function addBudget() {
 function renderPlanning() {
   var container = document.getElementById('planningTable');
   var goals = AdminState.plannerGoals;
+  var accountIds = AdminState.accounts.map(function(a) { return a.account_id; });
 
   var html = '<div class="section-header">' +
     '<h2>Goal Planning</h2>' +
-    '<p class="section-desc">Define goals with priority and target date. Monthly funding plan is computed in the Dashboard Planning tab using monthly income minus budget expenses.</p>' +
+    '<p class="section-desc">Define goals with priority, target date, and funding accounts. You can track current amount from account balances for accountability.</p>' +
     '</div>';
 
   html += '<div class="add-form-card">' +
@@ -581,13 +587,17 @@ function renderPlanning() {
     '<div class="add-form-field"><label>Target</label><input type="number" step="any" id="newGoalTarget" placeholder="40000" style="width:120px"></div>' +
     '<div class="add-form-field"><label>Current</label><input type="number" step="any" id="newGoalCurrent" placeholder="0" style="width:120px"></div>' +
     '<div class="add-form-field"><label>Target Date</label><input type="text" id="newGoalDate" placeholder="YYYY-MM" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Funding Accounts (CSV)</label><input type="text" id="newGoalFunding" placeholder="TRADE_REPUBLIC,BBVA" style="width:220px"></div>' +
     '<div class="add-form-field"><label>Priority</label><input type="number" step="1" id="newGoalPriority" value="2" style="width:80px"></div>' +
+    '<div class="add-form-field"><label>Track from Accounts</label><input type="checkbox" id="newGoalTrackFromAccounts" checked></div>' +
     '<div class="add-form-field"><label>Active</label><input type="checkbox" id="newGoalActive" checked></div>' +
     '<button class="btn-add" onclick="addPlanningGoal()">Add Goal</button>' +
     '</div></div>';
 
+  html += '<div class="section-desc" style="margin:-6px 0 12px 0">Available accounts: ' + accountIds.join(', ') + '</div>';
+
   html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
-    '<th>ID</th><th>Name</th><th style="text-align:right">Target</th><th style="text-align:right">Current</th><th>Target Date</th><th>Priority</th><th style="text-align:center">Active</th><th></th>' +
+    '<th>ID</th><th>Name</th><th style="text-align:right">Target</th><th style="text-align:right">Current</th><th>Target Date</th><th>Funding Accounts</th><th>Priority</th><th style="text-align:center">Track</th><th style="text-align:center">Active</th><th></th>' +
     '</tr></thead><tbody>';
 
   if (!goals.length) {
@@ -599,9 +609,11 @@ function renderPlanning() {
       '<td class="cell-id">' + escHtml(g.goal_id) + '</td>' +
       '<td><input type="text" value="' + escHtml(g.name || '') + '" data-idx="' + i + '" data-field="name" class="goal-field"></td>' +
       '<td style="text-align:right"><input type="number" step="any" value="' + (g.target_amount || 0) + '" data-idx="' + i + '" data-field="target_amount" class="goal-num" style="width:120px; text-align:right"></td>' +
-      '<td style="text-align:right"><input type="number" step="any" value="' + (g.current_amount || 0) + '" data-idx="' + i + '" data-field="current_amount" class="goal-num" style="width:120px; text-align:right"></td>' +
+      '<td style="text-align:right"><input type="number" step="any" value="' + (g.current_amount || 0) + '" data-idx="' + i + '" data-field="current_amount" class="goal-num" style="width:120px; text-align:right"' + (g.track_current_from_accounts !== false ? ' disabled' : '') + '></td>' +
       '<td><input type="text" value="' + escHtml(g.target_date || '') + '" data-idx="' + i + '" data-field="target_date" class="goal-field" style="width:100px"></td>' +
+      '<td><input type="text" value="' + escHtml((g.funding_accounts || []).join(',')) + '" data-idx="' + i + '" data-field="funding_accounts" class="goal-accounts" style="width:220px"></td>' +
       '<td><input type="number" step="1" value="' + (g.priority || 3) + '" data-idx="' + i + '" data-field="priority" class="goal-int" style="width:70px"></td>' +
+      '<td style="text-align:center"><input type="checkbox"' + (g.track_current_from_accounts !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-track"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (g.active !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-active"></td>' +
       '<td style="width:60px"><button class="btn-delete" data-idx="' + i + '" onclick="deletePlanningGoal(this)">Delete</button></td>' +
       '</tr>';
@@ -637,6 +649,23 @@ function renderPlanning() {
       }
     });
   });
+  container.querySelectorAll('.goal-accounts').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      AdminState.plannerGoals[idx].funding_accounts = this.value.split(',')
+        .map(function(s) { return s.trim().toUpperCase(); })
+        .filter(function(s) { return !!s; });
+      markDirty();
+    });
+  });
+  container.querySelectorAll('.goal-track').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      AdminState.plannerGoals[idx].track_current_from_accounts = this.checked;
+      markDirty();
+      renderPlanning();
+    });
+  });
   container.querySelectorAll('.goal-active').forEach(function(el) {
     el.addEventListener('change', function() {
       var idx = parseInt(this.dataset.idx);
@@ -660,6 +689,9 @@ function addPlanningGoal() {
   var target = parseFloat(targetEl.value);
   var current = parseFloat(currentEl.value || '0');
   var date = dateEl.value.trim();
+  var fundingAccounts = (document.getElementById('newGoalFunding').value || '').split(',')
+    .map(function(s) { return s.trim().toUpperCase(); })
+    .filter(function(s) { return !!s; });
   var priority = parseInt(priorityEl.value || '3');
 
   [idEl, nameEl, targetEl, dateEl, priorityEl].forEach(function(el) { el.classList.remove('input-error'); });
@@ -680,7 +712,9 @@ function addPlanningGoal() {
     target_amount: target,
     current_amount: isNaN(current) ? 0 : current,
     target_date: date,
+    funding_accounts: fundingAccounts,
     priority: priority,
+    track_current_from_accounts: document.getElementById('newGoalTrackFromAccounts').checked,
     active: document.getElementById('newGoalActive').checked
   });
   markDirty();
@@ -1584,6 +1618,14 @@ function validate() {
   });
 
   var goalIds = {};
+  var acctIds = {};
+  var latestByAccount = {};
+  AdminState.accounts.forEach(function(a) { acctIds[a.account_id] = true; });
+  AdminState.data.forEach(function(r) {
+    if (!latestByAccount[r.account_id] || r.month > latestByAccount[r.account_id].month) {
+      latestByAccount[r.account_id] = { month: r.month, end_value: r.end_value || 0 };
+    }
+  });
   AdminState.plannerGoals.forEach(function(g) {
     if (!g.goal_id) errors.push('Planning: missing goal_id.');
     if (goalIds[g.goal_id]) errors.push('Planning: duplicate ID "' + g.goal_id + '".');
@@ -1593,6 +1635,20 @@ function validate() {
     if (typeof g.current_amount !== 'number' || g.current_amount < 0) errors.push('Planning: "' + g.goal_id + '" current_amount must be >= 0.');
     if (!/^\d{4}-\d{2}$/.test(g.target_date || '')) errors.push('Planning: "' + g.goal_id + '" target_date must be YYYY-MM.');
     if (!g.priority || g.priority < 1) errors.push('Planning: "' + g.goal_id + '" priority must be >= 1.');
+    (g.funding_accounts || []).forEach(function(id) {
+      if (!acctIds[id]) errors.push('Planning: "' + g.goal_id + '" references unknown account "' + id + '".');
+    });
+    if (g.track_current_from_accounts !== false && (!g.funding_accounts || !g.funding_accounts.length)) {
+      errors.push('Planning: "' + g.goal_id + '" must select funding accounts when "track from accounts" is enabled.');
+    }
+    if (g.track_current_from_accounts === false && g.funding_accounts && g.funding_accounts.length) {
+      var pool = g.funding_accounts.reduce(function(sum, id) {
+        return sum + ((latestByAccount[id] && latestByAccount[id].end_value) || 0);
+      }, 0);
+      if (g.current_amount > pool + 0.01) {
+        errors.push('Planning: "' + g.goal_id + '" current amount exceeds selected account pool.');
+      }
+    }
   });
 
   var meKeys = {};

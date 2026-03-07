@@ -129,9 +129,9 @@
     { "item_id": "travel", "name": "Travel fund", "type": "variable", "amount": 200, "frequency": "monthly", "category": "Leisure", "active": true }
   ],
   "plannerGoals": [
-    { "goal_id": "emergency_fund", "name": "Emergency Fund", "target_amount": 40000, "current_amount": 31500, "target_date": "2026-06", "priority": 1, "active": true },
-    { "goal_id": "house_downpayment", "name": "House Down Payment", "target_amount": 80000, "current_amount": 45000, "target_date": "2027-12", "priority": 2, "active": true },
-    { "goal_id": "retirement_fund", "name": "Retirement Fund", "target_amount": 150000, "current_amount": 61500, "target_date": "2030-12", "priority": 2, "active": true },
-    { "goal_id": "car_purchase", "name": "Car", "target_amount": 18000, "current_amount": 2000, "target_date": "2027-06", "priority": 3, "active": true }
+    { "goal_id": "emergency_fund", "name": "Emergency Fund", "target_amount": 40000, "current_amount": 31500, "target_date": "2026-06", "priority": 1, "active": true, "track_current_from_accounts": true, "funding_accounts": ["TRADE_REPUBLIC", "BBVA"] },
+    { "goal_id": "house_downpayment", "name": "House Down Payment", "target_amount": 80000, "current_amount": 85000, "target_date": "2027-12", "priority": 2, "active": true, "track_current_from_accounts": true, "funding_accounts": ["ARRAS", "BANKINTER"] },
+    { "goal_id": "retirement_fund", "name": "Retirement Fund", "target_amount": 150000, "current_amount": 104300, "target_date": "2030-12", "priority": 2, "active": true, "track_current_from_accounts": true, "funding_accounts": ["INDEXA", "MYINVESTOR"] },
+    { "goal_id": "car_purchase", "name": "Car", "target_amount": 18000, "current_amount": 2000, "target_date": "2027-06", "priority": 3, "active": true, "track_current_from_accounts": false, "funding_accounts": ["BBVA"] }
   ]
 }

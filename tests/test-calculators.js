@@ -266,3 +266,89 @@ describe('Fmt', function() {
     assert(Fmt.currencyShort(5000).indexOf('k') >= 0);
   });
 });
+
+// --- GoalAccountingService ---
+
+describe('GoalAccountingService', function() {
+  it('buildLatestBalances keeps latest month per account', function() {
+    var rows = [
+      { month: '2025-01', account_id: 'A', end_value: 100 },
+      { month: '2025-02', account_id: 'A', end_value: 120 },
+      { month: '2025-01', account_id: 'B', end_value: 50 }
+    ];
+    var latest = GoalAccountingService.buildLatestBalances(rows);
+    assertEqual(latest.A, 120);
+    assertEqual(latest.B, 50);
+  });
+
+  it('validateSources detects overlapping tracked accounts', function() {
+    var goals = [
+      { goal_id: 'g1', name: 'Goal 1', active: true, track_current_from_accounts: true, funding_accounts: ['BBVA'] },
+      { goal_id: 'g2', name: 'Goal 2', active: true, track_current_from_accounts: true, funding_accounts: ['BBVA'] }
+    ];
+    var issues = GoalAccountingService.validateSources(goals, { BBVA: 1000 });
+    assert(issues.some(function(i) { return i.type === 'source_overlap'; }), 'Expected source_overlap issue');
+  });
+});
+
+// --- GoalAllocationService ---
+
+describe('GoalAllocationService', function() {
+  it('allocateByPriorityProportional allocates within priority by required ratio', function() {
+    var rows = [
+      { goal_id: 'a', priority: 2, required_monthly: 400 },
+      { goal_id: 'b', priority: 2, required_monthly: 200 }
+    ];
+    var result = GoalAllocationService.allocateByPriorityProportional(rows, 300);
+    var a = result.rows.find(function(r) { return r.goal_id === 'a'; });
+    var b = result.rows.find(function(r) { return r.goal_id === 'b'; });
+    assertClose(a.allocated_monthly, 200, 0.01);
+    assertClose(b.allocated_monthly, 100, 0.01);
+  });
+
+  it('allocateByPriorityProportional funds higher priority first', function() {
+    var rows = [
+      { goal_id: 'p1', priority: 1, required_monthly: 200 },
+      { goal_id: 'p2', priority: 2, required_monthly: 200 }
+    ];
+    var result = GoalAllocationService.allocateByPriorityProportional(rows, 200);
+    var p1 = result.rows.find(function(r) { return r.goal_id === 'p1'; });
+    var p2 = result.rows.find(function(r) { return r.goal_id === 'p2'; });
+    assertClose(p1.allocated_monthly, 200, 0.01);
+    assertClose(p2.allocated_monthly, 0, 0.01);
+  });
+});
+
+// --- GoalRulesService / GoalPlannerCalculator ---
+
+describe('GoalRulesService', function() {
+  it('flags source conflict when tracked goals share account', function() {
+    var goals = [
+      { goal_id: 'emergency', name: 'Emergency', target_amount: 1000, current_amount: 0, target_date: '2025-12', priority: 1, active: true, track_current_from_accounts: true, funding_accounts: ['BBVA'] },
+      { goal_id: 'car', name: 'Car', target_amount: 1000, current_amount: 0, target_date: '2025-12', priority: 2, active: true, track_current_from_accounts: true, funding_accounts: ['BBVA'] }
+    ];
+    var plan = GoalRulesService.evaluate(goals, {
+      monthlyIncome: 2000,
+      monthlyExpenses: 1000,
+      asOfMonth: '2025-01',
+      latestAccounts: { BBVA: 500 }
+    });
+    var emergency = plan.goals.find(function(g) { return g.goal_id === 'emergency'; });
+    var car = plan.goals.find(function(g) { return g.goal_id === 'car'; });
+    assertEqual(emergency.status, 'source_conflict');
+    assertEqual(car.status, 'source_conflict');
+  });
+
+  it('planner facade delegates to rules engine and computes shortfall', function() {
+    var goals = [
+      { goal_id: 'house', name: 'House', target_amount: 2400, current_amount: 0, target_date: '2025-12', priority: 1, active: true, track_current_from_accounts: false, funding_accounts: [] }
+    ];
+    var plan = GoalPlannerCalculator.plan(goals, {
+      monthlyIncome: 1000,
+      monthlyExpenses: 900,
+      asOfMonth: '2025-01',
+      latestAccounts: {}
+    });
+    assert(plan.shortfall_total > 0, 'Expected positive shortfall');
+  });
+});
