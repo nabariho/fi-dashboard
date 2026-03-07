@@ -573,6 +573,9 @@ function renderPlanning() {
   var container = document.getElementById('planningTable');
   var goals = AdminState.plannerGoals;
   var accountIds = AdminState.accounts.map(function(a) { return a.account_id; });
+  var addGoalAccountOptions = accountIds.map(function(id) {
+    return '<option value="' + escHtml(id) + '">' + escHtml(id) + '</option>';
+  }).join('');
 
   var html = '<div class="section-header">' +
     '<h2>Goal Planning</h2>' +
@@ -586,8 +589,8 @@ function renderPlanning() {
     '<div class="add-form-field"><label>Name</label><input type="text" id="newGoalName" placeholder="Emergency Fund" style="width:180px"></div>' +
     '<div class="add-form-field"><label>Target</label><input type="number" step="any" id="newGoalTarget" placeholder="40000" style="width:120px"></div>' +
     '<div class="add-form-field"><label>Current</label><input type="number" step="any" id="newGoalCurrent" placeholder="0" style="width:120px"></div>' +
-    '<div class="add-form-field"><label>Target Date</label><input type="text" id="newGoalDate" placeholder="YYYY-MM" style="width:100px"></div>' +
-    '<div class="add-form-field"><label>Funding Accounts (CSV)</label><input type="text" id="newGoalFunding" placeholder="TRADE_REPUBLIC,BBVA" style="width:220px"></div>' +
+    '<div class="add-form-field"><label>Target Date</label><input type="month" id="newGoalDate" style="width:130px"></div>' +
+    '<div class="add-form-field"><label>Funding Accounts</label><select id="newGoalFunding" multiple size="4" style="width:220px">' + addGoalAccountOptions + '</select></div>' +
     '<div class="add-form-field"><label>Priority</label><input type="number" step="1" id="newGoalPriority" value="2" style="width:80px"></div>' +
     '<div class="add-form-field"><label>Track from Accounts</label><input type="checkbox" id="newGoalTrackFromAccounts" checked></div>' +
     '<div class="add-form-field"><label>Active</label><input type="checkbox" id="newGoalActive" checked></div>' +
@@ -601,17 +604,22 @@ function renderPlanning() {
     '</tr></thead><tbody>';
 
   if (!goals.length) {
-    html += '<tr><td colspan="8"><div class="empty-state">No goals yet. Add one above.</div></td></tr>';
+    html += '<tr><td colspan="10"><div class="empty-state">No goals yet. Add one above.</div></td></tr>';
   }
 
   goals.forEach(function(g, i) {
+    var selectedFunding = {};
+    (g.funding_accounts || []).forEach(function(id) { selectedFunding[id] = true; });
+    var rowAccountOptions = accountIds.map(function(id) {
+      return '<option value="' + escHtml(id) + '"' + (selectedFunding[id] ? ' selected' : '') + '>' + escHtml(id) + '</option>';
+    }).join('');
     html += '<tr' + (g.active === false ? ' style="opacity:0.5"' : '') + '>' +
       '<td class="cell-id">' + escHtml(g.goal_id) + '</td>' +
       '<td><input type="text" value="' + escHtml(g.name || '') + '" data-idx="' + i + '" data-field="name" class="goal-field"></td>' +
       '<td style="text-align:right"><input type="number" step="any" value="' + (g.target_amount || 0) + '" data-idx="' + i + '" data-field="target_amount" class="goal-num" style="width:120px; text-align:right"></td>' +
       '<td style="text-align:right"><input type="number" step="any" value="' + (g.current_amount || 0) + '" data-idx="' + i + '" data-field="current_amount" class="goal-num" style="width:120px; text-align:right"' + (g.track_current_from_accounts !== false ? ' disabled' : '') + '></td>' +
-      '<td><input type="text" value="' + escHtml(g.target_date || '') + '" data-idx="' + i + '" data-field="target_date" class="goal-field" style="width:100px"></td>' +
-      '<td><input type="text" value="' + escHtml((g.funding_accounts || []).join(',')) + '" data-idx="' + i + '" data-field="funding_accounts" class="goal-accounts" style="width:220px"></td>' +
+      '<td><input type="month" value="' + escHtml(g.target_date || '') + '" data-idx="' + i + '" data-field="target_date" class="goal-field" style="width:130px"></td>' +
+      '<td><select data-idx="' + i + '" class="goal-accounts-select" multiple size="4" style="width:220px">' + rowAccountOptions + '</select></td>' +
       '<td><input type="number" step="1" value="' + (g.priority || 3) + '" data-idx="' + i + '" data-field="priority" class="goal-int" style="width:70px"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (g.track_current_from_accounts !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-track"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (g.active !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-active"></td>' +
@@ -649,11 +657,11 @@ function renderPlanning() {
       }
     });
   });
-  container.querySelectorAll('.goal-accounts').forEach(function(el) {
+  container.querySelectorAll('.goal-accounts-select').forEach(function(el) {
     el.addEventListener('change', function() {
       var idx = parseInt(this.dataset.idx);
-      AdminState.plannerGoals[idx].funding_accounts = this.value.split(',')
-        .map(function(s) { return s.trim().toUpperCase(); })
+      AdminState.plannerGoals[idx].funding_accounts = Array.prototype.slice.call(this.selectedOptions)
+        .map(function(o) { return (o.value || '').trim().toUpperCase(); })
         .filter(function(s) { return !!s; });
       markDirty();
     });
@@ -689,8 +697,8 @@ function addPlanningGoal() {
   var target = parseFloat(targetEl.value);
   var current = parseFloat(currentEl.value || '0');
   var date = dateEl.value.trim();
-  var fundingAccounts = (document.getElementById('newGoalFunding').value || '').split(',')
-    .map(function(s) { return s.trim().toUpperCase(); })
+  var fundingAccounts = Array.prototype.slice.call(document.getElementById('newGoalFunding').selectedOptions || [])
+    .map(function(o) { return (o.value || '').trim().toUpperCase(); })
     .filter(function(s) { return !!s; });
   var priority = parseInt(priorityEl.value || '3');
 

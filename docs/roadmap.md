@@ -22,11 +22,6 @@ Living document tracking planned features, priorities, and progress.
 - Validation: no duplicate month/account pairs, all end values filled, contribution defaults to 0
 - After adding, scroll to show the new rows in the existing table below
 
-### Files to create/modify
-
-- `js/admin.js` — new `renderQuickAdd()` function + `addQuickMonth()` handler
-- No new files needed — fits within existing Admin MonthEnd tab
-
 ---
 
 ## Phase 2: Investment Analysis
@@ -38,51 +33,19 @@ Living document tracking planned features, priorities, and progress.
 
 ### Scope
 
-#### 2a. Per-Account Returns Comparison
-- Bar or line chart showing per-account returns side by side (monthly and YTD)
-- Table view: all accounts in columns, months in rows, returns as values
+#### 2a. Per-Account Returns Comparison ✓
+- Table + bar chart showing per-account returns side by side
 - Highlight best/worst performers
 
-#### 2b. Growth Decomposition (Contributions vs. Market Returns)
-- For each account and for total portfolio:
-  - Cumulative contributions over time
-  - Cumulative market-driven growth (total value - cumulative contributions)
+#### 2b. Growth Decomposition ✓
 - Stacked area chart: contributions (bottom) + market growth (top) = total value
-- Answer: "How much of my wealth is my savings vs. the market?"
+- Answers: "How much of my wealth is my savings vs. the market?"
 
-#### 2c. Benchmark Tracking
-- New data structure in the data file: `benchmarks` array
-  ```json
-  {
-    "benchmarks": [
-      {
-        "benchmark_id": "MSCI_WORLD",
-        "name": "MSCI World",
-        "returns": [
-          { "month": "2024-01", "monthly_return_pct": 1.2 }
-        ]
-      }
-    ]
-  }
-  ```
-- Configurable: start with one benchmark, easy to add more
-- Manual entry (user types monthly return % alongside account data)
-- Renders as dashed line on the returns chart for comparison
-- Admin: new Benchmarks tab or section to manage benchmark data
+#### 2c. Benchmark Tracking — deferred
+- Manual benchmark return series for comparison
 
-#### 2d. FI Projection Chart
-- Wire up existing `FICalculator.projectFuture()` to a line chart
-- Show projected path to FI based on current savings rate + expected return
-- Display on the FI Progress section or as a separate panel
-- Inputs already in config: `expected_return`, `fi_target`
-
-### Files to create/modify
-
-- `js/data/benchmark-calc.js` — new calculator for benchmark return series
-- `js/ui/ui-charts.js` — new chart functions for comparison, decomposition, projection
-- `js/ui/ui-tables.js` — new table for cross-account returns comparison
-- `js/app.js` — wire new calculators + renderers into refresh flow
-- `js/admin.js` — benchmark data entry (if separate section)
+#### 2d. FI Projection Chart — removed
+- Redundant with FI progress bar and years-to-FI metric
 
 ---
 
@@ -94,50 +57,10 @@ Living document tracking planned features, priorities, and progress.
 **Goal:** Define time-bound targets at both total and per-goal levels, and track progress against a glide path.
 
 ### Scope
-
-#### 3a. Milestone Data Structure
-- New array in the data file: `milestones`
-  ```json
-  {
-    "milestones": [
-      {
-        "milestone_id": "end_2026",
-        "name": "End of 2026",
-        "target_date": "2026-12",
-        "total_target": 220000,
-        "sub_targets": [
-          { "goal": "emergency_fund", "amount": 40000 },
-          { "goal": "house_downpayment", "amount": 80000 },
-          { "goal": "fi_networth", "amount": 100000 }
-        ]
-      }
-    ]
-  }
-  ```
-
-#### 3b. Glide Path Visualization
-- Linear interpolation from current value to target date
-- Plotted on net worth chart as a dashed target line
-- Per-goal glide paths on the Goals detail tab
-
-#### 3c. Status Indicators
-- Ahead / On Track / Behind — based on position relative to glide path
-- Color-coded badges on the dashboard
-- Alert if falling behind (e.g., missed savings for 2+ months)
-
-#### 3d. Per-Goal Milestone Breakdown
-- Each milestone shows progress per sub-target independently
-- Emergency fund: X of 40k (Y%)
-- House: X of 80k (Y%)
-- FI net worth: X of 100k (Y%)
-
-### Files to create/modify
-
-- `js/data/milestone-calc.js` — new calculator for glide paths and status
-- `js/ui/ui-goals.js` — extend with milestone rendering
-- `js/ui/ui-charts.js` — glide path overlay on net worth chart
-- `js/admin.js` — milestone editor in Admin (new tab or section within Goals)
-- `js/app.js` — wire milestone calculator into refresh flow
+- Milestone data structure with sub-targets
+- Glide path visualization (linear interpolation to target date)
+- Status indicators: Ahead / On Track / Behind
+- Per-goal milestone breakdown
 
 ---
 
@@ -149,57 +72,76 @@ Living document tracking planned features, priorities, and progress.
 **Goal:** Track down payment progress, mortgage amortization, house equity, and integrate debt into FI calculations.
 
 ### Scope
+- Mortgage amortization schedule calculator
+- Extra payment tracking with strategies (reduce_term, reduce_payment)
+- House equity tracking with sparse market valuations
+- Net worth integration with mortgage debt + house value
+- Actual vs planned payment comparison
+- Full mortgage dashboard tab
 
-#### 4a. Down Payment Tracking (partially built)
-- Already tracked via goals-calc.js (ARRAS + BANKINTER accounts)
-- Enhancement: show progress over time (historical chart)
+---
 
-#### 4b. Mortgage Data & Amortization
-- New data structure: `mortgage` object in the data file
-  ```json
-  {
-    "mortgage": {
-      "principal": 300000,
-      "annual_rate": 0.025,
-      "term_years": 25,
-      "start_date": "2027-01",
-      "extra_payments": []
-    }
-  }
-  ```
-- Amortization schedule calculator (monthly breakdown)
-- Show: monthly payment, interest vs. principal split, remaining balance
-- New Admin tab: Mortgage
+## Phase 5: Zero-Knowledge Cloud Backend
 
-#### 4c. House Equity Tracking
-- Market value of house (manually updated, e.g., yearly)
-- Equity = market value - remaining mortgage balance
-- Appreciation tracking over time
+**Status:** Done
+**Priority:** High — enables multi-device sync without compromising security
 
-#### 4d. Net Worth with Liabilities
-- Adjust net worth calculation: assets - liabilities
-- Mortgage debt counts against FI target
-- FI target effectively becomes: 1,000,000 + remaining mortgage
-- Or: net worth includes house equity, FI target stays at 1,000,000
+**Goal:** Add Supabase backend with client-side encryption so the server has zero knowledge of financial data.
 
-### Files to create/modify
+### Scope
+- Dual storage modes: file (.fjson) and DB (Supabase) behind unified StorageManager
+- Key derivation: single passphrase + email → auth password (10k PBKDF2) + encryption key (100k PBKDF2)
+- Per-record AES-256-GCM encryption/decryption (server sees only opaque hashes + ciphertext)
+- Offline resilience: IDB vault_cache for reads, pending_sync queue for writes, auto-flush on reconnect
+- Diff-based saves: only changed/deleted records synced
+- Deferred vault creation to handle email confirmation RLS
+- Per-tab ephemeral AES keys for sessionStorage and IDB cache encryption
+- Import .fjson into DB, export .fjson from DB
 
-- `js/data/mortgage-calc.js` — new calculator for amortization, equity
-- `js/ui/ui-mortgage.js` — new renderer for mortgage tab
-- `js/data/networth-calc.js` — extend to include liabilities
-- `js/data/fi-calc.js` — adjust FI progress for debt
-- `js/admin.js` — mortgage data editor
-- `index.html` — new Mortgage tab
+---
+
+## Phase 6: Emergency Fund Tab
+
+**Status:** Done
+**Priority:** Medium — dedicated tracking for emergency fund health
+
+**Goal:** Standalone tab for emergency fund with history, flows, and coverage metrics.
+
+### Scope
+- Configurable account roles via `emergency_fund_role` on each account (dedicated/backup/none)
+- Status cards: current balance, target, funded %, breakdown by role, months of coverage, surplus/shortfall
+- Funding history chart: balance over time vs target line
+- Monthly flows table: starting, contributions, withdrawals, market change, ending, vs target
+- AccountService integration (no hardcoded account IDs)
+
+---
+
+## Phase 7: Goal Planning & Allocation
+
+**Status:** Done
+**Priority:** Medium — answers "how should I allocate my savings each month?"
+
+**Goal:** Priority-based goal funding allocation with account integrity checks.
+
+### Scope
+- Planner goals data structure: goal_id, name, target_amount, priority, target_date, funding_accounts, track_current_from_accounts
+- Priority-based proportional allocation of available monthly budget
+- Account oversubscription detection (same account funding multiple goals)
+- Source-of-funds integrity checks
+- Goal funding plan table: priority, funding accounts, source balance, required/mo, allocated/mo, shortfall, projected completion
+- Account ledger integrity table: balance, manual/tracked claims, total claimed, unassigned
+- Admin CRUD for planner goals
+- XLSX export includes Planner sheet
 
 ---
 
 ## Design Principles (applies to all phases)
 
 - **Data/UI separation**: calculators are pure functions, renderers handle DOM only
-- **No hardcoded account lists**: use account config flags (`include_networth`, `include_performance`) to drive behavior. Exception: goals-calc.js currently hardcodes account IDs — should be refactored when goals become more flexible
-- **Backward compatible data files**: new fields (benchmarks, milestones, mortgage) are optional. Old files without them should load fine with empty defaults
+- **No hardcoded account lists**: use account config flags (`include_networth`, `include_performance`, `emergency_fund_role`) to drive behavior
+- **Backward compatible data files**: new fields are optional. Old files without them load fine with empty defaults
 - **Spanish locale**: all numbers formatted with es-ES (Fmt utility)
-- **No external dependencies**: beyond Chart.js (CDN)
+- **No external dependencies**: beyond Chart.js, SheetJS, Supabase JS (all CDN)
 
 ---
 
@@ -212,19 +154,15 @@ Living document tracking planned features, priorities, and progress.
 - [x] Persistent directory handle for Chrome (pick save folder once)
 - [x] Auto-export config for Safari/iOS iCloud Drive sync
 - [x] Admin CRUD editor (config, accounts, budget, month-end)
-- [x] Quick Add Monthly flow (Phase 1) — pre-filled grid for all accounts
-- [x] Per-account returns comparison table (Phase 2a)
-- [x] Growth decomposition: savings vs market attribution (Phase 2b)
-- [ ] Benchmark tracking (Phase 2c) — deferred to future
-- [x] FI projection chart (Phase 2d) — removed, redundant with FI progress bar
-- [x] Milestone data structure + admin CRUD (Phase 3a)
-- [x] Glide path visualization on Goals tab (Phase 3b)
-- [x] Status indicators: ahead/on-track/behind (Phase 3c)
-- [x] Per-goal milestone breakdown (Phase 3d)
-- [x] Mortgage calculator + amortization schedule (Phase 4b)
-- [x] House equity tracking with sparse valuations (Phase 4c)
-- [x] Net worth integration with mortgage debt + house value (Phase 4d)
-- [x] Mortgage dashboard tab: summary cards, balance chart, amortization table (Phase 4)
-- [x] Mortgage admin CRUD: parameters, extra payments, actual payments, house valuations (Phase 4)
-- [x] Actual vs planned payment comparison (Phase 4)
-- [x] Extra payment strategies: reduce term or reduce payment (Phase 4)
+- [x] Quick Add Monthly flow (Phase 1)
+- [x] Per-account returns comparison (Phase 2a)
+- [x] Growth decomposition: savings vs market (Phase 2b)
+- [ ] Benchmark tracking (Phase 2c) — deferred
+- [x] Milestone data + admin CRUD + glide paths + status (Phase 3)
+- [x] Mortgage calculator, amortization, equity, actual vs planned (Phase 4)
+- [x] Zero-knowledge Supabase backend with offline support (Phase 5)
+- [x] Emergency Fund tab with configurable account roles (Phase 6)
+- [x] Goal planning & priority allocation (Phase 7)
+- [x] XLSX export with all data types
+- [x] Monthly summary with auto-generated narrative
+- [x] Anomaly detection for data validation

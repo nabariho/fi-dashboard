@@ -143,7 +143,8 @@ body.admin-body { padding-bottom: 80px; }
 
 /* === INLINE INPUTS === */
 .admin-table input[type="text"],
-.admin-table input[type="number"] {
+.admin-table input[type="number"],
+.admin-table input[type="month"] {
   width: 100%;
   padding: 6px 10px;
   border: 1px solid var(--border);
@@ -156,7 +157,8 @@ body.admin-body { padding-bottom: 80px; }
 }
 
 .admin-table input[type="text"]:focus,
-.admin-table input[type="number"]:focus {
+.admin-table input[type="number"]:focus,
+.admin-table input[type="month"]:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.15);
@@ -259,7 +261,8 @@ body.admin-body { padding-bottom: 80px; }
 }
 
 .add-form-field input[type="text"],
-.add-form-field input[type="number"] {
+.add-form-field input[type="number"],
+.add-form-field input[type="month"] {
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;

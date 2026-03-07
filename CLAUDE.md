@@ -32,8 +32,65 @@
 - `js/storage-manager.js` -- unified file/DB interface with offline support
 - `js/file-manager.js` -- File I/O + encrypted session bridge
 - `js/data-cache.js` -- IDB stores (all encrypted at rest)
+- `js/data-export.js` -- XLSX export with multi-sheet structure
 - `js/config.js` -- Supabase URL + anon key
 - `cli/*.mjs` -- Node.js CLI tools (ESM, zero external deps)
+
+## Dashboard tabs (7)
+1. **Investments** -- portfolio chart, returns table (% or EUR), per-account comparison
+2. **Net Worth** -- stacked chart, monthly breakdown table with MoM deltas
+3. **Emergency Fund** -- status cards, funding history chart, monthly flows table
+4. **Goals** -- emergency fund + house down payment detail, milestones with glide paths
+5. **Budget** -- monthly breakdown by category (fixed/variable)
+6. **Mortgage** -- amortization schedule, equity, actual vs planned payments
+7. **Planning** -- priority-based goal funding allocation, account ledger integrity
+
+## Always-visible panels (collapsible, above tabs)
+- **FI Progress** -- progress bar, passive income, years to FI, savings rate
+- **Financial Goals** -- emergency fund + house down payment quick status
+- **Monthly Summary** -- auto-generated narrative, anomaly alerts, metric cards
+
+## Data layer modules
+| Module | Purpose |
+|--------|---------|
+| `account-service.js` | Account lookups, classification, emergency fund role queries |
+| `data-service.js` | Filtering, aggregation, time range |
+| `returns-calc.js` | Modified Dietz returns, YTD chaining, per-account comparison |
+| `networth-calc.js` | Net worth aggregation with mortgage debt/equity |
+| `fi-calc.js` | FI progress, years to FI, passive income, savings rate |
+| `goals-calc.js` | Emergency fund & house down payment status |
+| `emergency-calc.js` | Emergency fund history, flows, coverage metrics |
+| `budget-calc.js` | Monthly budget breakdown, operating reserve |
+| `milestone-calc.js` | Milestone progress, glide path, sub-targets |
+| `mortgage-calc.js` | Amortization schedule, equity, actual vs planned |
+| `summary-calc.js` | Monthly summary narrative, attribution |
+| `anomaly-calc.js` | Anomaly detection (unusual changes, zero balances) |
+| `goal-planner-calc.js` | Goal planning orchestration |
+| `goal-rules-service.js` | Goal normalization, validation, funding evaluation |
+| `goal-accounting-service.js` | Source-of-funds integrity, oversubscription detection |
+| `goal-allocation-service.js` | Priority-based funding allocation |
+
+## UI layer modules
+| Module | Renders |
+|--------|---------|
+| `ui-metrics.js` | FI progress bar, investment/NW metric cards |
+| `ui-charts.js` | Portfolio, net worth, FI projection charts |
+| `ui-tables.js` | Returns grid, NW breakdown, account comparison |
+| `ui-goals.js` | Goals panel + detail view + milestones |
+| `ui-budget.js` | Budget overview |
+| `ui-mortgage.js` | Mortgage dashboard (cards, chart, amort table, equity) |
+| `ui-emergency.js` | Emergency fund tab (status cards, chart, flow table) |
+| `ui-summary.js` | Monthly summary (narrative, cards, anomaly alerts) |
+| `ui-planner.js` | Goal funding plan table + account ledger |
+
+## Admin page tabs
+- **Config** -- key-value editor (fi_target, withdrawal_rate, etc.)
+- **Accounts** -- account CRUD with emergency_fund_role (none/dedicated/backup)
+- **Budget** -- budget item CRUD (fixed/variable, frequency, category)
+- **Planning** -- goal funding CRUD (priority, target_date, funding_accounts)
+- **Milestones** -- milestone CRUD with sub-targets
+- **MonthEnd** -- Quick Add grid + monthly data table
+- **Mortgage** -- mortgage parameters, extra payments, actual payments, valuations
 
 ## Security rules
 - NEVER commit sensitive data (no .fjson files, no real balances)
@@ -62,6 +119,7 @@
 
 ## Key rules
 - Keep calculators pure -- if it touches the DOM, it goes in ui/
-- No external dependencies beyond Chart.js (loaded from CDN)
+- No external dependencies beyond Chart.js, SheetJS, Supabase JS (loaded from CDN)
 - Encrypted file format version is "v": 1 -- bump on breaking changes
 - `FileManager.loadFromSession()` returns a Promise (async decryption)
+- Account emergency fund roles are configured per-account via `emergency_fund_role` field (none/dedicated/backup)

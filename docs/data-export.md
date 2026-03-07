@@ -21,7 +21,7 @@ Both methods export the same data — use whichever page you're already on.
 
 ## XLSX Structure
 
-The exported workbook contains up to 6 sheets:
+The exported workbook contains up to 7 sheets:
 
 ### Sheet 1: Config
 
@@ -41,6 +41,7 @@ Key-value pairs for dashboard configuration.
 | withdrawal_rate | 0.04 | Safe withdrawal rate (4% = 0.04) |
 | expected_return | 0.05 | Expected annual return for projections |
 | monthly_income | 3500 | Monthly net income after taxes (EUR) |
+| emergency_fund_target | 40000 | Target amount for emergency fund reserve (EUR) |
 
 ### Sheet 2: Accounts
 
@@ -54,6 +55,7 @@ Account definitions. One row per account.
 | `currency` | string | Currency code (e.g. `EUR`) |
 | `include_networth` | boolean | Include in net worth calculations |
 | `include_performance` | boolean | Include in investment performance calculations |
+| `emergency_fund_role` | string | `none`, `dedicated`, or `backup` — role in emergency fund |
 
 ### Sheet 3: MonthEnd
 
@@ -69,15 +71,6 @@ Month-end balances — the core financial data. One row per account per month.
 
 Sorted by month ascending, then account_id alphabetically.
 
-**Example rows:**
-
-| month | account_id | end_value | net_contribution | notes |
-|-------|-----------|-----------|-----------------|-------|
-| 2024-01 | BBVA | 8000 | 0 | |
-| 2024-01 | INDEXA | 45000 | 1000 | |
-| 2024-02 | BBVA | 7500 | -500 | |
-| 2024-02 | INDEXA | 46500 | 1000 | |
-
 ### Sheet 4: Budget
 
 Monthly budget line items. One row per item.
@@ -92,7 +85,23 @@ Monthly budget line items. One row per item.
 | `category` | string | Category grouping (e.g. `Housing`, `Food`) |
 | `active` | boolean | Whether this item is currently active |
 
-### Sheet 5: Milestones
+### Sheet 5: Planner
+
+Goal funding plan. One row per funding goal.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `goal_id` | string | Unique identifier (e.g. `emergency_fund`) |
+| `name` | string | Display name |
+| `target_amount` | number | Target amount (EUR) |
+| `current_amount` | number | Manual current amount override (EUR) |
+| `target_date` | string | Target date in `YYYY-MM` format |
+| `priority` | number | Priority (1 = highest) |
+| `active` | boolean | Whether this goal is active |
+| `track_current_from_accounts` | boolean | Auto-track current value from funding accounts |
+| `funding_accounts_csv` | string | Comma-separated account IDs that fund this goal |
+
+### Sheet 6: Milestones
 
 Milestone targets with sub-targets. Flattened — one row per sub-target, with milestone fields repeated.
 
@@ -105,7 +114,7 @@ Milestone targets with sub-targets. Flattened — one row per sub-target, with m
 | `sub_goal` | string | Sub-target goal type (e.g. `FI Net Worth`, `Emergency Fund`) |
 | `sub_amount` | number | Sub-target amount (EUR) |
 
-### Sheet 6: Mortgage (optional)
+### Sheet 7: Mortgage (optional)
 
 Only present if mortgage data exists. Contains 4 sections separated by headers:
 
@@ -151,6 +160,7 @@ Only present if mortgage data exists. Contains 4 sections separated by headers:
    - `Accounts` → accounts table
    - `MonthEnd` → the main data table (largest)
    - `Budget` → budget items table
+   - `Planner` → goals/funding table
    - `Milestones` → milestones table (flatten sub-targets as needed)
    - `Mortgage` → parse the 4 sections into separate tables
 
@@ -163,6 +173,7 @@ config = pd.read_excel(xlsx, 'Config')
 accounts = pd.read_excel(xlsx, 'Accounts')
 monthend = pd.read_excel(xlsx, 'MonthEnd')
 budget = pd.read_excel(xlsx, 'Budget')
+planner = pd.read_excel(xlsx, 'Planner')
 milestones = pd.read_excel(xlsx, 'Milestones')
 # mortgage = pd.read_excel(xlsx, 'Mortgage')  # if present
 ```

@@ -18,7 +18,7 @@ Future improvements tracked here. These are known gaps accepted as edge cases fo
 
 **Problem:** Backup files are downloaded to the Downloads folder on every save. They pile up, are hard to find, and don't exist on devices where no save was performed.
 
-**Solution:** Store the last 5–10 versions in an IndexedDB `backups` store with timestamps. Add a "Restore from backup" option in the Admin page that lists available snapshots and lets the user preview before restoring.
+**Solution:** Store the last 5-10 versions in an IndexedDB `backups` store with timestamps. Add a "Restore from backup" option in the Admin page that lists available snapshots and lets the user preview before restoring.
 
 **Trigger:** Complements version history (item 1).
 
@@ -28,7 +28,7 @@ Future improvements tracked here. These are known gaps accepted as edge cases fo
 
 **Problem (file mode):** Last-write-wins with no conflict detection. If the user edits on laptop, then edits on iPad before iCloud syncs the laptop's changes, one set of changes is silently lost.
 
-**Solution:** Add a `last_modified` timestamp and `device_id` to the .fjson on every save. On load (including Refresh), compare the file's `last_modified` against the cached version. If the file was modified by a different device since the last load, warn the user: "This file was updated on [device] at [time]. Load the newer version or keep your local changes?" This doesn't merge — it just prevents silent overwrites.
+**Solution:** Add a `last_modified` timestamp and `device_id` to the .fjson on every save. On load (including Refresh), compare the file's `last_modified` against the cached version. If the file was modified by a different device since the last load, warn the user: "This file was updated on [device] at [time]. Load the newer version or keep your local changes?" This doesn't merge -- it just prevents silent overwrites.
 
 **Note:** In DB mode, Supabase handles this via `updated_at` timestamps and the diff-based save in StorageManager. Per-record upserts mean non-conflicting edits to different records merge naturally. True conflicts (same record edited on two devices before sync) still use last-write-wins.
 
@@ -36,7 +36,7 @@ Future improvements tracked here. These are known gaps accepted as edge cases fo
 
 ---
 
-## ~~4. Avoid File Picker on Save (Chrome without Handle)~~ ✓ Resolved
+## ~~4. Avoid File Picker on Save (Chrome without Handle)~~ Resolved
 
 Resolved by persisting a directory handle in IDB. On Chrome, users pick a save folder once via `showDirectoryPicker()`, and subsequent saves write there silently. The handle survives across sessions.
 
@@ -52,24 +52,30 @@ Resolved by persisting a directory handle in IDB. On Chrome, users pick a save f
 
 ---
 
-## 6. Unify Goals with Milestones Framework
+## ~~6. Unify Goals with Milestones Framework~~ Partially resolved
 
-**Problem:** The Emergency Fund and House Down Payment goals are hardcoded in `goals-calc.js` and `ui-goals.js` — specific account IDs (TRADE_REPUBLIC, BBVA, ARRAS, BANKINTER), custom status logic (green/yellow/red), and bespoke rendering with action items and surplus suggestions. Meanwhile, the new milestone system (Phase 3) is generic and data-driven. Having two parallel systems creates duplication and makes it harder to add new goals.
+**Original problem:** Emergency Fund and House Down Payment goals were hardcoded with specific account IDs in `goals-calc.js`.
 
-**Current state:**
-- `goals-calc.js`: hardcoded `computeEmergencyFund()` and `computeHouseDownPayment()` with specific account IDs
-- `ui-goals.js`: `renderGoalsPanel()` and `renderGoalsDetail()` have ~200 lines of hardcoded HTML for these two goals, including account-specific explanations, surplus reallocation suggestions, and action items
-- `milestone-calc.js`: generic milestone calculator with sub-targets, glide paths, and status
-- Admin: milestones are editable via CRUD; emergency/house targets are config values only
+**Resolution:** Emergency fund account roles are now configurable via `emergency_fund_role` field on each account (set in Admin > Accounts). The Emergency Fund tab (`emergency-calc.js`) uses `AccountService.getEmergencyFundRoles()` instead of hardcoded IDs. The Planning tab provides generic goal tracking with priority-based allocation.
 
-**Solution:** Migrate goals into the milestone framework in stages:
-1. **Data migration**: Represent Emergency Fund and House Down Payment as milestones with sub-targets. Each goal becomes a milestone (or sub-target of a broader milestone). The account-to-goal mapping moves from hardcoded IDs to a configurable `goal_accounts` field in the milestone or account config.
-2. **Calculator unification**: Replace `goals-calc.js` with milestone-calc extensions. The custom status logic (green = dedicated covers target, yellow = combined covers it) becomes configurable rules on the goal, not hardcoded per-goal functions.
-3. **Renderer unification**: Replace the bespoke goals HTML with the generic milestone card renderer. Keep the detailed breakdown (account contributions, surplus suggestions, action items) as optional "detail mode" for goals that have account-level attribution.
-4. **Admin unification**: Goals become editable milestones in the Milestones tab, with an additional "linked accounts" config per sub-target.
+**Remaining gap:** `goals-calc.js` still hardcodes account IDs for the always-visible Goals panel and Goals detail tab. These should eventually read from account config or planner goals data.
 
-**Risks:**
-- The current Emergency Fund rendering has nuanced UX (three-tier status, surplus reallocation suggestions, action items) that a generic milestone card doesn't replicate. Need to ensure the unified system can handle goal-specific detail views.
-- Account-to-goal mapping is currently implicit (hardcoded). Making it configurable requires a data migration path for existing users.
+---
 
-**Trigger:** When adding a third goal type, or when the hardcoded account IDs need to change.
+## 7. Benchmark Tracking (Phase 2c)
+
+**Problem:** No way to compare portfolio returns against market benchmarks (e.g., MSCI World, S&P 500).
+
+**Solution:** Add a `benchmarks` data structure for manual entry of monthly benchmark returns. Render as dashed lines on the returns chart. Add a Benchmarks section in the Admin page.
+
+**Trigger:** When the user wants to evaluate their portfolio manager's performance vs passive index.
+
+---
+
+## 8. Historical Emergency Fund Chart with Target Changes
+
+**Problem:** The emergency fund history chart shows a flat target line based on the current target value. If the target has changed over time, the historical view is misleading.
+
+**Solution:** Store target history (or derive from config snapshots). Show the target line changing over time on the funding history chart.
+
+**Trigger:** User changes their emergency fund target significantly.
