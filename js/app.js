@@ -161,6 +161,44 @@ function refreshGoalsDetail() {
   GoalsRenderer.renderGoalsDetail(emergency, house, latest, milestoneStatuses);
 }
 
+// --- Emergency Fund Tab ---
+
+function refreshEmergency() {
+  if (typeof EmergencyCalculator === 'undefined' || typeof EmergencyRenderer === 'undefined') return;
+
+  try {
+    var accountIds = EmergencyCalculator.getAccountIds(appConfig);
+    var roles = EmergencyCalculator.getAccountRoles(appConfig);
+    var target = appConfig.emergency_fund_target || 40000;
+
+    // Current status from latest NW data
+    var nwAccountIds = AccountService.getNetworthAccountIds();
+    var nwData = NetWorthCalculator.compute(allData, nwAccountIds, mortgageData);
+    if (!nwData.length) {
+      EmergencyRenderer.render(null, [], null, roles);
+      return;
+    }
+
+    var latestAccounts = nwData[nwData.length - 1].accounts;
+    var status = EmergencyCalculator.computeStatus(latestAccounts, appConfig);
+
+    // History
+    var history = EmergencyCalculator.computeHistory(allData, accountIds, target);
+
+    // Coverage from budget
+    var monthlyExpenses = 0;
+    if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+      var budget = BudgetCalculator.computeMonthlyBudget(budgetItems);
+      monthlyExpenses = budget.total || 0;
+    }
+    var coverage = EmergencyCalculator.computeCoverage(status.available, monthlyExpenses);
+
+    EmergencyRenderer.render(status, history, coverage, roles);
+  } catch (e) {
+    console.error('[Emergency] Error:', e);
+  }
+}
+
 // --- Budget Tab ---
 
 function refreshBudget() {
@@ -297,6 +335,7 @@ function bindEvents() {
       document.getElementById('tab-' + this.dataset.tab).classList.add('active');
       if (this.dataset.tab === 'investments') refreshInvestments();
       else if (this.dataset.tab === 'networth') refreshNetWorth();
+      else if (this.dataset.tab === 'emergency') refreshEmergency();
       else if (this.dataset.tab === 'goals') refreshGoalsDetail();
       else if (this.dataset.tab === 'budget') refreshBudget();
       else if (this.dataset.tab === 'mortgage') refreshMortgage();
