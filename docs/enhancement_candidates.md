@@ -26,9 +26,11 @@ Future improvements tracked here. These are known gaps accepted as edge cases fo
 
 ## 3. Multi-Device Conflict Detection
 
-**Problem:** Last-write-wins with no conflict detection. If the user edits on laptop, then edits on iPad before iCloud syncs the laptop's changes, one set of changes is silently lost.
+**Problem (file mode):** Last-write-wins with no conflict detection. If the user edits on laptop, then edits on iPad before iCloud syncs the laptop's changes, one set of changes is silently lost.
 
 **Solution:** Add a `last_modified` timestamp and `device_id` to the .fjson on every save. On load (including Refresh), compare the file's `last_modified` against the cached version. If the file was modified by a different device since the last load, warn the user: "This file was updated on [device] at [time]. Load the newer version or keep your local changes?" This doesn't merge — it just prevents silent overwrites.
+
+**Note:** In DB mode, Supabase handles this via `updated_at` timestamps and the diff-based save in StorageManager. Per-record upserts mean non-conflicting edits to different records merge naturally. True conflicts (same record edited on two devices before sync) still use last-write-wins.
 
 **Trigger:** User starts actively editing from multiple devices in the same day.
 
@@ -40,13 +42,13 @@ Resolved by persisting a directory handle in IDB. On Chrome, users pick a save f
 
 ---
 
-## 5. Multi-Device File Path Sync (Safari/iOS)
+## ~~5. Multi-Device File Path Sync (Safari/iOS)~~ Largely resolved by DB mode
 
-**Problem:** On Safari/iOS there is no File System Access API. Every save with `auto_export` triggers a download, and the user must manually tap "Save to Files" → pick iCloud Drive each time. There's no way to remember a save location.
+**Original problem:** On Safari/iOS there is no File System Access API. Every save triggers a manual "Save to Files" flow.
 
-**Solution:** Research options: (a) Origin Private File System (OPFS) — available in Safari 15.2+ but sandboxed, not visible in Files app; (b) Web Share Target API — could allow the app to receive files shared from Files app; (c) PWA with file handling — `file_handlers` manifest field (not yet in Safari). Most likely this remains a Safari platform limitation until Apple adds directory picker support.
+**Resolution:** DB mode (Supabase) eliminates the need for file-based sync entirely. Data syncs via HTTPS to the database, works identically on all browsers and devices. File mode remains available as a fallback but is no longer the primary workflow.
 
-**Trigger:** User finds the manual "Save to Files" flow too painful on iOS.
+**Remaining gap:** File mode on Safari/iOS still has the same limitation if the user prefers local-only storage.
 
 ---
 

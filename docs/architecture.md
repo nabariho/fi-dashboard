@@ -4,55 +4,73 @@
 
 ### File Mode (original)
 ```
-[.fjson file in iCloud] → [File API] → [Crypto.decrypt] → [Global State]
-                                                                ↓
-                                                    ┌─── Data Layer ───┐
-                                                    │ AccountService   │
-                                                    │ DataService      │
-                                                    │ ReturnsCalculator│
-                                                    │ NetWorthCalc     │
-                                                    │ FICalculator     │
-                                                    │ GoalsCalculator  │
-                                                    │ BudgetCalculator │
-                                                    │ MilestoneCalc    │
-                                                    │ MortgageCalc     │
-                                                    └────────┬─────────┘
-                                                             ↓
-                                                    ┌─── UI Layer ─────┐
-                                                    │ MetricsRenderer  │
-                                                    │ ChartRenderer    │
-                                                    │ TableRenderer    │
-                                                    │ GoalsRenderer    │
-                                                    │ BudgetRenderer   │
-                                                    │ MortgageRenderer │
-                                                    └────────┬─────────┘
-                                                             ↓
-                                                         [DOM]
+[.fjson file in iCloud] --> [File API] --> [Crypto.decrypt] --> [Global State]
+                                                                     |
+                                                         +--- Data Layer ---+
+                                                         | AccountService   |
+                                                         | DataService      |
+                                                         | ReturnsCalculator|
+                                                         | NetWorthCalc     |
+                                                         | FICalculator     |
+                                                         | GoalsCalculator  |
+                                                         | BudgetCalculator |
+                                                         | MilestoneCalc    |
+                                                         | MortgageCalc     |
+                                                         | SummaryCalc      |
+                                                         | AnomalyCalc      |
+                                                         +--------+---------+
+                                                                  |
+                                                         +--- UI Layer -----+
+                                                         | MetricsRenderer  |
+                                                         | ChartRenderer    |
+                                                         | TableRenderer    |
+                                                         | GoalsRenderer    |
+                                                         | BudgetRenderer   |
+                                                         | MortgageRenderer |
+                                                         | SummaryRenderer  |
+                                                         +--------+---------+
+                                                                  |
+                                                              [DOM]
 ```
 
 ### DB Mode (zero-knowledge cloud)
 ```
-[Supabase] → DbService.fetchAllRecords → [encrypted blobs]
-                                                │
-                          DbCrypto.decryptRecord (each)
-                                                │
-                                    reassemble by type
-                                                │
-                          { config, accounts, data, ... }
-                                                │
-                                            loadData()     ← same entry point as file mode
-                                                │
-                                        [Global State → UI]
+[Supabase] --> DbService.fetchAllRecords --> [encrypted blobs]
+                                                    |
+                              DbCrypto.decryptRecord (each)
+                                                    |
+                                        reassemble by type
+                                                    |
+                              { config, accounts, data, ... }
+                                                    |
+                                                loadData()   <-- same entry point as file mode
+                                                    |
+                                            [Global State --> UI]
+```
+
+### Offline Mode (DB)
+```
+[IDB vault_cache] --> [encrypted blobs]     (when navigator.onLine === false)
+                            |
+          DbCrypto.decryptRecord (each)     (passphrase must be in memory)
+                            |
+                    reassemble by type
+                            |
+                        loadData()
+
+[Save while offline] --> encrypt records --> IDB pending_sync queue
+                                                    |
+                          window 'online' event --> flushPendingSync() --> Supabase
 ```
 
 ## Module Map
 
 ### Global State (`js/lib/utils.js`)
-- `appConfig` — FI target, withdrawal rate, etc.
-- `accountsConfig` — Account definitions
-- `allData` — MonthEnd rows
-- `budgetItems` — Budget line items
-- `Fmt` — Formatting utilities (currency, percentage, years)
+- `appConfig` -- FI target, withdrawal rate, etc.
+- `accountsConfig` -- Account definitions
+- `allData` -- MonthEnd rows
+- `budgetItems` -- Budget line items
+- `Fmt` -- Formatting utilities (currency, percentage, years)
 
 ### Data Layer (`js/data/`)
 | Module | Responsibility |
@@ -81,49 +99,107 @@
 | `ui-summary.js` | Monthly summary panel: narrative, cards, anomaly alerts |
 
 ### Orchestration (`js/app.js`)
-- Unlock screen: File API + Crypto → populate globals → show dashboard
-- Auth screen: Cloud sign-in → StorageManager.load() → populate globals
+- Unlock screen: File API + Crypto --> populate globals --> show dashboard
+- Auth screen: Cloud sign-in --> StorageManager.load() --> populate globals
 - `refresh*()` functions wire calculators to renderers
 - Event binding for tabs, filters, time ranges
 
-### Encryption — File Mode (`js/crypto.js` + `cli/crypto.mjs`)
+### Encryption -- File Mode (`js/crypto.js` + `cli/crypto.mjs`)
 - AES-256-GCM with PBKDF2 key derivation (100k iterations)
 - Browser uses Web Crypto API, CLI uses Node.js `crypto`
-- Same `.fjson` format — files are interchangeable
+- Same `.fjson` format -- files are interchangeable
 
-### Encryption — DB Mode (`js/db-crypto.js`)
+### Encryption -- DB Mode (`js/db-crypto.js`)
 - Separate crypto module for zero-knowledge database storage
-- `deriveAuthPassword`: PBKDF2 (1 iter, email as salt) → Supabase login password
-- `deriveEncryptionKey`: PBKDF2 (100k iter, random salt) → non-extractable AES-256-GCM key
-- `recordHash`: SHA-256 opaque hash for record identity
+- `deriveAuthPassword`: PBKDF2 (10k iter, email as salt) --> Supabase login password
+- `deriveEncryptionKey`: PBKDF2 (100k iter, random salt) --> non-extractable AES-256-GCM key
+- `recordHash`: SHA-256 opaque hash for record identity (salted per user)
 - `encryptRecord`/`decryptRecord`: AES-256-GCM per-record encrypt/decrypt
-- Auth password ≠ encryption key — compromising auth does not reveal data
+- Auth password != encryption key -- compromising auth does not reveal data
 
 ### Database Service (`js/db-service.js`)
-- Supabase CRUD wrapper — the only module that touches the Supabase client
-- Auth (signUp, signIn, signOut, getSession), vault (getEncSalt), records (fetch, upsert, delete)
+- Supabase CRUD wrapper -- the only module that touches the Supabase client
+- Auth: `signUp` (returns `{user, session}`), `signIn`, `signOut`, `getSession`
+- Vault: `getEncSalt`, `upsertVault` (deferred from sign-up to first sign-in)
+- Records: `fetchAllRecords`, `upsertRecords`, `deleteRecords`
 
 ### Storage Manager (`js/storage-manager.js`)
 - Unified interface over file and DB modes
-- Diff-based save: compares current vs last-saved record map, upserts only changes
+- **Sign-up flow**: generates enc_salt; if no email confirmation, inserts vault immediately; otherwise stashes salt in localStorage for deferred insert on first sign-in
+- **Sign-in flow**: authenticates, ensures vault exists (creates from pending salt if needed), derives encryption key
+- **Load**: fetches encrypted records from Supabase (online) or IDB vault_cache (offline), decrypts client-side, reassembles into data shape
+- **Save**: diff-based -- computes changed/deleted records, encrypts, upserts to Supabase (online) or queues to IDB pending_sync (offline)
+- **Flush**: `flushPendingSync()` replays queued operations when back online
 - Import/export between .fjson files and DB
 - Mode persisted in localStorage (`fi_storage_mode`)
 
 ### Configuration (`js/config.js`)
-- Supabase URL and anon key (safe to expose — RLS protects data)
+- Supabase URL and anon key (safe to expose -- RLS protects data)
+
+### File Manager (`js/file-manager.js`)
+- File I/O via File System Access API (Chrome) or input/download fallback (Safari)
+- Persistent directory handle in IDB for silent saves on Chrome
+- **Session bridge**: `stashToSession`/`loadFromSession` encrypt data with a per-tab AES-256-GCM key before storing in sessionStorage. Key lives only in JS closure -- lost on tab close, making stale data unreadable.
 
 ### Cache (`js/data-cache.js`)
-- IDB v3: `cache` (file mode), `dir_handles`, `vault_cache` (encrypted DB records), `pending_sync`
-- No plaintext passphrase stored in IDB
+- IDB v3 with 4 object stores:
+  - `cache`: file-mode session data, encrypted with per-tab AES key (unreadable after tab close)
+  - `dir_handles`: Chrome directory handle (no financial data)
+  - `vault_cache`: encrypted DB records (server-side AES-256-GCM ciphertext, needs passphrase to decrypt)
+  - `pending_sync`: queued offline writes (already encrypted ciphertext)
+- No plaintext financial data or passphrases stored in IDB
+
+### Service Worker (`sw.js`)
+- Cache version: v8
+- Pre-caches app shell + CDN assets (Chart.js, Supabase JS, SheetJS)
+- Supabase API calls (`*.supabase.co`) always pass through (never cached)
+- CDN: stale-while-revalidate
+- Local assets: cache-first
+
+## Security Model
+
+### Zero-Knowledge Guarantee
+The server (Supabase) never sees plaintext financial data:
+
+| What server stores | Format |
+|-------------------|--------|
+| `enc_salt` | Random 16-byte base64 (useless without passphrase) |
+| `record_hash` | SHA-256 hex, salted per user (opaque identifier) |
+| `iv` | Random 12-byte base64 (per-record nonce) |
+| `data` | AES-256-GCM ciphertext (encrypted payload) |
+
+### Key Derivation (from single passphrase)
+```
+passphrase + email  -->  PBKDF2 (10k iter)  -->  auth password (hex)  -->  sent to Supabase
+passphrase + salt   -->  PBKDF2 (100k iter) -->  AES-256-GCM key      -->  never leaves client
+```
+- Different salts and iteration counts ensure independence
+- Supabase further hashes the auth password with bcrypt server-side
+
+### Local Storage Security
+| Location | What's stored | Protection |
+|----------|--------------|------------|
+| Supabase | Hashes + ciphertext | Zero-knowledge, RLS per user |
+| IDB `vault_cache` | Server ciphertext | AES-256-GCM (needs passphrase) |
+| IDB `pending_sync` | Server ciphertext | AES-256-GCM (needs passphrase) |
+| IDB `cache` | Session data | AES-256-GCM with ephemeral per-tab key |
+| sessionStorage | Session stash | AES-256-GCM with ephemeral per-tab key |
+| localStorage | Mode flag, panel state | No financial data |
+| JS heap | Passphrase, CryptoKey | Cleared on tab close |
+
+### What is NOT stored anywhere
+- Plaintext passphrase (never persisted -- JS heap only)
+- Plaintext financial data at rest (always encrypted)
+- Encryption key material (non-extractable CryptoKey in Web Crypto API)
 
 ## Database Schema (Supabase)
 
 See `supabase-schema.sql` for the full SQL. Two tables:
 
-- `user_vaults`: `user_id` (PK), `enc_salt` (random 16-byte base64)
-- `vault_records`: `user_id`, `record_hash` (opaque SHA-256 hex), `iv`, `data` (AES-256-GCM ciphertext)
+- `user_vaults`: `user_id` (PK), `enc_salt` (random 16-byte base64). Row created on first sign-in (deferred from sign-up to avoid RLS issues with email confirmation).
+- `vault_records`: `user_id`, `record_hash` (opaque SHA-256 hex), `iv`, `data` (AES-256-GCM ciphertext). Unique on `(user_id, record_hash)`.
 
-RLS policies ensure users can only access their own rows. The server never sees plaintext.
+RLS policies ensure users can only access their own rows.
 
 ### Record types stored in DB
 | type | natural_key | example |
@@ -162,3 +238,11 @@ Decrypted payload:
   }
 }
 ```
+
+## Deployment
+
+- **Hosted on**: GitHub Pages at `https://nabariho.github.io/fi-dashboard/`
+- **Source**: `main` branch, root directory
+- **Backend**: Supabase (free tier), project URL in `js/config.js`
+- **Supabase config**: Authentication > URL Configuration > Site URL must be `https://nabariho.github.io/fi-dashboard/`
+- **Service worker**: bump `CACHE_NAME` version on every deploy to bust cache
