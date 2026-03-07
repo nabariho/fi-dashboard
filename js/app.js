@@ -497,7 +497,7 @@ document.getElementById('decryptBtn').addEventListener('click', async function()
     _cachedPassphrase = passphrase;
     var sessionData2 = {
       decryptedData: decrypted,
-      passphrase: passphrase,
+      passphrase: null,
       wasEncrypted: true,
       originalFileText: _fileText,
       filename: _fileName
@@ -780,7 +780,7 @@ document.getElementById('refreshBtn').addEventListener('click', async function()
     loadData(decrypted);
     var sessionData = {
       decryptedData: decrypted,
-      passphrase: _cachedPassphrase,
+      passphrase: null,
       wasEncrypted: !!fileData.v,
       originalFileText: result.text,
       filename: result.filename
@@ -828,7 +828,7 @@ if (!navigator.onLine) {
       if (hasSession) {
         // We have a session but need passphrase to derive encryption key.
         // Try sessionStorage first for cached passphrase.
-        var sessionData = FileManager.loadFromSession();
+        var sessionData = await FileManager.loadFromSession();
         if (sessionData && sessionData.decryptedData && sessionData.storageMode === 'db') {
           loadData(sessionData.decryptedData);
           showDashboard();
@@ -848,7 +848,7 @@ if (!navigator.onLine) {
   }
 
   // 1. Try sessionStorage (same-tab navigation, file mode)
-  var session = FileManager.loadFromSession();
+  var session = await FileManager.loadFromSession();
   if (session && session.decryptedData && (!session.storageMode || session.storageMode === 'file')) {
     _cachedPassphrase = session.passphrase || null;
     loadData(session.decryptedData);

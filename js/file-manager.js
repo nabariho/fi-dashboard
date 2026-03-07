@@ -10,6 +10,56 @@ var FileManager = (function() {
 
   var hasFileSystemAccess = typeof window.showOpenFilePicker === 'function';
 
+  // --- Per-tab encryption key for sessionStorage ---
+  // Random AES-256-GCM key generated once per page load.
+  // Lives only in this JS closure — never persisted.
+  var _sessionKeyPromise = crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+
+  async function _encryptForSession(plaintext) {
+    var key = await _sessionKeyPromise;
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var encoded = new TextEncoder().encode(plaintext);
+    var ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv }, key, encoded
+    );
+    // Store as JSON: { iv: base64, ct: base64 }
+    return JSON.stringify({
+      iv: _bufToBase64(iv),
+      ct: _bufToBase64(new Uint8Array(ciphertext))
+    });
+  }
+
+  async function _decryptFromSession(stored) {
+    var key = await _sessionKeyPromise;
+    var parsed = JSON.parse(stored);
+    var iv = _base64ToBuf(parsed.iv);
+    var ct = _base64ToBuf(parsed.ct);
+    var plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv }, key, ct
+    );
+    return new TextDecoder().decode(plaintext);
+  }
+
+  function _bufToBase64(buf) {
+    var binary = '';
+    var bytes = new Uint8Array(buf);
+    for (var i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  function _base64ToBuf(b64) {
+    var binary = atob(b64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
   // --- Open ---
 
   async function open() {
@@ -154,20 +204,30 @@ var FileManager = (function() {
     URL.revokeObjectURL(url);
   }
 
-  // --- Session Bridge ---
+  // --- Session Bridge (encrypted) ---
 
   function stashToSession(data) {
-    try {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
-    } catch (e) {
-      // sessionStorage full or unavailable — silently ignore
-    }
+    _encryptForSession(JSON.stringify(data)).then(function(encrypted) {
+      try {
+        sessionStorage.setItem(SESSION_KEY, encrypted);
+      } catch (e) {
+        // sessionStorage full or unavailable — silently ignore
+      }
+    }).catch(function() {});
   }
 
   function loadFromSession() {
     try {
       var raw = sessionStorage.getItem(SESSION_KEY);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      // Return a promise — callers must await
+      return _decryptFromSession(raw).then(function(plaintext) {
+        return JSON.parse(plaintext);
+      }).catch(function() {
+        // Decryption failed (key rotated on page reload) — stale data
+        sessionStorage.removeItem(SESSION_KEY);
+        return null;
+      });
     } catch (e) {
       return null;
     }

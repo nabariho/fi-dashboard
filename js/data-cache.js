@@ -1,6 +1,6 @@
 // === DATA CACHE — IndexedDB Persistent Storage ===
-// v3: Adds vault_cache (encrypted DB records) and pending_sync stores.
-// Removes plaintext passphrase from file-mode cache.
+// v4: All stores except dir_handles are encrypted with a per-tab AES key.
+// On tab close the key is lost, so cached data requires re-authentication.
 
 var DataCache = (function() {
   var DB_NAME = 'fi_dashboard';
@@ -12,6 +12,52 @@ var DataCache = (function() {
   var CACHE_KEY = 'session';
   var DIR_KEY = 'save_dir';
   var VAULT_KEY = 'records';
+
+  // --- Per-tab encryption key (never persisted) ---
+  var _cacheKeyPromise = crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+
+  function _bufToBase64(buf) {
+    var binary = '';
+    var bytes = new Uint8Array(buf);
+    for (var i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  function _base64ToBuf(b64) {
+    var binary = atob(b64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  async function _encryptData(data) {
+    var key = await _cacheKeyPromise;
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var plaintext = new TextEncoder().encode(JSON.stringify(data));
+    var ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv }, key, plaintext
+    );
+    return {
+      iv: _bufToBase64(iv),
+      ct: _bufToBase64(new Uint8Array(ciphertext))
+    };
+  }
+
+  async function _decryptData(encrypted) {
+    var key = await _cacheKeyPromise;
+    var iv = _base64ToBuf(encrypted.iv);
+    var ct = _base64ToBuf(encrypted.ct);
+    var plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv }, key, ct
+    );
+    return JSON.parse(new TextDecoder().decode(plaintext));
+  }
 
   function _openDB() {
     return new Promise(function(resolve, reject) {
@@ -36,24 +82,24 @@ var DataCache = (function() {
     });
   }
 
-  // --- File-mode cache (decrypted data, no passphrase) ---
+  // --- File-mode cache (encrypted at rest) ---
 
   function save(data) {
-    var record = {
+    return _encryptData({
       decryptedData: data.decryptedData,
-      // v3: no longer store passphrase in IDB
       wasEncrypted: data.wasEncrypted,
       originalFileText: data.originalFileText,
       filename: data.filename,
       storageMode: data.storageMode || 'file',
       cachedAt: Date.now()
-    };
-    return _openDB().then(function(db) {
-      return new Promise(function(resolve, reject) {
-        var tx = db.transaction(STORE_NAME, 'readwrite');
-        tx.objectStore(STORE_NAME).put(record, CACHE_KEY);
-        tx.oncomplete = function() { resolve(); };
-        tx.onerror = function() { reject(tx.error); };
+    }).then(function(encrypted) {
+      return _openDB().then(function(db) {
+        return new Promise(function(resolve, reject) {
+          var tx = db.transaction(STORE_NAME, 'readwrite');
+          tx.objectStore(STORE_NAME).put(encrypted, CACHE_KEY);
+          tx.oncomplete = function() { resolve(); };
+          tx.onerror = function() { reject(tx.error); };
+        });
       });
     });
   }
@@ -63,7 +109,19 @@ var DataCache = (function() {
       return new Promise(function(resolve, reject) {
         var tx = db.transaction(STORE_NAME, 'readonly');
         var request = tx.objectStore(STORE_NAME).get(CACHE_KEY);
-        request.onsuccess = function() { resolve(request.result || null); };
+        request.onsuccess = function() {
+          var result = request.result;
+          if (!result) { resolve(null); return; }
+          // If it has iv+ct, it's encrypted (v4). Otherwise stale unencrypted data — discard.
+          if (!result.iv || !result.ct) {
+            resolve(null);
+            return;
+          }
+          _decryptData(result).then(resolve).catch(function() {
+            // Key rotated (new tab) — stale cache, discard
+            resolve(null);
+          });
+        };
         request.onerror = function() { reject(request.error); };
       });
     });
@@ -81,6 +139,7 @@ var DataCache = (function() {
   }
 
   // --- Directory Handle Persistence (Chrome File System Access API) ---
+  // Not encrypted — contains no financial data, just a browser handle.
 
   function saveDirHandle(handle) {
     return _openDB().then(function(db) {
@@ -105,9 +164,8 @@ var DataCache = (function() {
   }
 
   // --- Vault Cache (encrypted DB records for offline) ---
+  // These are already AES-256-GCM ciphertext from Supabase — stored as-is.
 
-  // Save encrypted records from DB for offline access.
-  // records: array of { record_hash, iv, data, updated_at }
   function saveEncrypted(records) {
     var entry = {
       records: records,
@@ -123,8 +181,6 @@ var DataCache = (function() {
     });
   }
 
-  // Load cached encrypted records.
-  // Returns { records, cachedAt } or null.
   function loadEncrypted() {
     return _openDB().then(function(db) {
       return new Promise(function(resolve, reject) {
@@ -148,9 +204,8 @@ var DataCache = (function() {
   }
 
   // --- Pending Sync Queue (offline writes) ---
+  // Records here are already encrypted ciphertext — stored as-is.
 
-  // Queue an operation for later sync.
-  // op: { action: 'upsert'|'delete', records: [...] }
   function queueSync(op) {
     var entry = {
       op: op,
@@ -166,7 +221,6 @@ var DataCache = (function() {
     });
   }
 
-  // Get all pending sync operations. Returns array of { key, op, queuedAt }.
   function getPendingSync() {
     return _openDB().then(function(db) {
       return new Promise(function(resolve, reject) {
@@ -188,7 +242,6 @@ var DataCache = (function() {
     });
   }
 
-  // Remove a synced operation by key.
   function removeSynced(key) {
     return _openDB().then(function(db) {
       return new Promise(function(resolve, reject) {
@@ -200,7 +253,6 @@ var DataCache = (function() {
     });
   }
 
-  // Clear all pending sync.
   function clearPendingSync() {
     return _openDB().then(function(db) {
       return new Promise(function(resolve, reject) {

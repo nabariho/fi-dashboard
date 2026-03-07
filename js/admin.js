@@ -146,7 +146,7 @@ document.getElementById('decryptBtn').addEventListener('click', async function()
     AdminState.passphrase = passphrase;
     loadAdminData(decrypted);
     DataCache.save({
-      decryptedData: decrypted, passphrase: passphrase, wasEncrypted: true,
+      decryptedData: decrypted, passphrase: null, wasEncrypted: true,
       originalFileText: _fileText, filename: _fileName
     }).catch(function() {});
     showAdmin();
@@ -1522,7 +1522,7 @@ async function save() {
       AdminState.originalFileText = output;
       var stashData = {
         decryptedData: updated,
-        passphrase: AdminState.passphrase,
+        passphrase: null,
         wasEncrypted: AdminState.wasEncrypted,
         originalFileText: output,
         filename: filename
@@ -1787,7 +1787,7 @@ async function exportDbToFile() {
       var hasSession = await StorageManager.hasSession();
       if (hasSession) {
         // Try sessionStorage for cached data
-        var sessionData = FileManager.loadFromSession();
+        var sessionData = await FileManager.loadFromSession();
         if (sessionData && sessionData.decryptedData && sessionData.storageMode === 'db') {
           AdminState.storageMode = 'db';
           loadAdminData(sessionData.decryptedData);
@@ -1804,7 +1804,7 @@ async function exportDbToFile() {
   }
 
   // 1. Try sessionStorage (file mode)
-  var session = FileManager.loadFromSession();
+  var session = await FileManager.loadFromSession();
   if (session && session.decryptedData && (!session.storageMode || session.storageMode === 'file')) {
     restoreFromSession(session);
     return;
