@@ -1500,7 +1500,10 @@ async function save() {
 
       AdminState.dirty = false;
       document.querySelector('.dirty-indicator').classList.remove('visible');
-      showToast('Synced (' + result.upserted + ' updated, ' + result.deleted + ' deleted)');
+      var toastMsg = result.offline
+        ? 'Saved offline (' + result.upserted + ' updated, ' + result.deleted + ' deleted) — will sync when online'
+        : 'Synced (' + result.upserted + ' updated, ' + result.deleted + ' deleted)';
+      showToast(toastMsg);
     } else {
       // --- FILE MODE: existing flow ---
 
@@ -1662,12 +1665,20 @@ function adminShowUnlockScreen() {
     signUpBtn.textContent = 'Creating...';
     try {
       StorageManager.init('db');
-      await StorageManager.signUp(email, pass);
+      var result = await StorageManager.signUp(email, pass);
+      if (result.needsConfirmation) {
+        errorEl.style.color = '#137333';
+        errorEl.textContent = 'Account created! Check your email to confirm, then sign in.';
+        signUpBtn.disabled = false;
+        signUpBtn.textContent = 'Create Account';
+        return;
+      }
       var data = await StorageManager.load();
       AdminState.storageMode = 'db';
       loadAdminData(data);
       showAdmin();
     } catch (e) {
+      errorEl.style.color = '';
       errorEl.textContent = e.message || 'Sign up failed.';
       signUpBtn.disabled = false;
       signUpBtn.textContent = 'Create Account';
@@ -1813,3 +1824,14 @@ async function exportDbToFile() {
 
   // 3. Show unlock screen (first visit, file mode)
 })();
+
+// Flush pending DB sync when coming back online
+window.addEventListener('online', function() {
+  if (typeof StorageManager !== 'undefined' && StorageManager.mode === 'db') {
+    StorageManager.flushPendingSync().then(function(result) {
+      if (result && result.flushed > 0) {
+        showToast('Synced ' + result.flushed + ' pending change' + (result.flushed > 1 ? 's' : ''));
+      }
+    }).catch(function() {});
+  }
+});

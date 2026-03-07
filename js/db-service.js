@@ -25,24 +25,27 @@ var DbService = (function() {
 
     // --- Auth ---
 
-    // Sign up a new user. Creates auth user + inserts enc_salt into user_vaults.
-    signUp: async function(email, authPassword, encSalt) {
+    // Sign up a new user. Returns { user, session }.
+    // session is null when email confirmation is required.
+    signUp: async function(email, authPassword) {
       _ensureInit();
       var result = await _supabase.auth.signUp({
         email: email,
         password: authPassword
       });
       if (result.error) throw result.error;
+      return result.data; // { user, session }
+    },
 
-      var user = result.data.user;
-      // Insert enc_salt into user_vaults
-      var vaultResult = await _supabase.from('user_vaults').insert({
-        user_id: user.id,
+    // Insert or update the enc_salt in user_vaults.
+    // Must be called when an authenticated session exists.
+    upsertVault: async function(userId, encSalt) {
+      _ensureInit();
+      var result = await _supabase.from('user_vaults').upsert({
+        user_id: userId,
         enc_salt: encSalt
       });
-      if (vaultResult.error) throw vaultResult.error;
-
-      return user;
+      if (result.error) throw result.error;
     },
 
     // Sign in an existing user.

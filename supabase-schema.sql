@@ -1,7 +1,9 @@
 -- Supabase Schema for FI Dashboard Zero-Knowledge Backend
 -- Run this in the Supabase SQL Editor after creating a project.
 
--- User vaults: stores the encryption salt per user
+-- User vaults: stores the encryption salt per user.
+-- Row is inserted on first sign-in (not during sign-up) to avoid RLS issues
+-- when Supabase email confirmation is enabled.
 CREATE TABLE user_vaults (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   enc_salt TEXT NOT NULL,

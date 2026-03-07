@@ -642,7 +642,14 @@ function updateDbModeUI() {
     this.textContent = 'Creating...';
     try {
       StorageManager.init('db');
-      await StorageManager.signUp(email, pass);
+      var result = await StorageManager.signUp(email, pass);
+      if (result.needsConfirmation) {
+        errorEl.style.color = '#137333';
+        errorEl.textContent = 'Account created! Check your email to confirm, then sign in.';
+        this.disabled = false;
+        this.textContent = 'Create Account';
+        return;
+      }
       // New account — load empty data
       var data = await StorageManager.load();
       loadData(data);
@@ -653,6 +660,7 @@ function updateDbModeUI() {
       showDashboard();
       updateDbModeUI();
     } catch (e) {
+      errorEl.style.color = '';
       errorEl.textContent = e.message || 'Sign up failed.';
       this.disabled = false;
       this.textContent = 'Create Account';
@@ -791,6 +799,15 @@ document.getElementById('refreshBtn').addEventListener('click', async function()
 // Offline / Online listeners
 window.addEventListener('online', function() {
   document.getElementById('offlineBanner').style.display = 'none';
+  // Flush any pending DB writes queued while offline
+  if (typeof StorageManager !== 'undefined' && StorageManager.mode === 'db') {
+    StorageManager.flushPendingSync().then(function(result) {
+      if (result && result.flushed > 0) {
+        var msg = 'Synced ' + result.flushed + ' pending change' + (result.flushed > 1 ? 's' : '');
+        if (typeof showToast === 'function') showToast(msg);
+      }
+    }).catch(function() {});
+  }
 });
 window.addEventListener('offline', function() {
   document.getElementById('offlineBanner').style.display = '';

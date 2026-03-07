@@ -12,6 +12,7 @@ var StorageManager = (function() {
   var _passphrase = null;     // Kept in memory for session re-derive
 
   var STORAGE_MODE_KEY = 'fi_storage_mode';
+  var PENDING_SALT_KEY = 'fi_pending_enc_salt';
 
   // --- Record Map Helpers ---
 
@@ -191,19 +192,29 @@ var StorageManager = (function() {
 
     // --- Auth (DB mode) ---
 
+    // Sign up. Returns { user, needsConfirmation }.
+    // When email confirmation is required, the vault is deferred to first signIn.
     signUp: async function(email, passphrase) {
       var authPwd = await DbCrypto.deriveAuthPassword(passphrase, email);
       var encSalt = DbCrypto.generateSalt();
-      var user = await DbService.signUp(email, authPwd, encSalt);
+      var data = await DbService.signUp(email, authPwd);
+      var user = data.user;
 
-      _encSalt = encSalt;
-      _userId = user.id;
-      _passphrase = passphrase;
-      _cryptoKey = await DbCrypto.deriveEncryptionKey(passphrase, encSalt);
-      _lastSavedMap = null;
+      if (data.session) {
+        // No email confirmation — session exists, insert vault now
+        await DbService.upsertVault(user.id, encSalt);
+        _encSalt = encSalt;
+        _userId = user.id;
+        _passphrase = passphrase;
+        _cryptoKey = await DbCrypto.deriveEncryptionKey(passphrase, encSalt);
+        _lastSavedMap = null;
+        this.setMode('db');
+      } else {
+        // Email confirmation required — stash salt for first signIn
+        localStorage.setItem(PENDING_SALT_KEY, encSalt);
+      }
 
-      this.setMode('db');
-      return user;
+      return { user: user, needsConfirmation: !data.session };
     },
 
     signIn: async function(email, passphrase) {
@@ -213,8 +224,24 @@ var StorageManager = (function() {
 
       _userId = user.id;
       _passphrase = passphrase;
-      _encSalt = await DbService.getEncSalt(user.id);
-      _cryptoKey = await DbCrypto.deriveEncryptionKey(passphrase, _encSalt);
+
+      // Try to get existing vault; if missing, create it from pending salt
+      var encSalt;
+      try {
+        encSalt = await DbService.getEncSalt(user.id);
+      } catch (e) {
+        // No vault yet — first sign-in after confirmed sign-up
+        var pendingSalt = localStorage.getItem(PENDING_SALT_KEY);
+        if (!pendingSalt) {
+          throw new Error('No encryption salt found. Please sign up again.');
+        }
+        encSalt = pendingSalt;
+        await DbService.upsertVault(user.id, encSalt);
+        localStorage.removeItem(PENDING_SALT_KEY);
+      }
+
+      _encSalt = encSalt;
+      _cryptoKey = await DbCrypto.deriveEncryptionKey(passphrase, encSalt);
       _lastSavedMap = null;
 
       this.setMode('db');
@@ -258,14 +285,28 @@ var StorageManager = (function() {
     // --- Load ---
 
     // Load all data. Returns { config, accounts, data, budgetItems, milestones, mortgage }.
+    // Falls back to IDB vault cache when offline.
     load: async function() {
       if (_mode !== 'db') {
         throw new Error('StorageManager.load() is only for DB mode. Use file flow for file mode.');
       }
 
-      var encryptedRecords = await DbService.fetchAllRecords(_userId);
-      var decryptedRecords = [];
+      var encryptedRecords;
 
+      if (DbService.isOnline()) {
+        encryptedRecords = await DbService.fetchAllRecords(_userId);
+        // Cache for offline use
+        DataCache.saveEncrypted(encryptedRecords).catch(function() {});
+      } else {
+        // Offline — load from IDB vault cache
+        var cached = await DataCache.loadEncrypted();
+        if (!cached || !cached.records) {
+          throw new Error('You are offline and no cached data is available.');
+        }
+        encryptedRecords = cached.records;
+      }
+
+      var decryptedRecords = [];
       for (var i = 0; i < encryptedRecords.length; i++) {
         var rec = encryptedRecords[i];
         var decrypted = await DbCrypto.decryptRecord(_cryptoKey, rec.iv, rec.data);
@@ -280,6 +321,7 @@ var StorageManager = (function() {
     // --- Save (diff-based) ---
 
     // Save data to DB. Only upserts changed records and deletes removed ones.
+    // Queues to IDB when offline and flushes when back online.
     save: async function(fullDataObject) {
       if (_mode !== 'db') {
         throw new Error('StorageManager.save() is only for DB mode.');
@@ -288,33 +330,94 @@ var StorageManager = (function() {
       var currentMap = buildRecordMap(fullDataObject);
       var diff = computeDiff(_lastSavedMap, currentMap);
 
-      // Encrypt and upsert changed records
+      // Encrypt changed records
+      var encryptedUpserts = [];
       if (diff.upsert.length > 0) {
-        var encryptedRecords = [];
         for (var i = 0; i < diff.upsert.length; i++) {
           var item = diff.upsert[i];
           var encrypted = await DbCrypto.encryptRecord(
             _cryptoKey, item.type, item.naturalKey, item.payload, _encSalt
           );
-          encryptedRecords.push(encrypted);
+          encryptedUpserts.push(encrypted);
         }
-        await DbService.upsertRecords(_userId, encryptedRecords);
       }
 
-      // Delete removed records
+      // Compute hashes for deletions
+      var deleteHashes = [];
       if (diff.delete.length > 0) {
-        var hashes = [];
         for (var j = 0; j < diff.delete.length; j++) {
           var del = diff.delete[j];
           var hash = await DbCrypto.recordHash(del.type, del.naturalKey, _encSalt);
-          hashes.push(hash);
+          deleteHashes.push(hash);
         }
-        await DbService.deleteRecords(_userId, hashes);
+      }
+
+      if (DbService.isOnline()) {
+        // Online — sync directly
+        if (encryptedUpserts.length > 0) {
+          await DbService.upsertRecords(_userId, encryptedUpserts);
+        }
+        if (deleteHashes.length > 0) {
+          await DbService.deleteRecords(_userId, deleteHashes);
+        }
+      } else {
+        // Offline — queue for later sync
+        if (encryptedUpserts.length > 0) {
+          await DataCache.queueSync({ action: 'upsert', userId: _userId, records: encryptedUpserts });
+        }
+        if (deleteHashes.length > 0) {
+          await DataCache.queueSync({ action: 'delete', userId: _userId, hashes: deleteHashes });
+        }
       }
 
       _lastSavedMap = currentMap;
 
-      return { upserted: diff.upsert.length, deleted: diff.delete.length };
+      // Update the vault cache with current state
+      DataCache.saveEncrypted(
+        await this._getAllEncryptedRecords(currentMap)
+      ).catch(function() {});
+
+      return { upserted: diff.upsert.length, deleted: diff.delete.length, offline: !DbService.isOnline() };
+    },
+
+    // Re-encrypt all records for vault cache update.
+    _getAllEncryptedRecords: async function(recordMap) {
+      var keys = Object.keys(recordMap);
+      var encrypted = [];
+      for (var i = 0; i < keys.length; i++) {
+        var parts = parseTypeKey(keys[i]);
+        var rec = await DbCrypto.encryptRecord(
+          _cryptoKey, parts.type, parts.naturalKey, recordMap[keys[i]], _encSalt
+        );
+        encrypted.push(rec);
+      }
+      return encrypted;
+    },
+
+    // Flush pending sync operations queued while offline.
+    flushPendingSync: async function() {
+      if (_mode !== 'db' || !DbService.isOnline()) return { flushed: 0 };
+
+      var pending = await DataCache.getPendingSync();
+      if (!pending || pending.length === 0) return { flushed: 0 };
+
+      var flushed = 0;
+      for (var i = 0; i < pending.length; i++) {
+        var entry = pending[i];
+        try {
+          if (entry.op.action === 'upsert') {
+            await DbService.upsertRecords(entry.op.userId, entry.op.records);
+          } else if (entry.op.action === 'delete') {
+            await DbService.deleteRecords(entry.op.userId, entry.op.hashes);
+          }
+          await DataCache.removeSynced(entry.key);
+          flushed++;
+        } catch (e) {
+          // Stop on first failure — will retry next time
+          break;
+        }
+      }
+      return { flushed: flushed, remaining: pending.length - flushed };
     },
 
     // --- Import / Export ---
