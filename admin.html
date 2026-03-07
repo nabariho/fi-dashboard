@@ -14,25 +14,28 @@
   <!-- Auth screen: Cloud sign-in -->
   <div id="authScreen" style="display:none;">
     <h1>FI Dashboard — Admin</h1>
-    <div class="auth-form">
+    <form id="adminAuthForm" class="auth-form" autocomplete="on">
       <div class="auth-mode-label">Cloud Mode</div>
       <div class="auth-field">
-        <input type="email" id="authEmail" placeholder="Email" autocomplete="email">
+        <input type="email" id="authEmail" name="username" placeholder="Email" autocomplete="username email" autocapitalize="none" spellcheck="false">
         <div class="auth-hint">Your account identity. Also used to derive your login key.</div>
       </div>
       <div class="auth-field">
-        <input type="password" id="authPassphrase" placeholder="Passphrase" autocomplete="current-password">
+        <div class="auth-password-wrap">
+          <input type="password" id="authPassphrase" name="password" placeholder="Passphrase" autocomplete="current-password" autocapitalize="none" spellcheck="false">
+          <button type="button" id="authTogglePassphrase" class="auth-pass-toggle" aria-label="Show passphrase" aria-pressed="false">Show</button>
+        </div>
         <div class="auth-hint">Choose a strong passphrase. It derives both your login and your encryption key. The server never sees it.</div>
       </div>
       <div class="auth-buttons">
-        <button id="signInBtn" class="btn-auth btn-auth-primary">Sign In</button>
-        <button id="signUpBtn" class="btn-auth btn-auth-secondary">Create Account</button>
+        <button type="submit" id="signInBtn" class="btn-auth btn-auth-primary">Sign In</button>
+        <button type="button" id="signUpBtn" class="btn-auth btn-auth-secondary">Create Account</button>
       </div>
       <div id="authError" class="auth-error"></div>
       <div class="auth-alt-link">
         <a href="#" id="useFileLink">Use local file instead</a>
       </div>
-    </div>
+    </form>
   </div>
 
   <!-- Unlock screen: File mode -->

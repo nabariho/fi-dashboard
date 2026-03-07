@@ -323,7 +323,7 @@ function renderAccounts() {
 
   var html = '<div class="section-header">' +
     '<h2>Accounts</h2>' +
-    '<p class="section-desc">Financial accounts tracked in the dashboard. "Net Worth" includes the account in total net worth. "Performance" includes it in investment return calculations.</p>' +
+    '<p class="section-desc">Financial accounts tracked in the dashboard. "Net Worth" includes the account in total net worth. "Performance" includes it in investment return calculations. "EF Role" marks accounts as part of the emergency fund (Dedicated = primary, Backup = secondary).</p>' +
     '</div>';
 
   // Add form at top
@@ -336,15 +336,16 @@ function renderAccounts() {
     '<div class="add-form-field"><label>Currency</label><input type="text" id="newAcctCurrency" value="EUR" style="width:60px"></div>' +
     '<div class="add-form-field"><label>Net Worth</label><input type="checkbox" id="newAcctNW" checked></div>' +
     '<div class="add-form-field"><label>Performance</label><input type="checkbox" id="newAcctPerf"></div>' +
+    '<div class="add-form-field"><label>EF Role</label><select id="newAcctEFRole"><option value="none">None</option><option value="dedicated">Dedicated</option><option value="backup">Backup</option></select></div>' +
     '<button class="btn-add" onclick="addAccount()">Add Account</button>' +
     '</div></div>';
 
   html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
-    '<th>ID</th><th>Name</th><th>Type</th><th>Currency</th><th style="text-align:center">Net Worth</th><th style="text-align:center">Performance</th><th></th>' +
+    '<th>ID</th><th>Name</th><th>Type</th><th>Currency</th><th style="text-align:center">Net Worth</th><th style="text-align:center">Performance</th><th>EF Role</th><th></th>' +
     '</tr></thead><tbody>';
 
   if (!accts.length) {
-    html += '<tr><td colspan="7"><div class="empty-state">No accounts yet. Add one above.</div></td></tr>';
+    html += '<tr><td colspan="8"><div class="empty-state">No accounts yet. Add one above.</div></td></tr>';
   }
 
   accts.forEach(function(a, i) {
@@ -358,6 +359,11 @@ function renderAccounts() {
       '<td><input type="text" value="' + escHtml(a.currency || 'EUR') + '" data-idx="' + i + '" data-field="currency" class="acct-field" style="width:60px"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (a.include_networth ? ' checked' : '') + ' data-idx="' + i + '" data-field="include_networth" class="acct-check"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (a.include_performance ? ' checked' : '') + ' data-idx="' + i + '" data-field="include_performance" class="acct-check"></td>' +
+      '<td><select data-idx="' + i + '" data-field="emergency_fund_role" class="acct-field">' +
+        '<option value="none"' + ((!a.emergency_fund_role || a.emergency_fund_role === 'none') ? ' selected' : '') + '>None</option>' +
+        '<option value="dedicated"' + (a.emergency_fund_role === 'dedicated' ? ' selected' : '') + '>Dedicated</option>' +
+        '<option value="backup"' + (a.emergency_fund_role === 'backup' ? ' selected' : '') + '>Backup</option>' +
+      '</select></td>' +
       '<td style="width:60px"><button class="btn-delete" data-idx="' + i + '" onclick="deleteAccount(this)">Delete</button></td>' +
       '</tr>';
   });
@@ -416,7 +422,8 @@ function addAccount() {
     type: document.getElementById('newAcctType').value,
     currency: document.getElementById('newAcctCurrency').value.trim() || 'EUR',
     include_networth: document.getElementById('newAcctNW').checked,
-    include_performance: document.getElementById('newAcctPerf').checked
+    include_performance: document.getElementById('newAcctPerf').checked,
+    emergency_fund_role: document.getElementById('newAcctEFRole').value
   });
   markDirty();
   renderAccounts();
@@ -1592,6 +1599,12 @@ function adminShowUnlockScreen() {
   document.getElementById('unlock').style.display = '';
 }
 
+function adminSetAuthPassphraseAutocomplete(mode) {
+  var passInput = document.getElementById('authPassphrase');
+  if (!passInput) return;
+  passInput.setAttribute('autocomplete', mode === 'signup' ? 'new-password' : 'current-password');
+}
+
 // "Use cloud sync instead" link
 (function() {
   var cloudLink = document.getElementById('useCloudLink');
@@ -1624,6 +1637,7 @@ function adminShowUnlockScreen() {
   var signInBtn = document.getElementById('signInBtn');
   if (!signInBtn) return;
   signInBtn.addEventListener('click', async function() {
+    adminSetAuthPassphraseAutocomplete('signin');
     var email = document.getElementById('authEmail').value.trim();
     var pass = document.getElementById('authPassphrase').value;
     var errorEl = document.getElementById('authError');
@@ -1653,6 +1667,7 @@ function adminShowUnlockScreen() {
   var signUpBtn = document.getElementById('signUpBtn');
   if (!signUpBtn) return;
   signUpBtn.addEventListener('click', async function() {
+    adminSetAuthPassphraseAutocomplete('signup');
     var email = document.getElementById('authEmail').value.trim();
     var pass = document.getElementById('authPassphrase').value;
     var errorEl = document.getElementById('authError');
@@ -1683,6 +1698,31 @@ function adminShowUnlockScreen() {
       signUpBtn.disabled = false;
       signUpBtn.textContent = 'Create Account';
     }
+  });
+})();
+
+// Auth form submit (Enter / password manager submit)
+(function() {
+  var authForm = document.getElementById('adminAuthForm');
+  if (!authForm) return;
+  authForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var signInBtn = document.getElementById('signInBtn');
+    if (signInBtn) signInBtn.click();
+  });
+})();
+
+// Toggle passphrase visibility on auth screen
+(function() {
+  var passInput = document.getElementById('authPassphrase');
+  var toggleBtn = document.getElementById('authTogglePassphrase');
+  if (!passInput || !toggleBtn) return;
+  toggleBtn.addEventListener('click', function() {
+    var show = passInput.type === 'password';
+    passInput.type = show ? 'text' : 'password';
+    toggleBtn.textContent = show ? 'Hide' : 'Show';
+    toggleBtn.setAttribute('aria-label', show ? 'Hide passphrase' : 'Show passphrase');
+    toggleBtn.setAttribute('aria-pressed', show ? 'true' : 'false');
   });
 })();
 

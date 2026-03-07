@@ -167,8 +167,8 @@ function refreshEmergency() {
   if (typeof EmergencyCalculator === 'undefined' || typeof EmergencyRenderer === 'undefined') return;
 
   try {
-    var accountIds = EmergencyCalculator.getAccountIds(appConfig);
-    var roles = EmergencyCalculator.getAccountRoles(appConfig);
+    var accountIds = EmergencyCalculator.getAccountIds();
+    var roles = EmergencyCalculator.getAccountRoles();
     var target = appConfig.emergency_fund_target || 40000;
 
     // Current status from latest NW data
@@ -593,6 +593,12 @@ function setAuthLoading(loading) {
   if (signUpBtn) { signUpBtn.disabled = loading; }
 }
 
+function setAuthPassphraseAutocomplete(mode) {
+  var passInput = document.getElementById('authPassphrase');
+  if (!passInput) return;
+  passInput.setAttribute('autocomplete', mode === 'signup' ? 'new-password' : 'current-password');
+}
+
 function updateDbModeUI() {
   var signOutBtn = document.getElementById('menuSignOut');
   var switchCloud = document.getElementById('menuSwitchCloud');
@@ -637,6 +643,7 @@ function updateDbModeUI() {
   var signInBtn = document.getElementById('signInBtn');
   if (!signInBtn) return;
   signInBtn.addEventListener('click', async function() {
+    setAuthPassphraseAutocomplete('signin');
     var email = document.getElementById('authEmail').value.trim();
     var pass = document.getElementById('authPassphrase').value;
     var errorEl = document.getElementById('authError');
@@ -669,6 +676,7 @@ function updateDbModeUI() {
   var signUpBtn = document.getElementById('signUpBtn');
   if (!signUpBtn) return;
   signUpBtn.addEventListener('click', async function() {
+    setAuthPassphraseAutocomplete('signup');
     var email = document.getElementById('authEmail').value.trim();
     var pass = document.getElementById('authPassphrase').value;
     var errorEl = document.getElementById('authError');
@@ -704,6 +712,31 @@ function updateDbModeUI() {
       this.disabled = false;
       this.textContent = 'Create Account';
     }
+  });
+})();
+
+// Auth form submit (Enter / password manager submit)
+(function() {
+  var authForm = document.getElementById('authForm');
+  if (!authForm) return;
+  authForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var signInBtn = document.getElementById('signInBtn');
+    if (signInBtn) signInBtn.click();
+  });
+})();
+
+// Toggle passphrase visibility on auth screen
+(function() {
+  var passInput = document.getElementById('authPassphrase');
+  var toggleBtn = document.getElementById('authTogglePassphrase');
+  if (!passInput || !toggleBtn) return;
+  toggleBtn.addEventListener('click', function() {
+    var show = passInput.type === 'password';
+    passInput.type = show ? 'text' : 'password';
+    toggleBtn.textContent = show ? 'Hide' : 'Show';
+    toggleBtn.setAttribute('aria-label', show ? 'Hide passphrase' : 'Show passphrase');
+    toggleBtn.setAttribute('aria-pressed', show ? 'true' : 'false');
   });
 })();
 

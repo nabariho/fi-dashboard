@@ -219,6 +219,33 @@ body {
   margin-bottom: 4px;
 }
 
+.auth-password-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.auth-password-wrap input {
+  margin-bottom: 0;
+}
+
+.auth-pass-toggle {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.auth-pass-toggle:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 .auth-hint {
   font-size: 11px;
   color: var(--text-secondary);
