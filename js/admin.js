@@ -17,6 +17,7 @@ var AdminState = {
   accounts: [],
   data: [],
   budgetItems: [],
+  plannerGoals: [],
   milestones: [],
   mortgage: null,
   originalFileText: null,
@@ -47,12 +48,14 @@ function updateTabBadges() {
   var b1 = document.getElementById('badge-config');
   var b2 = document.getElementById('badge-accounts');
   var b3 = document.getElementById('badge-budget');
+  var bPlanning = document.getElementById('badge-planning');
   var b4 = document.getElementById('badge-monthend');
   var b5 = document.getElementById('badge-milestones');
   var b6 = document.getElementById('badge-mortgage');
   if (b1) b1.textContent = Object.keys(AdminState.config).length;
   if (b2) b2.textContent = AdminState.accounts.length;
   if (b3) b3.textContent = AdminState.budgetItems.length;
+  if (bPlanning) bPlanning.textContent = AdminState.plannerGoals.length;
   if (b5) b5.textContent = AdminState.milestones.length;
   if (b4) b4.textContent = AdminState.data.length;
   if (b6) b6.textContent = AdminState.mortgage ? '1' : '0';
@@ -166,6 +169,7 @@ function loadAdminData(data) {
   AdminState.accounts = (data.accounts || []).map(function(a) { return Object.assign({}, a); });
   AdminState.data = (data.data || []).map(function(r) { return Object.assign({}, r); });
   AdminState.budgetItems = (data.budgetItems || []).map(function(b) { return Object.assign({}, b); });
+  AdminState.plannerGoals = (data.plannerGoals || []).map(function(g) { return Object.assign({}, g); });
   AdminState.milestones = (data.milestones || []).map(function(m) {
     return Object.assign({}, m, { sub_targets: (m.sub_targets || []).map(function(s) { return Object.assign({}, s); }) });
   });
@@ -230,6 +234,7 @@ function renderActiveTab() {
   if (tab === 'config') renderConfig();
   else if (tab === 'accounts') renderAccounts();
   else if (tab === 'budget') renderBudget();
+  else if (tab === 'planning') renderPlanning();
   else if (tab === 'milestones') renderMilestones();
   else if (tab === 'monthend') renderMonthEnd();
   else if (tab === 'mortgage') renderMortgageAdmin();
@@ -555,6 +560,140 @@ function addBudget() {
   markDirty();
   renderBudget();
   showToast('Budget item added');
+}
+
+// --- Planning Tab ---
+
+function renderPlanning() {
+  var container = document.getElementById('planningTable');
+  var goals = AdminState.plannerGoals;
+
+  var html = '<div class="section-header">' +
+    '<h2>Goal Planning</h2>' +
+    '<p class="section-desc">Define goals with priority and target date. Monthly funding plan is computed in the Dashboard Planning tab using monthly income minus budget expenses.</p>' +
+    '</div>';
+
+  html += '<div class="add-form-card">' +
+    '<div class="add-form-title">Add Goal</div>' +
+    '<div class="add-form-row">' +
+    '<div class="add-form-field"><label>ID</label><input type="text" id="newGoalId" placeholder="emergency_fund" style="width:140px"></div>' +
+    '<div class="add-form-field"><label>Name</label><input type="text" id="newGoalName" placeholder="Emergency Fund" style="width:180px"></div>' +
+    '<div class="add-form-field"><label>Target</label><input type="number" step="any" id="newGoalTarget" placeholder="40000" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Current</label><input type="number" step="any" id="newGoalCurrent" placeholder="0" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Target Date</label><input type="text" id="newGoalDate" placeholder="YYYY-MM" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Priority</label><input type="number" step="1" id="newGoalPriority" value="2" style="width:80px"></div>' +
+    '<div class="add-form-field"><label>Active</label><input type="checkbox" id="newGoalActive" checked></div>' +
+    '<button class="btn-add" onclick="addPlanningGoal()">Add Goal</button>' +
+    '</div></div>';
+
+  html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
+    '<th>ID</th><th>Name</th><th style="text-align:right">Target</th><th style="text-align:right">Current</th><th>Target Date</th><th>Priority</th><th style="text-align:center">Active</th><th></th>' +
+    '</tr></thead><tbody>';
+
+  if (!goals.length) {
+    html += '<tr><td colspan="8"><div class="empty-state">No goals yet. Add one above.</div></td></tr>';
+  }
+
+  goals.forEach(function(g, i) {
+    html += '<tr' + (g.active === false ? ' style="opacity:0.5"' : '') + '>' +
+      '<td class="cell-id">' + escHtml(g.goal_id) + '</td>' +
+      '<td><input type="text" value="' + escHtml(g.name || '') + '" data-idx="' + i + '" data-field="name" class="goal-field"></td>' +
+      '<td style="text-align:right"><input type="number" step="any" value="' + (g.target_amount || 0) + '" data-idx="' + i + '" data-field="target_amount" class="goal-num" style="width:120px; text-align:right"></td>' +
+      '<td style="text-align:right"><input type="number" step="any" value="' + (g.current_amount || 0) + '" data-idx="' + i + '" data-field="current_amount" class="goal-num" style="width:120px; text-align:right"></td>' +
+      '<td><input type="text" value="' + escHtml(g.target_date || '') + '" data-idx="' + i + '" data-field="target_date" class="goal-field" style="width:100px"></td>' +
+      '<td><input type="number" step="1" value="' + (g.priority || 3) + '" data-idx="' + i + '" data-field="priority" class="goal-int" style="width:70px"></td>' +
+      '<td style="text-align:center"><input type="checkbox"' + (g.active !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-active"></td>' +
+      '<td style="width:60px"><button class="btn-delete" data-idx="' + i + '" onclick="deletePlanningGoal(this)">Delete</button></td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+
+  container.querySelectorAll('.goal-field').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      AdminState.plannerGoals[idx][this.dataset.field] = this.value;
+      markDirty();
+    });
+  });
+  container.querySelectorAll('.goal-num').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      var val = parseFloat(this.value);
+      if (!isNaN(val)) {
+        AdminState.plannerGoals[idx][this.dataset.field] = val;
+        markDirty();
+      }
+    });
+  });
+  container.querySelectorAll('.goal-int').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      var val = parseInt(this.value);
+      if (!isNaN(val) && val > 0) {
+        AdminState.plannerGoals[idx][this.dataset.field] = val;
+        markDirty();
+      }
+    });
+  });
+  container.querySelectorAll('.goal-active').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      AdminState.plannerGoals[idx].active = this.checked;
+      markDirty();
+      renderPlanning();
+    });
+  });
+}
+
+function addPlanningGoal() {
+  var idEl = document.getElementById('newGoalId');
+  var nameEl = document.getElementById('newGoalName');
+  var targetEl = document.getElementById('newGoalTarget');
+  var currentEl = document.getElementById('newGoalCurrent');
+  var dateEl = document.getElementById('newGoalDate');
+  var priorityEl = document.getElementById('newGoalPriority');
+
+  var id = idEl.value.trim().toLowerCase().replace(/\s+/g, '_');
+  var name = nameEl.value.trim();
+  var target = parseFloat(targetEl.value);
+  var current = parseFloat(currentEl.value || '0');
+  var date = dateEl.value.trim();
+  var priority = parseInt(priorityEl.value || '3');
+
+  [idEl, nameEl, targetEl, dateEl, priorityEl].forEach(function(el) { el.classList.remove('input-error'); });
+
+  if (!id) { idEl.classList.add('input-error'); return; }
+  if (!name) { nameEl.classList.add('input-error'); return; }
+  if (isNaN(target) || target <= 0) { targetEl.classList.add('input-error'); return; }
+  if (!/^\d{4}-\d{2}$/.test(date)) { dateEl.classList.add('input-error'); return; }
+  if (isNaN(priority) || priority <= 0) { priorityEl.classList.add('input-error'); return; }
+  if (AdminState.plannerGoals.some(function(g) { return g.goal_id === id; })) {
+    alert('Goal "' + id + '" already exists.');
+    return;
+  }
+
+  AdminState.plannerGoals.push({
+    goal_id: id,
+    name: name,
+    target_amount: target,
+    current_amount: isNaN(current) ? 0 : current,
+    target_date: date,
+    priority: priority,
+    active: document.getElementById('newGoalActive').checked
+  });
+  markDirty();
+  renderPlanning();
+  showToast('Goal added');
+}
+
+function deletePlanningGoal(btn) {
+  var idx = parseInt(btn.dataset.idx);
+  if (!confirm('Delete planning goal "' + AdminState.plannerGoals[idx].goal_id + '"?')) return;
+  AdminState.plannerGoals.splice(idx, 1);
+  markDirty();
+  renderPlanning();
 }
 
 // --- Milestones Tab ---
@@ -1444,6 +1583,18 @@ function validate() {
     if (typeof b.amount !== 'number' || b.amount <= 0) errors.push('Budget: "' + b.item_id + '" amount must be > 0.');
   });
 
+  var goalIds = {};
+  AdminState.plannerGoals.forEach(function(g) {
+    if (!g.goal_id) errors.push('Planning: missing goal_id.');
+    if (goalIds[g.goal_id]) errors.push('Planning: duplicate ID "' + g.goal_id + '".');
+    goalIds[g.goal_id] = true;
+    if (!g.name) errors.push('Planning: missing name for ' + g.goal_id + '.');
+    if (typeof g.target_amount !== 'number' || g.target_amount <= 0) errors.push('Planning: "' + g.goal_id + '" target_amount must be > 0.');
+    if (typeof g.current_amount !== 'number' || g.current_amount < 0) errors.push('Planning: "' + g.goal_id + '" current_amount must be >= 0.');
+    if (!/^\d{4}-\d{2}$/.test(g.target_date || '')) errors.push('Planning: "' + g.goal_id + '" target_date must be YYYY-MM.');
+    if (!g.priority || g.priority < 1) errors.push('Planning: "' + g.goal_id + '" priority must be >= 1.');
+  });
+
   var meKeys = {};
   AdminState.data.forEach(function(r) {
     if (!/^\d{4}-\d{2}$/.test(r.month)) errors.push('MonthEnd: invalid month "' + r.month + '".');
@@ -1485,6 +1636,7 @@ async function save() {
       accounts: AdminState.accounts,
       data: AdminState.data,
       budgetItems: AdminState.budgetItems,
+      plannerGoals: AdminState.plannerGoals,
       milestones: AdminState.milestones
     };
     if (AdminState.mortgage) {
@@ -1740,6 +1892,7 @@ function exportDataXlsx() {
       accounts: AdminState.accounts,
       data: AdminState.data,
       budgetItems: AdminState.budgetItems,
+      plannerGoals: AdminState.plannerGoals,
       milestones: AdminState.milestones,
       mortgage: AdminState.mortgage
     };

@@ -7,13 +7,14 @@
 //   Accounts   — account definitions
 //   MonthEnd   — month-end balances (the core data)
 //   Budget     — budget line items
+//   Planner    — funding goals and priorities
 //   Milestones — milestone targets with sub-targets
 //   Mortgage   — mortgage parameters, payments, and valuations
 
 var DataExport = (function() {
 
   // Build a workbook from the full data object.
-  // data: { config, accounts, data, budgetItems, milestones, mortgage }
+  // data: { config, accounts, data, budgetItems, plannerGoals, milestones, mortgage }
   function buildWorkbook(data) {
     if (typeof XLSX === 'undefined') {
       throw new Error('SheetJS (XLSX) library not loaded. Cannot export.');
@@ -43,7 +44,7 @@ var DataExport = (function() {
     XLSX.utils.book_append_sheet(wb, wsConfig, 'Config');
 
     // --- Accounts sheet ---
-    var accountRows = [['account_id', 'account_name', 'type', 'currency', 'include_networth', 'include_performance']];
+    var accountRows = [['account_id', 'account_name', 'type', 'currency', 'include_networth', 'include_performance', 'emergency_fund_role']];
     var accounts = data.accounts || [];
     for (var a = 0; a < accounts.length; a++) {
       var acc = accounts[a];
@@ -53,11 +54,12 @@ var DataExport = (function() {
         acc.type,
         acc.currency || 'EUR',
         acc.include_networth !== false,
-        acc.include_performance === true
+        acc.include_performance === true,
+        acc.emergency_fund_role || 'none'
       ]);
     }
     var wsAccounts = XLSX.utils.aoa_to_sheet(accountRows);
-    wsAccounts['!cols'] = [{ wch: 18 }, { wch: 22 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 20 }];
+    wsAccounts['!cols'] = [{ wch: 18 }, { wch: 22 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 20 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(wb, wsAccounts, 'Accounts');
 
     // --- MonthEnd sheet ---
@@ -98,6 +100,25 @@ var DataExport = (function() {
     var wsBudget = XLSX.utils.aoa_to_sheet(budgetRows);
     wsBudget['!cols'] = [{ wch: 14 }, { wch: 22 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 8 }];
     XLSX.utils.book_append_sheet(wb, wsBudget, 'Budget');
+
+    // --- Planner goals sheet ---
+    var plannerRows = [['goal_id', 'name', 'target_amount', 'current_amount', 'target_date', 'priority', 'active']];
+    var plannerGoals = data.plannerGoals || [];
+    for (var pg = 0; pg < plannerGoals.length; pg++) {
+      var g = plannerGoals[pg];
+      plannerRows.push([
+        g.goal_id,
+        g.name || '',
+        g.target_amount || 0,
+        g.current_amount || 0,
+        g.target_date || '',
+        g.priority || 3,
+        g.active !== false
+      ]);
+    }
+    var wsPlanner = XLSX.utils.aoa_to_sheet(plannerRows);
+    wsPlanner['!cols'] = [{ wch: 18 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 9 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, wsPlanner, 'Planner');
 
     // --- Milestones sheet ---
     // Flattened: one row per sub-target, milestone fields repeated

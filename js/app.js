@@ -3,6 +3,7 @@
 
 var mortgageData = null;
 var milestonesData = [];
+var plannerGoalsData = [];
 
 // --- Monthly Summary (always visible) ---
 
@@ -236,6 +237,32 @@ function refreshMortgage() {
   });
 }
 
+// --- Planning Tab ---
+
+function refreshPlanning() {
+  if (typeof GoalPlannerCalculator === 'undefined' || typeof PlannerRenderer === 'undefined') return;
+
+  var monthlyIncome = appConfig.monthly_income || 0;
+  var monthlyExpenses = 0;
+  if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+    monthlyExpenses = BudgetCalculator.computeMonthlyBudget(budgetItems).total || 0;
+  }
+
+  var asOfMonth = '2025-01';
+  if (allData.length) {
+    var months = allData.map(function(r) { return r.month; }).sort();
+    asOfMonth = months[months.length - 1];
+  }
+
+  var plan = GoalPlannerCalculator.plan(plannerGoalsData || [], {
+    monthlyIncome: monthlyIncome,
+    monthlyExpenses: monthlyExpenses,
+    asOfMonth: asOfMonth
+  });
+
+  PlannerRenderer.render(plan);
+}
+
 // --- Investments Tab ---
 
 function refreshInvestments() {
@@ -339,6 +366,7 @@ function bindEvents() {
       else if (this.dataset.tab === 'goals') refreshGoalsDetail();
       else if (this.dataset.tab === 'budget') refreshBudget();
       else if (this.dataset.tab === 'mortgage') refreshMortgage();
+      else if (this.dataset.tab === 'planning') refreshPlanning();
     });
   });
 
@@ -405,6 +433,7 @@ function loadData(data) {
   budgetItems = data.budgetItems || [];
   milestonesData = data.milestones || [];
   mortgageData = data.mortgage || null;
+  plannerGoalsData = data.plannerGoals || [];
 }
 
 // --- Cache Status + Refresh ---
@@ -434,6 +463,7 @@ function refreshAll() {
   refreshSummary();
   refreshInvestments();
   refreshMortgage();
+  refreshPlanning();
 
   // Update last-updated badge
   if (allData.length) {
@@ -759,7 +789,8 @@ function updateDbModeUI() {
         data: allData,
         budgetItems: budgetItems,
         milestones: milestonesData,
-        mortgage: mortgageData
+        mortgage: mortgageData,
+        plannerGoals: plannerGoalsData
       };
       DataExport.exportXLSX(data);
     } catch (err) {

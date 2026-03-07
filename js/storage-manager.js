@@ -63,6 +63,14 @@ var StorageManager = (function() {
       map['mortgage|main'] = data.mortgage;
     }
 
+    // Planning goals: one record per goal
+    if (data.plannerGoals) {
+      for (var p = 0; p < data.plannerGoals.length; p++) {
+        var g = data.plannerGoals[p];
+        map['planner_goal|' + g.goal_id] = g;
+      }
+    }
+
     return map;
   }
 
@@ -120,7 +128,8 @@ var StorageManager = (function() {
       data: [],
       budgetItems: [],
       milestones: [],
-      mortgage: null
+      mortgage: null,
+      plannerGoals: []
     };
 
     for (var i = 0; i < records.length; i++) {
@@ -144,6 +153,9 @@ var StorageManager = (function() {
         case 'mortgage':
           data.mortgage = r.payload;
           break;
+        case 'planner_goal':
+          data.plannerGoals.push(r.payload);
+          break;
       }
     }
 
@@ -151,6 +163,10 @@ var StorageManager = (function() {
     data.data.sort(function(a, b) {
       if (a.month !== b.month) return a.month < b.month ? -1 : 1;
       return (a.account_id || '').localeCompare(b.account_id || '');
+    });
+    data.plannerGoals.sort(function(a, b) {
+      if ((a.priority || 99) !== (b.priority || 99)) return (a.priority || 99) - (b.priority || 99);
+      return (a.goal_id || '').localeCompare(b.goal_id || '');
     });
 
     return data;
