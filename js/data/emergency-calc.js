@@ -1,36 +1,21 @@
 // === EMERGENCY FUND CALCULATOR ===
 // Computes emergency fund history, monthly flows, and coverage metrics.
-// Pure math, no DOM access.
+// Pure math, no DOM access. Reads account roles from AccountService.
 
 var EmergencyCalculator = {
 
-  // Get the list of emergency fund account IDs from config.
-  // Falls back to hardcoded defaults for backward compatibility.
-  getAccountIds: function(config) {
-    if (config.emergency_fund_accounts && config.emergency_fund_accounts.length) {
-      return config.emergency_fund_accounts.map(function(a) { return a.account_id; });
-    }
-    return ['TRADE_REPUBLIC', 'BBVA'];
+  // Get the list of emergency fund account IDs from AccountService.
+  getAccountIds: function() {
+    return AccountService.getEmergencyFundAccountIds();
   },
 
-  // Get account roles from config. Returns { account_id: 'dedicated'|'backup' }
-  getAccountRoles: function(config) {
-    var roles = {};
-    if (config.emergency_fund_accounts && config.emergency_fund_accounts.length) {
-      config.emergency_fund_accounts.forEach(function(a) {
-        roles[a.account_id] = a.role || 'backup';
-      });
-    } else {
-      roles.TRADE_REPUBLIC = 'dedicated';
-      roles.BBVA = 'backup';
-    }
-    return roles;
+  // Get account roles from AccountService. Returns { account_id: 'dedicated'|'backup' }
+  getAccountRoles: function() {
+    return AccountService.getEmergencyFundRoles();
   },
 
   // Compute monthly history of emergency fund balances.
-  // Returns array of { month, balance, contributions, withdrawals, marketChange, perAccount: { id: { value, contribution } } }
   computeHistory: function(allData, accountIds, target) {
-    // Group data by month
     var months = {};
     var monthOrder = [];
 
@@ -90,11 +75,11 @@ var EmergencyCalculator = {
     return history;
   },
 
-  // Compute current status with configurable accounts and roles.
+  // Compute current status using AccountService roles.
   computeStatus: function(latestAccounts, config) {
     var target = config.emergency_fund_target || 40000;
-    var roles = this.getAccountRoles(config);
-    var accountIds = this.getAccountIds(config);
+    var roles = this.getAccountRoles();
+    var accountIds = this.getAccountIds();
 
     var dedicated = 0;
     var backup = 0;

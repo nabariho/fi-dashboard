@@ -59,6 +59,22 @@ var AccountService = (function() {
     getCashAccountIds: function() {
       return accountsConfig.filter(function(a) { return a.include_networth && a.type === 'Cash'; })
         .map(function(a) { return a.account_id; });
+    },
+
+    getEmergencyFundAccounts: function() {
+      return accountsConfig.filter(function(a) { return a.emergency_fund_role && a.emergency_fund_role !== 'none'; });
+    },
+
+    getEmergencyFundAccountIds: function() {
+      return this.getEmergencyFundAccounts().map(function(a) { return a.account_id; });
+    },
+
+    getEmergencyFundRoles: function() {
+      var roles = {};
+      this.getEmergencyFundAccounts().forEach(function(a) {
+        roles[a.account_id] = a.emergency_fund_role;
+      });
+      return roles;
     }
   };
 })();
