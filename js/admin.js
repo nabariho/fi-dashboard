@@ -1599,12 +1599,6 @@ function adminShowUnlockScreen() {
   document.getElementById('unlock').style.display = '';
 }
 
-function adminSetAuthPassphraseAutocomplete(mode) {
-  var passInput = document.getElementById('authPassphrase');
-  if (!passInput) return;
-  passInput.setAttribute('autocomplete', mode === 'signup' ? 'new-password' : 'current-password');
-}
-
 // "Use cloud sync instead" link
 (function() {
   var cloudLink = document.getElementById('useCloudLink');
@@ -1637,7 +1631,6 @@ function adminSetAuthPassphraseAutocomplete(mode) {
   var signInBtn = document.getElementById('signInBtn');
   if (!signInBtn) return;
   signInBtn.addEventListener('click', async function() {
-    adminSetAuthPassphraseAutocomplete('signin');
     var email = document.getElementById('authEmail').value.trim();
     var pass = document.getElementById('authPassphrase').value;
     var errorEl = document.getElementById('authError');
@@ -1667,7 +1660,6 @@ function adminSetAuthPassphraseAutocomplete(mode) {
   var signUpBtn = document.getElementById('signUpBtn');
   if (!signUpBtn) return;
   signUpBtn.addEventListener('click', async function() {
-    adminSetAuthPassphraseAutocomplete('signup');
     var email = document.getElementById('authEmail').value.trim();
     var pass = document.getElementById('authPassphrase').value;
     var errorEl = document.getElementById('authError');

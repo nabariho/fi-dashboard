@@ -14,15 +14,15 @@
   <!-- Auth screen: Cloud sign-in -->
   <div id="authScreen" style="display:none;">
     <h1>FI Dashboard — Admin</h1>
-    <form id="adminAuthForm" class="auth-form" autocomplete="on">
+    <form id="adminAuthForm" class="auth-form" autocomplete="on" method="post">
       <div class="auth-mode-label">Cloud Mode</div>
       <div class="auth-field">
-        <input type="email" id="authEmail" name="username" placeholder="Email" autocomplete="username email" autocapitalize="none" spellcheck="false">
+        <input type="email" id="authEmail" name="email" placeholder="Email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
         <div class="auth-hint">Your account identity. Also used to derive your login key.</div>
       </div>
       <div class="auth-field">
         <div class="auth-password-wrap">
-          <input type="password" id="authPassphrase" name="password" placeholder="Passphrase" autocomplete="current-password" autocapitalize="none" spellcheck="false">
+          <input type="password" id="authPassphrase" name="password" placeholder="Passphrase" autocomplete="current-password" autocapitalize="none" spellcheck="false" required>
           <button type="button" id="authTogglePassphrase" class="auth-pass-toggle" aria-label="Show passphrase" aria-pressed="false">Show</button>
         </div>
         <div class="auth-hint">Choose a strong passphrase. It derives both your login and your encryption key. The server never sees it.</div>

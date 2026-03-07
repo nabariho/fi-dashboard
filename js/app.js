@@ -593,12 +593,6 @@ function setAuthLoading(loading) {
   if (signUpBtn) { signUpBtn.disabled = loading; }
 }
 
-function setAuthPassphraseAutocomplete(mode) {
-  var passInput = document.getElementById('authPassphrase');
-  if (!passInput) return;
-  passInput.setAttribute('autocomplete', mode === 'signup' ? 'new-password' : 'current-password');
-}
-
 function updateDbModeUI() {
   var signOutBtn = document.getElementById('menuSignOut');
   var switchCloud = document.getElementById('menuSwitchCloud');
@@ -643,7 +637,6 @@ function updateDbModeUI() {
   var signInBtn = document.getElementById('signInBtn');
   if (!signInBtn) return;
   signInBtn.addEventListener('click', async function() {
-    setAuthPassphraseAutocomplete('signin');
     var email = document.getElementById('authEmail').value.trim();
     var pass = document.getElementById('authPassphrase').value;
     var errorEl = document.getElementById('authError');
@@ -676,7 +669,6 @@ function updateDbModeUI() {
   var signUpBtn = document.getElementById('signUpBtn');
   if (!signUpBtn) return;
   signUpBtn.addEventListener('click', async function() {
-    setAuthPassphraseAutocomplete('signup');
     var email = document.getElementById('authEmail').value.trim();
     var pass = document.getElementById('authPassphrase').value;
     var errorEl = document.getElementById('authError');
