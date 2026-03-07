@@ -1590,6 +1590,8 @@ function adminShowAuthScreen() {
   document.getElementById('unlock').style.display = 'none';
   document.getElementById('adminApp').style.display = 'none';
   document.getElementById('authScreen').style.display = '';
+  var filePass = document.getElementById('passphrase');
+  if (filePass) filePass.disabled = true;
 }
 
 function adminShowUnlockScreen() {
@@ -1597,6 +1599,8 @@ function adminShowUnlockScreen() {
   if (authScreen) authScreen.style.display = 'none';
   document.getElementById('adminApp').style.display = 'none';
   document.getElementById('unlock').style.display = '';
+  var filePass = document.getElementById('passphrase');
+  if (filePass) filePass.disabled = false;
 }
 
 // "Use cloud sync instead" link

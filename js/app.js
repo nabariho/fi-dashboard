@@ -578,12 +578,16 @@ function showAuthScreen() {
   document.getElementById('unlock').style.display = 'none';
   document.getElementById('app').style.display = 'none';
   document.getElementById('authScreen').style.display = '';
+  var filePass = document.getElementById('passphrase');
+  if (filePass) filePass.disabled = true;
 }
 
 function showUnlockScreen() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('app').style.display = 'none';
   document.getElementById('unlock').style.display = '';
+  var filePass = document.getElementById('passphrase');
+  if (filePass) filePass.disabled = false;
 }
 
 function setAuthLoading(loading) {
