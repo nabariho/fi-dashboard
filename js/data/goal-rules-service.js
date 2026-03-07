@@ -13,7 +13,7 @@ var GoalRulesService = {
     var rows = (goals || []).filter(function(g) { return g && g.active !== false; }).map(function(goal) {
       var g = GoalAccountingService.normalizeGoal(goal);
       var sourceBalance = GoalAccountingService.goalSourceBalance(g, latestAccounts);
-      var effectiveCurrent = (g.track_current_from_accounts && g.funding_accounts.length) ? sourceBalance : g.current_amount;
+      var effectiveCurrent = g.current_amount;
       g.current_amount = effectiveCurrent;
       g.manual_current_amount = goal.current_amount || 0;
       g.source_balance = sourceBalance;
@@ -29,12 +29,24 @@ var GoalRulesService = {
       return g;
     });
 
-    var sourceIssues = GoalAccountingService.validateSources(rows, latestAccounts);
-    var overlapGoalIds = {};
+    var funding = GoalAccountingService.analyzeFunding(rows, latestAccounts);
+    var sourceIssues = funding.issues || [];
+    var oversubscribedGoalIds = {};
     sourceIssues.forEach(function(issue) {
-      if (issue.type === 'source_overlap') {
-        (issue.goal_ids || []).forEach(function(goalId) { overlapGoalIds[goalId] = true; });
+      if (issue.type === 'account_oversubscribed') {
+        (issue.goal_ids || []).forEach(function(goalId) { oversubscribedGoalIds[goalId] = true; });
       }
+    });
+
+    rows.forEach(function(g) {
+      if (g.track_current_from_accounts) {
+        g.current_amount = funding.goalCurrentFromAccounts[g.goal_id] || 0;
+      }
+      var need = GoalAllocationService.buildNeed(g, asOfMonth);
+      g.remaining = need.remaining;
+      g.months_left = need.months_left;
+      g.required_monthly = need.required_monthly;
+      g.shortfall = g.required_monthly;
     });
 
     var allocation = GoalAllocationService.allocateByPriorityProportional(rows, available);
@@ -47,8 +59,8 @@ var GoalRulesService = {
         g.status = 'funded';
       } else if (g.track_current_from_accounts && g.funding_accounts.length === 0) {
         g.status = 'invalid_source';
-      } else if (overlapGoalIds[g.goal_id]) {
-        g.status = 'source_conflict';
+      } else if (oversubscribedGoalIds[g.goal_id]) {
+        g.status = 'account_mismatch';
       } else if (g.allocated_monthly <= 0) {
         g.status = 'unfundable';
       } else if (g.shortfall > 0.01) {
@@ -69,7 +81,7 @@ var GoalRulesService = {
 
     var conflicts = sourceIssues.slice();
     rows.filter(function(g) {
-      return g.status === 'at_risk' || g.status === 'unfundable' || g.status === 'source_conflict' || g.status === 'invalid_source';
+      return g.status === 'at_risk' || g.status === 'unfundable' || g.status === 'account_mismatch' || g.status === 'invalid_source';
     }).forEach(function(g) {
       conflicts.push({
         type: g.status,

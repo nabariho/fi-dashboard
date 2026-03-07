@@ -1620,6 +1620,7 @@ function validate() {
   var goalIds = {};
   var acctIds = {};
   var latestByAccount = {};
+  var manualClaimsByAccount = {};
   AdminState.accounts.forEach(function(a) { acctIds[a.account_id] = true; });
   AdminState.data.forEach(function(r) {
     if (!latestByAccount[r.account_id] || r.month > latestByAccount[r.account_id].month) {
@@ -1641,13 +1642,21 @@ function validate() {
     if (g.track_current_from_accounts !== false && (!g.funding_accounts || !g.funding_accounts.length)) {
       errors.push('Planning: "' + g.goal_id + '" must select funding accounts when "track from accounts" is enabled.');
     }
-    if (g.track_current_from_accounts === false && g.funding_accounts && g.funding_accounts.length) {
-      var pool = g.funding_accounts.reduce(function(sum, id) {
-        return sum + ((latestByAccount[id] && latestByAccount[id].end_value) || 0);
-      }, 0);
-      if (g.current_amount > pool + 0.01) {
-        errors.push('Planning: "' + g.goal_id + '" current amount exceeds selected account pool.');
+    if (g.track_current_from_accounts === false) {
+      if (!g.funding_accounts || g.funding_accounts.length !== 1) {
+        errors.push('Planning: "' + g.goal_id + '" manual tracking requires exactly one funding account.');
+      } else {
+        var accountId = g.funding_accounts[0];
+        if (!manualClaimsByAccount[accountId]) manualClaimsByAccount[accountId] = 0;
+        manualClaimsByAccount[accountId] += g.current_amount;
       }
+    }
+  });
+
+  Object.keys(manualClaimsByAccount).forEach(function(accountId) {
+    var balance = (latestByAccount[accountId] && latestByAccount[accountId].end_value) || 0;
+    if (manualClaimsByAccount[accountId] > balance + 0.01) {
+      errors.push('Planning: manual claims on account "' + accountId + '" exceed available balance.');
     }
   });
 

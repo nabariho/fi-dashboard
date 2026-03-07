@@ -7,14 +7,14 @@ var PlannerRenderer = {
     if (status === 'on_track') return 'On Track';
     if (status === 'at_risk') return 'At Risk';
     if (status === 'unfundable') return 'Unfundable';
-    if (status === 'source_conflict') return 'Source Conflict';
+    if (status === 'account_mismatch') return 'Account Mismatch';
     if (status === 'invalid_source') return 'Invalid Source';
     return 'Pending';
   },
 
   _statusClass: function(status) {
     if (status === 'funded' || status === 'on_track') return 'positive';
-    if (status === 'at_risk' || status === 'unfundable' || status === 'source_conflict' || status === 'invalid_source') return 'negative';
+    if (status === 'at_risk' || status === 'unfundable' || status === 'account_mismatch' || status === 'invalid_source') return 'negative';
     return '';
   },
 

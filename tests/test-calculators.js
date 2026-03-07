@@ -281,13 +281,24 @@ describe('GoalAccountingService', function() {
     assertEqual(latest.B, 50);
   });
 
-  it('validateSources detects overlapping tracked accounts', function() {
+  it('analyzeFunding splits shared account balance across tracked goals', function() {
     var goals = [
       { goal_id: 'g1', name: 'Goal 1', active: true, track_current_from_accounts: true, funding_accounts: ['BBVA'] },
       { goal_id: 'g2', name: 'Goal 2', active: true, track_current_from_accounts: true, funding_accounts: ['BBVA'] }
     ];
-    var issues = GoalAccountingService.validateSources(goals, { BBVA: 1000 });
-    assert(issues.some(function(i) { return i.type === 'source_overlap'; }), 'Expected source_overlap issue');
+    var analysis = GoalAccountingService.analyzeFunding(goals, { BBVA: 1000 });
+    assertClose(analysis.goalCurrentFromAccounts.g1, 500, 0.01);
+    assertClose(analysis.goalCurrentFromAccounts.g2, 500, 0.01);
+    assertEqual(analysis.issues.length, 0);
+  });
+
+  it('analyzeFunding flags account oversubscription for manual claims', function() {
+    var goals = [
+      { goal_id: 'g1', name: 'Goal 1', active: true, track_current_from_accounts: false, current_amount: 600, funding_accounts: ['BBVA'] },
+      { goal_id: 'g2', name: 'Goal 2', active: true, track_current_from_accounts: false, current_amount: 500, funding_accounts: ['BBVA'] }
+    ];
+    var analysis = GoalAccountingService.analyzeFunding(goals, { BBVA: 1000 });
+    assert(analysis.issues.some(function(i) { return i.type === 'account_oversubscribed'; }), 'Expected account_oversubscribed issue');
   });
 });
 
@@ -322,7 +333,7 @@ describe('GoalAllocationService', function() {
 // --- GoalRulesService / GoalPlannerCalculator ---
 
 describe('GoalRulesService', function() {
-  it('flags source conflict when tracked goals share account', function() {
+  it('splits tracked current amount across shared account without double counting', function() {
     var goals = [
       { goal_id: 'emergency', name: 'Emergency', target_amount: 1000, current_amount: 0, target_date: '2025-12', priority: 1, active: true, track_current_from_accounts: true, funding_accounts: ['BBVA'] },
       { goal_id: 'car', name: 'Car', target_amount: 1000, current_amount: 0, target_date: '2025-12', priority: 2, active: true, track_current_from_accounts: true, funding_accounts: ['BBVA'] }
@@ -335,8 +346,9 @@ describe('GoalRulesService', function() {
     });
     var emergency = plan.goals.find(function(g) { return g.goal_id === 'emergency'; });
     var car = plan.goals.find(function(g) { return g.goal_id === 'car'; });
-    assertEqual(emergency.status, 'source_conflict');
-    assertEqual(car.status, 'source_conflict');
+    assertClose(emergency.current_amount, 250, 0.01);
+    assertClose(car.current_amount, 250, 0.01);
+    assert(!plan.conflicts.some(function(c) { return c.type === 'account_oversubscribed'; }), 'Should not be oversubscribed');
   });
 
   it('planner facade delegates to rules engine and computes shortfall', function() {

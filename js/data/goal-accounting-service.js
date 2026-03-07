@@ -37,15 +37,18 @@ var GoalAccountingService = {
     }, 0);
   },
 
-  validateSources: function(goals, latestBalances) {
+  analyzeFunding: function(goals, latestBalances) {
     var issues = [];
-    var accountToGoals = {};
+    var normalizedGoals = (goals || []).map(function(goal) { return GoalAccountingService.normalizeGoal(goal); });
+    var goalCurrentFromAccounts = {};
+    var accountLedger = {};
+    var trackedByAccount = {};
+    var manualByAccount = {};
 
-    (goals || []).forEach(function(goal) {
-      var g = GoalAccountingService.normalizeGoal(goal);
-      var sourceBalance = GoalAccountingService.goalSourceBalance(g, latestBalances || {});
+    normalizedGoals.forEach(function(g) {
+      if (!g.active) return;
 
-      if (g.track_current_from_accounts && g.active && g.funding_accounts.length === 0) {
+      if (g.track_current_from_accounts && g.funding_accounts.length === 0) {
         issues.push({
           type: 'invalid_source',
           goal_id: g.goal_id,
@@ -53,34 +56,75 @@ var GoalAccountingService = {
         });
       }
 
-      if (!g.track_current_from_accounts && g.active && g.funding_accounts.length > 0 && g.current_amount > sourceBalance + 0.01) {
+      if (!g.track_current_from_accounts && g.funding_accounts.length !== 1) {
         issues.push({
-          type: 'overstated_current',
+          type: 'invalid_source',
           goal_id: g.goal_id,
-          message: g.name + ': current amount exceeds selected account pool by ' + (g.current_amount - sourceBalance).toFixed(2) + '.'
+          message: g.name + ': manual current tracking requires exactly one funding account.'
         });
       }
 
-      if (g.track_current_from_accounts && g.active) {
+      if (g.track_current_from_accounts) {
         g.funding_accounts.forEach(function(accountId) {
-          if (!accountToGoals[accountId]) accountToGoals[accountId] = [];
-          accountToGoals[accountId].push(g);
+          if (!trackedByAccount[accountId]) trackedByAccount[accountId] = [];
+          trackedByAccount[accountId].push(g);
         });
+      } else if (g.funding_accounts.length === 1) {
+        var accountId = g.funding_accounts[0];
+        if (!manualByAccount[accountId]) manualByAccount[accountId] = [];
+        manualByAccount[accountId].push({ goal_id: g.goal_id, amount: g.current_amount || 0, name: g.name });
       }
     });
 
-    Object.keys(accountToGoals).forEach(function(accountId) {
-      var linked = accountToGoals[accountId];
-      if (linked.length > 1) {
+    var accountIds = {};
+    Object.keys(trackedByAccount).forEach(function(id) { accountIds[id] = true; });
+    Object.keys(manualByAccount).forEach(function(id) { accountIds[id] = true; });
+
+    Object.keys(accountIds).forEach(function(accountId) {
+      var balance = (latestBalances && latestBalances[accountId]) || 0;
+      var manualClaims = (manualByAccount[accountId] || []).reduce(function(sum, c) { return sum + c.amount; }, 0);
+      var trackedGoals = trackedByAccount[accountId] || [];
+
+      accountLedger[accountId] = {
+        balance: balance,
+        manual_claims: manualClaims,
+        tracked_claims: 0,
+        unassigned: 0,
+        tracked_goal_ids: trackedGoals.map(function(g) { return g.goal_id; }),
+        manual_goal_ids: (manualByAccount[accountId] || []).map(function(c) { return c.goal_id; })
+      };
+
+      if (manualClaims > balance + 0.01) {
         issues.push({
-          type: 'source_overlap',
+          type: 'account_oversubscribed',
           account_id: accountId,
-          goal_ids: linked.map(function(g) { return g.goal_id; }),
-          message: 'Account ' + accountId + ' is linked to multiple goals: ' + linked.map(function(g) { return g.name; }).join(', ') + '.'
+          goal_ids: (manualByAccount[accountId] || []).map(function(c) { return c.goal_id; }),
+          message: 'Account ' + accountId + ' is oversubscribed: manual claims ' + manualClaims.toFixed(2) + ' > balance ' + balance.toFixed(2) + '.'
         });
+        return;
+      }
+
+      var remainingForTracked = Math.max(0, balance - manualClaims);
+      if (trackedGoals.length > 0) {
+        var share = remainingForTracked / trackedGoals.length;
+        trackedGoals.forEach(function(g) {
+          if (!goalCurrentFromAccounts[g.goal_id]) goalCurrentFromAccounts[g.goal_id] = 0;
+          goalCurrentFromAccounts[g.goal_id] += share;
+        });
+        accountLedger[accountId].tracked_claims = remainingForTracked;
+      } else {
+        accountLedger[accountId].unassigned = remainingForTracked;
       }
     });
 
-    return issues;
+    return {
+      issues: issues,
+      goalCurrentFromAccounts: goalCurrentFromAccounts,
+      accountLedger: accountLedger
+    };
+  },
+
+  validateSources: function(goals, latestBalances) {
+    return this.analyzeFunding(goals, latestBalances).issues;
   }
 };
