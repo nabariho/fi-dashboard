@@ -2,12 +2,12 @@
 
 // --- Setup: populate globals needed by calculators ---
 accountsConfig = [
-  { account_id: 'BROKER_A', account_name: 'Broker A', type: 'Broker', currency: 'EUR', include_networth: true, include_performance: true },
-  { account_id: 'BROKER_B', account_name: 'Broker B', type: 'Broker', currency: 'EUR', include_networth: true, include_performance: true },
-  { account_id: 'TRADE_REPUBLIC', account_name: 'Trade Republic', type: 'Cash', currency: 'EUR', include_networth: true, include_performance: false },
-  { account_id: 'BBVA', account_name: 'BBVA', type: 'Cash', currency: 'EUR', include_networth: true, include_performance: false },
-  { account_id: 'BANKINTER', account_name: 'Bankinter', type: 'Cash', currency: 'EUR', include_networth: true, include_performance: false },
-  { account_id: 'ARRAS', account_name: 'Arras', type: 'Cash', currency: 'EUR', include_networth: true, include_performance: false }
+  { account_id: 'BROKER_A', account_name: 'Broker A', type: 'Broker', currency: 'EUR', include_networth: true, include_performance: true, cashflow_role: 'savings' },
+  { account_id: 'BROKER_B', account_name: 'Broker B', type: 'Broker', currency: 'EUR', include_networth: true, include_performance: true, cashflow_role: 'savings' },
+  { account_id: 'TRADE_REPUBLIC', account_name: 'Trade Republic', type: 'Cash', currency: 'EUR', include_networth: true, include_performance: false, cashflow_role: 'savings' },
+  { account_id: 'BBVA', account_name: 'BBVA', type: 'Cash', currency: 'EUR', include_networth: true, include_performance: false, cashflow_role: 'transactional' },
+  { account_id: 'BANKINTER', account_name: 'Bankinter', type: 'Cash', currency: 'EUR', include_networth: true, include_performance: false, cashflow_role: 'savings' },
+  { account_id: 'ARRAS', account_name: 'Arras', type: 'Cash', currency: 'EUR', include_networth: true, include_performance: false, cashflow_role: 'savings' }
 ];
 
 // --- DataService ---
@@ -362,5 +362,61 @@ describe('GoalRulesService', function() {
       latestAccounts: {}
     });
     assert(plan.shortfall_total > 0, 'Expected positive shortfall');
+  });
+});
+
+// --- SavingsCapacityCalculator ---
+
+describe('SavingsCapacityCalculator', function() {
+  var testData = [
+    { month: '2024-01', account_id: 'BROKER_A', end_value: 5000, net_contribution: 500 },
+    { month: '2024-01', account_id: 'BBVA', end_value: 3000, net_contribution: 2500 },
+    { month: '2024-02', account_id: 'BROKER_A', end_value: 5600, net_contribution: 500 },
+    { month: '2024-02', account_id: 'BBVA', end_value: 2800, net_contribution: 2300 },
+    { month: '2024-03', account_id: 'BROKER_A', end_value: 6200, net_contribution: 500 },
+    { month: '2024-03', account_id: 'BBVA', end_value: 3100, net_contribution: 2600 }
+  ];
+
+  it('computeMonthly returns per-month savings data', function() {
+    var result = SavingsCapacityCalculator.computeMonthly(testData, { monthlyIncome: 4000 });
+    assertEqual(result.length, 3);
+    assertEqual(result[0].month, '2024-01');
+    assertClose(result[0].totalContributions, 3000, 0.01);
+    assertClose(result[0].savingsContributions, 500, 0.01);
+    assertClose(result[0].transactionalContributions, 2500, 0.01);
+    assertClose(result[0].impliedExpenses, 1000, 0.01);
+    assertClose(result[0].savingsRate, 0.75, 0.01);
+  });
+
+  it('computeTrailingAverage calculates correct averages', function() {
+    var monthly = SavingsCapacityCalculator.computeMonthly(testData, { monthlyIncome: 4000 });
+    var avg = SavingsCapacityCalculator.computeTrailingAverage(monthly, 3);
+    assertEqual(avg.months, 3);
+    assertClose(avg.avgSavings, 2933.33, 1);
+    assertClose(avg.avgExpenses, 1066.67, 1);
+  });
+
+  it('computeWaterfall builds correct distribution', function() {
+    var monthly = SavingsCapacityCalculator.computeMonthly(testData, { monthlyIncome: 4000 });
+    var waterfall = SavingsCapacityCalculator.computeWaterfall(monthly, 1500, null, 3);
+    assertClose(waterfall.income, 4000, 0.01);
+    assertClose(waterfall.estimatedExpenses, 1500, 0.01);
+    assert(waterfall.actualExpenses > 0, 'Should have actual expenses');
+    assertClose(waterfall.expenseGap, 1500 - waterfall.actualExpenses, 1);
+  });
+
+  it('computeAchievability returns scores for goals', function() {
+    var goalPlan = {
+      goals: [
+        { goal_id: 'g1', name: 'Goal 1', target_amount: 10000, current_amount: 5000, remaining: 5000, required_monthly: 500, allocated_monthly: 500, target_date: '2025-01', months_left: 10, priority: 1, status: 'on_track' },
+        { goal_id: 'g2', name: 'Goal 2', target_amount: 50000, current_amount: 0, remaining: 50000, required_monthly: 5000, allocated_monthly: 0, target_date: '2025-12', months_left: 10, priority: 2, status: 'unfundable' }
+      ]
+    };
+    var result = SavingsCapacityCalculator.computeAchievability(goalPlan, 3000);
+    assertEqual(result.length, 2);
+    assert(result[0].achievable === true, 'Goal 1 should be achievable');
+    assert(result[0].confidence >= 0.9, 'Goal 1 should have high confidence');
+    assert(result[1].achievable === false, 'Goal 2 should not be achievable');
+    assert(result[1].confidence === 0, 'Goal 2 should have 0 confidence');
   });
 });

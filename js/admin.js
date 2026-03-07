@@ -333,7 +333,7 @@ function renderAccounts() {
 
   var html = '<div class="section-header">' +
     '<h2>Accounts</h2>' +
-    '<p class="section-desc">Financial accounts tracked in the dashboard. "Net Worth" includes the account in total net worth. "Performance" includes it in investment return calculations. "EF Role" marks accounts as part of the emergency fund (Dedicated = primary, Backup = secondary).</p>' +
+    '<p class="section-desc">Financial accounts tracked in the dashboard. "Net Worth" includes the account in total net worth. "Performance" includes it in investment return calculations. "EF Role" marks accounts as part of the emergency fund. "Cash Flow" classifies accounts for savings capacity analysis (Savings = money saved, Transactional = bills/expenses).</p>' +
     '</div>';
 
   // Add form at top
@@ -347,15 +347,16 @@ function renderAccounts() {
     '<div class="add-form-field"><label>Net Worth</label><input type="checkbox" id="newAcctNW" checked></div>' +
     '<div class="add-form-field"><label>Performance</label><input type="checkbox" id="newAcctPerf"></div>' +
     '<div class="add-form-field"><label>EF Role</label><select id="newAcctEFRole"><option value="none">None</option><option value="dedicated">Dedicated</option><option value="backup">Backup</option></select></div>' +
+    '<div class="add-form-field"><label>Cash Flow</label><select id="newAcctCFRole"><option value="none">None</option><option value="savings">Savings</option><option value="transactional">Transactional</option></select></div>' +
     '<button class="btn-add" onclick="addAccount()">Add Account</button>' +
     '</div></div>';
 
   html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
-    '<th>ID</th><th>Name</th><th>Type</th><th>Currency</th><th style="text-align:center">Net Worth</th><th style="text-align:center">Performance</th><th>EF Role</th><th></th>' +
+    '<th>ID</th><th>Name</th><th>Type</th><th>Currency</th><th style="text-align:center">Net Worth</th><th style="text-align:center">Performance</th><th>EF Role</th><th>Cash Flow</th><th></th>' +
     '</tr></thead><tbody>';
 
   if (!accts.length) {
-    html += '<tr><td colspan="8"><div class="empty-state">No accounts yet. Add one above.</div></td></tr>';
+    html += '<tr><td colspan="9"><div class="empty-state">No accounts yet. Add one above.</div></td></tr>';
   }
 
   accts.forEach(function(a, i) {
@@ -373,6 +374,11 @@ function renderAccounts() {
         '<option value="none"' + ((!a.emergency_fund_role || a.emergency_fund_role === 'none') ? ' selected' : '') + '>None</option>' +
         '<option value="dedicated"' + (a.emergency_fund_role === 'dedicated' ? ' selected' : '') + '>Dedicated</option>' +
         '<option value="backup"' + (a.emergency_fund_role === 'backup' ? ' selected' : '') + '>Backup</option>' +
+      '</select></td>' +
+      '<td><select data-idx="' + i + '" data-field="cashflow_role" class="acct-field">' +
+        '<option value="none"' + ((!a.cashflow_role || a.cashflow_role === 'none') ? ' selected' : '') + '>None</option>' +
+        '<option value="savings"' + (a.cashflow_role === 'savings' ? ' selected' : '') + '>Savings</option>' +
+        '<option value="transactional"' + (a.cashflow_role === 'transactional' ? ' selected' : '') + '>Transactional</option>' +
       '</select></td>' +
       '<td style="width:60px"><button class="btn-delete" data-idx="' + i + '" onclick="deleteAccount(this)">Delete</button></td>' +
       '</tr>';
@@ -433,7 +439,8 @@ function addAccount() {
     currency: document.getElementById('newAcctCurrency').value.trim() || 'EUR',
     include_networth: document.getElementById('newAcctNW').checked,
     include_performance: document.getElementById('newAcctPerf').checked,
-    emergency_fund_role: document.getElementById('newAcctEFRole').value
+    emergency_fund_role: document.getElementById('newAcctEFRole').value,
+    cashflow_role: document.getElementById('newAcctCFRole').value
   });
   markDirty();
   renderAccounts();

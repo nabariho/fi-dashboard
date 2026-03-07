@@ -61,6 +61,22 @@ var AccountService = (function() {
         .map(function(a) { return a.account_id; });
     },
 
+    getSavingsAccounts: function() {
+      return accountsConfig.filter(function(a) { return a.cashflow_role === 'savings'; });
+    },
+
+    getSavingsAccountIds: function() {
+      return this.getSavingsAccounts().map(function(a) { return a.account_id; });
+    },
+
+    getTransactionalAccounts: function() {
+      return accountsConfig.filter(function(a) { return a.cashflow_role === 'transactional'; });
+    },
+
+    getTransactionalAccountIds: function() {
+      return this.getTransactionalAccounts().map(function(a) { return a.account_id; });
+    },
+
     getEmergencyFundAccounts: function() {
       return accountsConfig.filter(function(a) { return a.emergency_fund_role && a.emergency_fund_role !== 'none'; });
     },

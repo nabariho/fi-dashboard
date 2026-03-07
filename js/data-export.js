@@ -44,7 +44,7 @@ var DataExport = (function() {
     XLSX.utils.book_append_sheet(wb, wsConfig, 'Config');
 
     // --- Accounts sheet ---
-    var accountRows = [['account_id', 'account_name', 'type', 'currency', 'include_networth', 'include_performance', 'emergency_fund_role']];
+    var accountRows = [['account_id', 'account_name', 'type', 'currency', 'include_networth', 'include_performance', 'emergency_fund_role', 'cashflow_role']];
     var accounts = data.accounts || [];
     for (var a = 0; a < accounts.length; a++) {
       var acc = accounts[a];
@@ -55,11 +55,12 @@ var DataExport = (function() {
         acc.currency || 'EUR',
         acc.include_networth !== false,
         acc.include_performance === true,
-        acc.emergency_fund_role || 'none'
+        acc.emergency_fund_role || 'none',
+        acc.cashflow_role || 'none'
       ]);
     }
     var wsAccounts = XLSX.utils.aoa_to_sheet(accountRows);
-    wsAccounts['!cols'] = [{ wch: 18 }, { wch: 22 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 20 }, { wch: 20 }];
+    wsAccounts['!cols'] = [{ wch: 18 }, { wch: 22 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 16 }];
     XLSX.utils.book_append_sheet(wb, wsAccounts, 'Accounts');
 
     // --- MonthEnd sheet ---

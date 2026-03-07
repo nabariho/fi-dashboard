@@ -237,6 +237,49 @@ function refreshMortgage() {
   });
 }
 
+// --- Cash Flow Tab ---
+
+var _cashflowTrailingMonths = 6;
+
+function refreshCashFlow() {
+  if (typeof SavingsCapacityCalculator === 'undefined' || typeof CashFlowRenderer === 'undefined') return;
+
+  var monthlyIncome = appConfig.monthly_income || 0;
+  var monthlyData = SavingsCapacityCalculator.computeMonthly(allData, { monthlyIncome: monthlyIncome });
+  if (!monthlyData.length) {
+    CashFlowRenderer.render(null, [], null, _cashflowTrailingMonths);
+    return;
+  }
+
+  // Budget total for comparison
+  var budgetTotal = 0;
+  if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+    budgetTotal = BudgetCalculator.computeMonthlyBudget(budgetItems).total || 0;
+  }
+
+  // Goal plan for allocation overlay
+  var goalPlan = null;
+  if (typeof GoalPlannerCalculator !== 'undefined' && plannerGoalsData && plannerGoalsData.length) {
+    var monthlyExpenses = budgetTotal;
+    var asOfMonth = monthlyData[monthlyData.length - 1].month;
+    var latestAccounts = {};
+    allData.forEach(function(r) {
+      if (r.month === asOfMonth) latestAccounts[r.account_id] = r.end_value || 0;
+    });
+    goalPlan = GoalPlannerCalculator.plan(plannerGoalsData, {
+      monthlyIncome: monthlyIncome,
+      monthlyExpenses: monthlyExpenses,
+      asOfMonth: asOfMonth,
+      latestAccounts: latestAccounts
+    });
+  }
+
+  var waterfall = SavingsCapacityCalculator.computeWaterfall(monthlyData, budgetTotal, goalPlan, _cashflowTrailingMonths);
+  var achievability = SavingsCapacityCalculator.computeAchievability(goalPlan, waterfall.actualSavings);
+
+  CashFlowRenderer.render(waterfall, monthlyData, achievability, _cashflowTrailingMonths);
+}
+
 // --- Planning Tab ---
 
 function refreshPlanning() {
@@ -371,6 +414,7 @@ function bindEvents() {
       else if (this.dataset.tab === 'goals') refreshGoalsDetail();
       else if (this.dataset.tab === 'budget') refreshBudget();
       else if (this.dataset.tab === 'mortgage') refreshMortgage();
+      else if (this.dataset.tab === 'cashflow') refreshCashFlow();
       else if (this.dataset.tab === 'planning') refreshPlanning();
     });
   });
@@ -474,6 +518,7 @@ function refreshAll() {
   refreshSummary();
   refreshInvestments();
   refreshMortgage();
+  refreshCashFlow();
   refreshPlanning();
 
   // Update last-updated badge
