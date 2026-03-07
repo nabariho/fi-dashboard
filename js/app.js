@@ -936,8 +936,7 @@ if (!navigator.onLine) {
       StorageManager.init('db');
       var hasSession = await StorageManager.hasSession();
       if (hasSession) {
-        // We have a session but need passphrase to derive encryption key.
-        // Try sessionStorage first for cached passphrase.
+        // Try sessionStorage first (same-tab navigation)
         var sessionData = await FileManager.loadFromSession();
         if (sessionData && sessionData.decryptedData && sessionData.storageMode === 'db') {
           loadData(sessionData.decryptedData);
@@ -945,7 +944,20 @@ if (!navigator.onLine) {
           updateDbModeUI();
           return;
         }
-        // No cached passphrase — need to re-authenticate
+        // Try cached CryptoKey from IDB (cross-page navigation, within TTL)
+        var restored = await StorageManager.restoreFromCachedKey();
+        if (restored) {
+          var data = await StorageManager.load();
+          loadData(data);
+          FileManager.stashToSession({
+            decryptedData: data, storageMode: 'db',
+            passphrase: null, wasEncrypted: false, originalFileText: null, filename: null
+          });
+          showDashboard();
+          updateDbModeUI();
+          return;
+        }
+        // No cached key — need to re-authenticate
         showAuthScreen();
         return;
       }

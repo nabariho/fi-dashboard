@@ -224,6 +224,12 @@ var StorageManager = (function() {
         _passphrase = passphrase;
         _cryptoKey = await DbCrypto.deriveEncryptionKey(passphrase, encSalt);
         _lastSavedMap = null;
+        // Cache the non-extractable CryptoKey in IDB for cross-page navigation
+        DataCache.saveSessionKey('db_encryption', _cryptoKey, {
+          purpose: 'db_encryption',
+          userId: user.id,
+          encSalt: encSalt
+        }).catch(function() {});
         this.setMode('db');
       } else {
         // Email confirmation required — stash salt for first signIn
@@ -260,6 +266,13 @@ var StorageManager = (function() {
       _cryptoKey = await DbCrypto.deriveEncryptionKey(passphrase, encSalt);
       _lastSavedMap = null;
 
+      // Cache the non-extractable CryptoKey in IDB for cross-page navigation
+      DataCache.saveSessionKey('db_encryption', _cryptoKey, {
+        purpose: 'db_encryption',
+        userId: _userId,
+        encSalt: _encSalt
+      }).catch(function() {});
+
       this.setMode('db');
       return result;
     },
@@ -271,6 +284,8 @@ var StorageManager = (function() {
       _userId = null;
       _passphrase = null;
       _lastSavedMap = null;
+      // Clear cached keys on sign-out
+      DataCache.clearAllSessionKeys().catch(function() {});
     },
 
     // Try to restore an existing Supabase session.
@@ -286,6 +301,34 @@ var StorageManager = (function() {
       _lastSavedMap = null;
 
       return session;
+    },
+
+    // Try to restore DB session from cached CryptoKey in IDB.
+    // Returns true if successful (no passphrase needed), false otherwise.
+    restoreFromCachedKey: async function() {
+      try {
+        var entry = await DataCache.loadSessionKey('db_encryption');
+        if (!entry || !entry.key || !entry.meta) return false;
+
+        var session = await DbService.getSession();
+        if (!session) return false;
+
+        // Verify the cached key matches the current user
+        if (entry.meta.userId !== session.user.id) {
+          DataCache.clearSessionKey('db_encryption').catch(function() {});
+          return false;
+        }
+
+        _userId = session.user.id;
+        _encSalt = entry.meta.encSalt;
+        _cryptoKey = entry.key;
+        _passphrase = null; // Not needed — we have the derived key
+        _lastSavedMap = null;
+
+        return true;
+      } catch (e) {
+        return false;
+      }
     },
 
     // Check if we have an active Supabase session (no passphrase needed).

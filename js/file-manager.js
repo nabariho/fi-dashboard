@@ -10,15 +10,34 @@ var FileManager = (function() {
 
   var hasFileSystemAccess = typeof window.showOpenFilePicker === 'function';
 
-  // --- Per-tab encryption key for sessionStorage ---
-  // Random AES-256-GCM key generated once per page load.
-  // Lives only in this JS closure — never persisted.
-  var _sessionKeyPromise = crypto.subtle.generateKey(
-    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
-  );
+  // --- Session encryption key for sessionStorage ---
+  // Shared across page navigations via IDB session_keys store.
+  // Non-extractable CryptoKey — raw bytes can never be read by JS.
+  // Expires after TTL (30 min) — see DataCache.SESSION_KEY_TTL.
+  function _getSessionKey() {
+    // DataCache._getOrCreateSessionKey handles IDB lookup + TTL + fallback
+    if (typeof DataCache !== 'undefined' && DataCache.loadSessionKey) {
+      return DataCache.loadSessionKey('session_aes').then(function(entry) {
+        if (entry && entry.key) return entry.key;
+        return crypto.subtle.generateKey(
+          { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+        ).then(function(key) {
+          DataCache.saveSessionKey('session_aes', key, { purpose: 'session_encryption' }).catch(function() {});
+          return key;
+        });
+      }).catch(function() {
+        return crypto.subtle.generateKey(
+          { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+        );
+      });
+    }
+    return crypto.subtle.generateKey(
+      { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+    );
+  }
 
   async function _encryptForSession(plaintext) {
-    var key = await _sessionKeyPromise;
+    var key = await _getSessionKey();
     var iv = crypto.getRandomValues(new Uint8Array(12));
     var encoded = new TextEncoder().encode(plaintext);
     var ciphertext = await crypto.subtle.encrypt(
@@ -32,7 +51,7 @@ var FileManager = (function() {
   }
 
   async function _decryptFromSession(stored) {
-    var key = await _sessionKeyPromise;
+    var key = await _getSessionKey();
     var parsed = JSON.parse(stored);
     var iv = _base64ToBuf(parsed.iv);
     var ct = _base64ToBuf(parsed.ct);

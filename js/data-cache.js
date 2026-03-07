@@ -1,22 +1,97 @@
 // === DATA CACHE — IndexedDB Persistent Storage ===
-// v4: All stores except dir_handles are encrypted with a per-tab AES key.
-// On tab close the key is lost, so cached data requires re-authentication.
+// v5: Added session_keys store for non-extractable CryptoKey persistence.
+// Keys survive page navigation but expire after TTL (30 minutes).
 
 var DataCache = (function() {
   var DB_NAME = 'fi_dashboard';
-  var DB_VERSION = 3;
+  var DB_VERSION = 4;
   var STORE_NAME = 'cache';
   var DIR_STORE = 'dir_handles';
   var VAULT_STORE = 'vault_cache';
   var SYNC_STORE = 'pending_sync';
+  var KEYS_STORE = 'session_keys';
   var CACHE_KEY = 'session';
   var DIR_KEY = 'save_dir';
   var VAULT_KEY = 'records';
 
-  // --- Per-tab encryption key (never persisted) ---
-  var _cacheKeyPromise = crypto.subtle.generateKey(
-    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
-  );
+  var SESSION_KEY_TTL = 30 * 60 * 1000; // 30 minutes
+
+  // --- Per-session encryption key (shared across page navigations) ---
+  // On first load: generate a new key and store in IDB.
+  // On subsequent loads (same session): retrieve from IDB.
+  var _sessionKeyPromise = null;
+
+  function _getOrCreateSessionKey() {
+    if (_sessionKeyPromise) return _sessionKeyPromise;
+    _sessionKeyPromise = _loadSessionKeyFromIDB('session_aes').then(function(entry) {
+      if (entry && entry.key) return entry.key;
+      // No valid key — generate a new one
+      return crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+      ).then(function(key) {
+        // Store in IDB for cross-page use
+        _saveSessionKeyToIDB('session_aes', key, { purpose: 'session_encryption' }).catch(function() {});
+        return key;
+      });
+    }).catch(function() {
+      // IDB unavailable — fall back to ephemeral key
+      return crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+      );
+    });
+    return _sessionKeyPromise;
+  }
+
+  // Low-level IDB helpers for session_keys (used before _openDB is safe to call
+  // in a chain, and also exposed publicly)
+
+  function _saveSessionKeyToIDB(id, cryptoKey, meta) {
+    return _openDB().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(KEYS_STORE, 'readwrite');
+        tx.objectStore(KEYS_STORE).put({
+          key: cryptoKey,
+          createdAt: Date.now(),
+          meta: meta || {}
+        }, id);
+        tx.oncomplete = function() { resolve(); };
+        tx.onerror = function() { reject(tx.error); };
+      });
+    });
+  }
+
+  function _loadSessionKeyFromIDB(id) {
+    return _openDB().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(KEYS_STORE, 'readonly');
+        var request = tx.objectStore(KEYS_STORE).get(id);
+        request.onsuccess = function() {
+          var result = request.result;
+          if (!result || !result.key) { resolve(null); return; }
+          // Check TTL
+          if (Date.now() - result.createdAt > SESSION_KEY_TTL) {
+            // Expired — delete and return null
+            _deleteSessionKeyFromIDB(id).catch(function() {});
+            resolve(null);
+            return;
+          }
+          resolve(result);
+        };
+        request.onerror = function() { reject(request.error); };
+      });
+    });
+  }
+
+  function _deleteSessionKeyFromIDB(id) {
+    return _openDB().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(KEYS_STORE, 'readwrite');
+        tx.objectStore(KEYS_STORE).delete(id);
+        tx.oncomplete = function() { resolve(); };
+        tx.onerror = function() { reject(tx.error); };
+      });
+    });
+  }
 
   function _bufToBase64(buf) {
     var binary = '';
@@ -37,7 +112,7 @@ var DataCache = (function() {
   }
 
   async function _encryptData(data) {
-    var key = await _cacheKeyPromise;
+    var key = await _getOrCreateSessionKey();
     var iv = crypto.getRandomValues(new Uint8Array(12));
     var plaintext = new TextEncoder().encode(JSON.stringify(data));
     var ciphertext = await crypto.subtle.encrypt(
@@ -50,7 +125,7 @@ var DataCache = (function() {
   }
 
   async function _decryptData(encrypted) {
-    var key = await _cacheKeyPromise;
+    var key = await _getOrCreateSessionKey();
     var iv = _base64ToBuf(encrypted.iv);
     var ct = _base64ToBuf(encrypted.ct);
     var plaintext = await crypto.subtle.decrypt(
@@ -75,6 +150,9 @@ var DataCache = (function() {
         }
         if (!db.objectStoreNames.contains(SYNC_STORE)) {
           db.createObjectStore(SYNC_STORE, { autoIncrement: true });
+        }
+        if (!db.objectStoreNames.contains(KEYS_STORE)) {
+          db.createObjectStore(KEYS_STORE);
         }
       };
       request.onsuccess = function() { resolve(request.result); };
@@ -112,13 +190,13 @@ var DataCache = (function() {
         request.onsuccess = function() {
           var result = request.result;
           if (!result) { resolve(null); return; }
-          // If it has iv+ct, it's encrypted (v4). Otherwise stale unencrypted data — discard.
+          // If it has iv+ct, it's encrypted (v4+). Otherwise stale unencrypted data — discard.
           if (!result.iv || !result.ct) {
             resolve(null);
             return;
           }
           _decryptData(result).then(resolve).catch(function() {
-            // Key rotated (new tab) — stale cache, discard
+            // Key expired or rotated — stale cache, discard
             resolve(null);
           });
         };
@@ -139,7 +217,6 @@ var DataCache = (function() {
   }
 
   // --- Directory Handle Persistence (Chrome File System Access API) ---
-  // Not encrypted — contains no financial data, just a browser handle.
 
   function saveDirHandle(handle) {
     return _openDB().then(function(db) {
@@ -164,7 +241,6 @@ var DataCache = (function() {
   }
 
   // --- Vault Cache (encrypted DB records for offline) ---
-  // These are already AES-256-GCM ciphertext from Supabase — stored as-is.
 
   function saveEncrypted(records) {
     var entry = {
@@ -204,7 +280,6 @@ var DataCache = (function() {
   }
 
   // --- Pending Sync Queue (offline writes) ---
-  // Records here are already encrypted ciphertext — stored as-is.
 
   function queueSync(op) {
     var entry = {
@@ -264,6 +339,31 @@ var DataCache = (function() {
     });
   }
 
+  // --- Session Keys (non-extractable CryptoKey persistence) ---
+
+  function saveSessionKey(id, cryptoKey, meta) {
+    return _saveSessionKeyToIDB(id, cryptoKey, meta);
+  }
+
+  function loadSessionKey(id) {
+    return _loadSessionKeyFromIDB(id);
+  }
+
+  function clearSessionKey(id) {
+    return _deleteSessionKeyFromIDB(id);
+  }
+
+  function clearAllSessionKeys() {
+    return _openDB().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(KEYS_STORE, 'readwrite');
+        tx.objectStore(KEYS_STORE).clear();
+        tx.oncomplete = function() { resolve(); };
+        tx.onerror = function() { reject(tx.error); };
+      });
+    });
+  }
+
   return {
     save: save,
     load: load,
@@ -276,6 +376,10 @@ var DataCache = (function() {
     queueSync: queueSync,
     getPendingSync: getPendingSync,
     removeSynced: removeSynced,
-    clearPendingSync: clearPendingSync
+    clearPendingSync: clearPendingSync,
+    saveSessionKey: saveSessionKey,
+    loadSessionKey: loadSessionKey,
+    clearSessionKey: clearSessionKey,
+    clearAllSessionKeys: clearAllSessionKeys
   };
 })();

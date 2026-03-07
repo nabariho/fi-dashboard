@@ -573,8 +573,8 @@ function renderPlanning() {
   var container = document.getElementById('planningTable');
   var goals = AdminState.plannerGoals;
   var accountIds = AdminState.accounts.map(function(a) { return a.account_id; });
-  var addGoalAccountOptions = accountIds.map(function(id) {
-    return '<option value="' + escHtml(id) + '">' + escHtml(id) + '</option>';
+  var addGoalAccountChecks = accountIds.map(function(id) {
+    return '<label class="acct-check-item"><input type="checkbox" class="new-goal-account-check" value="' + escHtml(id) + '"> ' + escHtml(id) + '</label>';
   }).join('');
 
   var html = '<div class="section-header">' +
@@ -590,7 +590,7 @@ function renderPlanning() {
     '<div class="add-form-field"><label>Target</label><input type="number" step="any" id="newGoalTarget" placeholder="40000" style="width:120px"></div>' +
     '<div class="add-form-field"><label>Current</label><input type="number" step="any" id="newGoalCurrent" placeholder="0" style="width:120px"></div>' +
     '<div class="add-form-field"><label>Target Date</label><input type="month" id="newGoalDate" style="width:130px"></div>' +
-    '<div class="add-form-field"><label>Funding Accounts</label><select id="newGoalFunding" multiple size="4" style="width:220px">' + addGoalAccountOptions + '</select></div>' +
+    '<div class="add-form-field"><label>Funding Accounts</label><div id="newGoalFunding" class="acct-checklist">' + addGoalAccountChecks + '</div></div>' +
     '<div class="add-form-field"><label>Priority</label><input type="number" step="1" id="newGoalPriority" value="2" style="width:80px"></div>' +
     '<div class="add-form-field"><label>Track from Accounts</label><input type="checkbox" id="newGoalTrackFromAccounts" checked></div>' +
     '<div class="add-form-field"><label>Active</label><input type="checkbox" id="newGoalActive" checked></div>' +
@@ -610,8 +610,8 @@ function renderPlanning() {
   goals.forEach(function(g, i) {
     var selectedFunding = {};
     (g.funding_accounts || []).forEach(function(id) { selectedFunding[id] = true; });
-    var rowAccountOptions = accountIds.map(function(id) {
-      return '<option value="' + escHtml(id) + '"' + (selectedFunding[id] ? ' selected' : '') + '>' + escHtml(id) + '</option>';
+    var rowAccountChecks = accountIds.map(function(id) {
+      return '<label class="acct-check-item"><input type="checkbox" class="goal-accounts-check" data-idx="' + i + '" value="' + escHtml(id) + '"' + (selectedFunding[id] ? ' checked' : '') + '> ' + escHtml(id) + '</label>';
     }).join('');
     html += '<tr' + (g.active === false ? ' style="opacity:0.5"' : '') + '>' +
       '<td class="cell-id">' + escHtml(g.goal_id) + '</td>' +
@@ -619,7 +619,7 @@ function renderPlanning() {
       '<td style="text-align:right"><input type="number" step="any" value="' + (g.target_amount || 0) + '" data-idx="' + i + '" data-field="target_amount" class="goal-num" style="width:120px; text-align:right"></td>' +
       '<td style="text-align:right"><input type="number" step="any" value="' + (g.current_amount || 0) + '" data-idx="' + i + '" data-field="current_amount" class="goal-num" style="width:120px; text-align:right"' + (g.track_current_from_accounts !== false ? ' disabled' : '') + '></td>' +
       '<td><input type="month" value="' + escHtml(g.target_date || '') + '" data-idx="' + i + '" data-field="target_date" class="goal-field" style="width:130px"></td>' +
-      '<td><select data-idx="' + i + '" class="goal-accounts-select" multiple size="4" style="width:220px">' + rowAccountOptions + '</select></td>' +
+      '<td><div class="acct-checklist">' + rowAccountChecks + '</div></td>' +
       '<td><input type="number" step="1" value="' + (g.priority || 3) + '" data-idx="' + i + '" data-field="priority" class="goal-int" style="width:70px"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (g.track_current_from_accounts !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-track"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (g.active !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-active"></td>' +
@@ -657,11 +657,12 @@ function renderPlanning() {
       }
     });
   });
-  container.querySelectorAll('.goal-accounts-select').forEach(function(el) {
+  container.querySelectorAll('.goal-accounts-check').forEach(function(el) {
     el.addEventListener('change', function() {
       var idx = parseInt(this.dataset.idx);
-      AdminState.plannerGoals[idx].funding_accounts = Array.prototype.slice.call(this.selectedOptions)
-        .map(function(o) { return (o.value || '').trim().toUpperCase(); })
+      AdminState.plannerGoals[idx].funding_accounts = Array.prototype.slice.call(
+        container.querySelectorAll('.goal-accounts-check[data-idx="' + idx + '"]:checked')
+      ).map(function(o) { return (o.value || '').trim().toUpperCase(); })
         .filter(function(s) { return !!s; });
       markDirty();
     });
@@ -697,7 +698,7 @@ function addPlanningGoal() {
   var target = parseFloat(targetEl.value);
   var current = parseFloat(currentEl.value || '0');
   var date = dateEl.value.trim();
-  var fundingAccounts = Array.prototype.slice.call(document.getElementById('newGoalFunding').selectedOptions || [])
+  var fundingAccounts = Array.prototype.slice.call(document.querySelectorAll('.new-goal-account-check:checked') || [])
     .map(function(o) { return (o.value || '').trim().toUpperCase(); })
     .filter(function(s) { return !!s; });
   var priority = parseInt(priorityEl.value || '3');
@@ -2053,6 +2054,19 @@ async function exportDbToFile() {
         if (sessionData && sessionData.decryptedData && sessionData.storageMode === 'db') {
           AdminState.storageMode = 'db';
           loadAdminData(sessionData.decryptedData);
+          showAdmin();
+          return;
+        }
+        // Try cached CryptoKey from IDB (cross-page navigation, within TTL)
+        var restored = await StorageManager.restoreFromCachedKey();
+        if (restored) {
+          var data = await StorageManager.load();
+          AdminState.storageMode = 'db';
+          loadAdminData(data);
+          FileManager.stashToSession({
+            decryptedData: data, storageMode: 'db',
+            passphrase: null, wasEncrypted: false, originalFileText: null, filename: null
+          });
           showAdmin();
           return;
         }
