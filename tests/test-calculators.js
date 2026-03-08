@@ -637,6 +637,29 @@ describe('CashflowCalculator', function() {
     assertClose(result.totalActual, 1700, 0.01, 'total actual');
     assertClose(result.overdrawn, 0, 0.01, 'overdrawn');
   });
+
+  it('computeGoalFundingHistory averages across months', function() {
+    var allData = [
+      { month: '2024-01', account_id: 'IBKR', end_value: 10000, net_contribution: 1000 },
+      { month: '2024-02', account_id: 'IBKR', end_value: 12000, net_contribution: 1500 }
+    ];
+    var goals = [
+      { goal_id: 'retirement', name: 'Retirement', priority: 1, allocated_monthly: 1200, funding_accounts: ['IBKR'] }
+    ];
+    var entries = [
+      { entry_id: '2024-01_income_salary', month: '2024-01', type: 'income', category: 'Salary', amount: 4000 },
+      { entry_id: '2024-01_expense_rent', month: '2024-01', type: 'expense', category: 'Rent', amount: 2000 },
+      { entry_id: '2024-02_income_salary', month: '2024-02', type: 'income', category: 'Salary', amount: 4000 },
+      { entry_id: '2024-02_expense_rent', month: '2024-02', type: 'expense', category: 'Rent', amount: 2000 }
+    ];
+    var result = CashflowCalculator.computeGoalFundingHistory(['2024-01', '2024-02'], allData, goals, entries, [], []);
+    assertEqual(result.goals.length, 1);
+    assertEqual(result.goals[0].goal_id, 'retirement');
+    // Avg planned = 1200, avg actual = (1000+1500)/2 = 1250
+    assertClose(result.goals[0].avgPlanned, 1200, 0.01);
+    assertClose(result.goals[0].avgActual, 1250, 0.01);
+    assertEqual(result.totalMonths, 2);
+  });
 });
 
 // --- CashflowNormalizationService ---

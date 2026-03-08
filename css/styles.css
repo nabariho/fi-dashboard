@@ -695,6 +695,7 @@ canvas { width: 100% !important; height: 350px !important; }
 }
 
 .table-header-row h2 { font-size: 16px; font-weight: 600; }
+.table-subtitle { font-size: 12px; color: #666; font-weight: 400; }
 
 .view-toggle {
   display: flex;

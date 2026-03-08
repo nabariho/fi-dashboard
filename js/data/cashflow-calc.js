@@ -314,6 +314,76 @@ var CashflowCalculator = {
     };
   },
 
+  // Compute trailing goal funding reality across recent months.
+  // Returns per-goal average actual vs planned, plus per-month detail.
+  // months: array of month strings to analyze (e.g. last 3-6 months with actual data)
+  computeGoalFundingHistory: function(months, allData, plannerGoals, cashflowEntries, categories, subcategories) {
+    if (!months || !months.length || !plannerGoals || !plannerGoals.length) {
+      return { goals: [], months: [], overdrawnMonths: 0 };
+    }
+
+    var monthDetails = [];
+    months.forEach(function(month) {
+      // Compute net savings for this month from cashflow entries
+      var monthData = CashflowCalculator.computeMonth(cashflowEntries, month, categories, subcategories);
+      var netSavings = monthData.totalIncome - monthData.totalExpenses - monthData.totalTransfers;
+      var reality = CashflowCalculator.computeGoalFundingReality(month, allData, plannerGoals, netSavings);
+      monthDetails.push({ month: month, reality: reality });
+    });
+
+    // Aggregate per goal across months
+    var goalTotals = {};
+    var overdrawnMonths = 0;
+
+    monthDetails.forEach(function(md) {
+      if (md.reality.overdrawn > 0.01) overdrawnMonths++;
+      md.reality.goals.forEach(function(g) {
+        if (!goalTotals[g.goal_id]) {
+          goalTotals[g.goal_id] = {
+            goal_id: g.goal_id,
+            name: g.name,
+            priority: g.priority,
+            totalPlanned: 0,
+            totalActual: 0,
+            monthCount: 0
+          };
+        }
+        goalTotals[g.goal_id].totalPlanned += g.planned;
+        goalTotals[g.goal_id].totalActual += g.actual;
+        goalTotals[g.goal_id].monthCount++;
+      });
+    });
+
+    var goalSummaries = Object.keys(goalTotals).map(function(id) {
+      var g = goalTotals[id];
+      var avgPlanned = g.monthCount > 0 ? g.totalPlanned / g.monthCount : 0;
+      var avgActual = g.monthCount > 0 ? g.totalActual / g.monthCount : 0;
+      var status = 'on_track';
+      if (avgActual < 0) status = 'withdrawn';
+      else if (avgPlanned > 0 && avgActual < avgPlanned * 0.5) status = 'underfunded';
+      else if (avgActual > avgPlanned * 1.5 && avgPlanned > 0) status = 'overfunded';
+
+      return {
+        goal_id: g.goal_id,
+        name: g.name,
+        priority: g.priority,
+        avgPlanned: avgPlanned,
+        avgActual: avgActual,
+        delta: avgActual - avgPlanned,
+        status: status
+      };
+    });
+
+    goalSummaries.sort(function(a, b) { return a.priority - b.priority; });
+
+    return {
+      goals: goalSummaries,
+      months: monthDetails,
+      overdrawnMonths: overdrawnMonths,
+      totalMonths: months.length
+    };
+  },
+
   // Generate a slug from a category name (lowercase, spaces to hyphens).
   slugify: function(str) {
     return (str || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');

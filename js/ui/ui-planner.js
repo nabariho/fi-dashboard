@@ -17,7 +17,7 @@ var PlannerRenderer = {
     return '';
   },
 
-  render: function(plan, milestoneStatuses) {
+  render: function(plan, milestoneStatuses, fundingHistory) {
     var el = document.getElementById('goalsContent');
     if (!el) return;
 
@@ -91,6 +91,43 @@ var PlannerRenderer = {
       });
 
       html += '</tbody></table></div></div>';
+
+      // Actual vs Planned funding (from cashflow data)
+      if (fundingHistory && fundingHistory.goals && fundingHistory.goals.length) {
+        html += '<div class="table-container"><div class="table-header-row"><h2>Actual vs Planned Funding</h2>' +
+          '<span class="table-subtitle">Trailing ' + (fundingHistory.totalMonths || 0) + '-month average from account movements</span></div>';
+
+        if (fundingHistory.overdrawnMonths > 0) {
+          html += '<div class="summary-alerts"><div class="summary-alert summary-alert-warning">' +
+            '&#9888; In ' + fundingHistory.overdrawnMonths + ' of ' + fundingHistory.totalMonths +
+            ' months, total goal funding exceeded available savings (drawing from reserves).' +
+            '</div></div>';
+        }
+
+        html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+          '<th>Goal</th><th>Priority</th>' +
+          '<th style="text-align:right">Planned/mo</th><th style="text-align:right">Actual Avg/mo</th>' +
+          '<th style="text-align:right">Delta</th><th>Status</th>' +
+          '</tr></thead><tbody>';
+
+        var fundingStatusLabels = { on_track: 'On Track', overfunded: 'Overfunded', underfunded: 'Underfunded', withdrawn: 'Withdrawn' };
+        var fundingStatusClass = { on_track: 'positive', overfunded: 'positive', underfunded: 'negative', withdrawn: 'negative' };
+
+        fundingHistory.goals.forEach(function(g) {
+          var cls = fundingStatusClass[g.status] || '';
+          html += '<tr>' +
+            '<td>' + g.name + '</td>' +
+            '<td>P' + g.priority + '</td>' +
+            '<td style="text-align:right">' + Fmt.currency(g.avgPlanned) + '</td>' +
+            '<td style="text-align:right">' + Fmt.currency(g.avgActual) + '</td>' +
+            '<td style="text-align:right" class="' + (g.delta >= 0 ? 'positive' : 'negative') + '">' +
+              (g.delta >= 0 ? '+' : '') + Fmt.currency(g.delta) + '</td>' +
+            '<td class="' + cls + '">' + (fundingStatusLabels[g.status] || g.status) + '</td>' +
+          '</tr>';
+        });
+
+        html += '</tbody></table></div></div>';
+      }
 
       // Account-level ledger
       var ledger = plan.account_ledger || {};

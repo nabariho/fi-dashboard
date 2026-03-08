@@ -342,7 +342,21 @@ function refreshGoalsTab() {
     }
   }
 
-  PlannerRenderer.render(_cachedGoalPlan, milestoneStatuses);
+  // Compute actual vs planned funding from cashflow data
+  var fundingHistory = null;
+  if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length && plannerGoalsData && plannerGoalsData.length) {
+    var actualMonthsSet = CashflowCalculator.getMonthsWithActuals(cashflowEntries);
+    var actualMonths = Array.from(actualMonthsSet).sort();
+    if (actualMonths.length) {
+      var recentMonths = actualMonths.slice(-6);
+      fundingHistory = CashflowCalculator.computeGoalFundingHistory(
+        recentMonths, allData, plannerGoalsData, cashflowEntries,
+        cashflowCategories, cashflowSubcategories
+      );
+    }
+  }
+
+  PlannerRenderer.render(_cachedGoalPlan, milestoneStatuses, fundingHistory);
 }
 
 // --- Investments Tab ---
