@@ -2390,6 +2390,7 @@ function importCashflowJson(input) {
 
 function validate() {
   var errors = [];
+  var warnings = [];
 
   Object.keys(AdminState.config).forEach(function(key) {
     if (typeof AdminState.config[key] !== 'number' || isNaN(AdminState.config[key])) {
@@ -2437,6 +2438,31 @@ function validate() {
     });
     if (g.track_current_from_accounts !== false && (!g.funding_accounts || !g.funding_accounts.length)) {
       errors.push('Planning: "' + g.goal_id + '" must select funding accounts when "track from accounts" is enabled.');
+    }
+    // Achievability warning: check if target is reachable by target_date
+    if (g.target_date && g.target_amount > 0 && g.active !== false) {
+      var now = new Date();
+      var nowMonth = now.getFullYear() + '-' + (now.getMonth() < 9 ? '0' : '') + (now.getMonth() + 1);
+      if (g.target_date > nowMonth) {
+        var parts = g.target_date.split('-');
+        var nowParts = nowMonth.split('-');
+        var monthsLeft = (parseInt(parts[0]) - parseInt(nowParts[0])) * 12 + (parseInt(parts[1]) - parseInt(nowParts[1]));
+        var remaining = Math.max(0, g.target_amount - (g.current_amount || 0));
+        var monthlyIncome = (AdminState.config.monthly_income || 0);
+        var monthlyBudget = 0;
+        AdminState.budgetItems.forEach(function(b) {
+          var freq = (b.frequency || 'monthly').toLowerCase();
+          var amt = b.amount || 0;
+          if (freq === 'yearly') amt /= 12;
+          else if (freq === 'quarterly') amt /= 3;
+          monthlyBudget += amt;
+        });
+        var available = monthlyIncome - monthlyBudget;
+        if (available > 0 && monthsLeft > 0 && remaining / monthsLeft > available) {
+          warnings.push('Planning: "' + g.goal_id + '" needs ' + Math.ceil(remaining / monthsLeft) +
+            '/mo but only ' + Math.ceil(available) + '/mo is available. Consider extending the target date.');
+        }
+      }
     }
     if (g.track_current_from_accounts === false) {
       if (!g.funding_accounts || g.funding_accounts.length !== 1) {
@@ -2496,13 +2522,15 @@ function validate() {
     cfIds[e.entry_id] = true;
   });
 
-  return errors;
+  return { errors: errors, warnings: warnings };
 }
 
 // --- Save ---
 
 async function save() {
-  var errors = validate();
+  var result = validate();
+  var errors = result.errors || [];
+  var warnings = result.warnings || [];
   if (errors.length) {
     var errHtml = '<div class="validation-errors"><strong>Validation errors:</strong><ul>' +
       errors.map(function(e) { return '<li>' + escHtml(e) + '</li>'; }).join('') +
@@ -2517,6 +2545,19 @@ async function save() {
   }
 
   document.querySelectorAll('.validation-errors').forEach(function(el) { el.remove(); });
+
+  // Show warnings but allow save to proceed
+  if (warnings.length) {
+    var warnHtml = '<div class="validation-warnings"><strong>Warnings:</strong><ul>' +
+      warnings.map(function(w) { return '<li>' + escHtml(w) + '</li>'; }).join('') +
+      '</ul></div>';
+    var activeContent2 = document.querySelector('.admin-content.active');
+    var existingWarn = activeContent2.querySelector('.validation-warnings');
+    if (existingWarn) existingWarn.remove();
+    activeContent2.insertAdjacentHTML('afterbegin', warnHtml);
+  } else {
+    document.querySelectorAll('.validation-warnings').forEach(function(el) { el.remove(); });
+  }
 
   var btn = document.getElementById('saveBtn');
   btn.disabled = true;

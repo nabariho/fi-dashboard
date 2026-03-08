@@ -15,7 +15,8 @@ var MetricsRenderer = {
 
   // Render FI progress bar
   renderFIProgress: function(progressPct, fiTarget, currentNW, yearsToFI, passiveIncome, savingsRate, monthlyExpenses) {
-    var pct = Math.min(progressPct, 100).toFixed(1);
+    var pct = Math.max(0, Math.min(progressPct, 100)).toFixed(1);
+    var pctLabel = progressPct < 0 ? progressPct.toFixed(1) : pct;
     var el = document.getElementById('fiProgress');
     if (!el) return;
 
@@ -48,7 +49,7 @@ var MetricsRenderer = {
       contextHtml +
       '<div class="fi-bar-container">' +
         '<div class="fi-bar" style="width:' + pct + '%"></div>' +
-        '<div class="fi-bar-label">' + pct + '%</div>' +
+        '<div class="fi-bar-label">' + pctLabel + '%</div>' +
       '</div>' +
       '<div class="fi-stats">' +
         '<div class="fi-stat">' +
