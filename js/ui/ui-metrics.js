@@ -92,13 +92,28 @@ var MetricsRenderer = {
   },
 
   renderNetWorth: function(current, mom, ytd) {
-    document.getElementById('nwMetrics').innerHTML =
-      this._card('Net Worth', Fmt.currency(current.total), '',
-        Fmt.pct(mom.pct) + ' this month', mom.change >= 0 ? 'positive' : 'negative') +
-      this._card('Investments', Fmt.currency(current.investments)) +
-      this._card('Bank Accounts', Fmt.currency(current.bank)) +
-      this._card('YTD Change', Fmt.currency(ytd.change), ytd.change >= 0 ? 'positive' : 'negative',
-        Fmt.pct(ytd.pct), ytd.pct >= 0 ? 'positive' : 'negative');
+    var hasMortgage = current.liabilities > 0 || current.house_value > 0;
+
+    var html = this._card('Net Worth', Fmt.currency(current.total), '',
+      Fmt.pct(mom.pct) + ' this month', mom.change >= 0 ? 'positive' : 'negative');
+
+    if (hasMortgage) {
+      // Show the full breakdown: assets vs liabilities
+      html += this._card('Total Assets', Fmt.currency(current.assets), '',
+        'Accounts + house value');
+      html += this._card('Total Liabilities', Fmt.currency(current.liabilities), 'negative',
+        'Mortgage balance');
+      html += this._card('Liquid Net Worth', Fmt.currency(current.liquid), '',
+        'Accounts only (excl. house)');
+    } else {
+      html += this._card('Investments', Fmt.currency(current.investments));
+      html += this._card('Bank Accounts', Fmt.currency(current.bank));
+    }
+
+    html += this._card('YTD Change', Fmt.currency(ytd.change), ytd.change >= 0 ? 'positive' : 'negative',
+      Fmt.pct(ytd.pct), ytd.pct >= 0 ? 'positive' : 'negative');
+
+    document.getElementById('nwMetrics').innerHTML = html;
   },
 
   renderLastUpdated: function(latestMonth) {

@@ -209,6 +209,10 @@ var ChartRenderer = {
     var ctx = document.getElementById(canvasId).getContext('2d');
     if (nwChart) nwChart.destroy();
 
+    // Check if mortgage data exists
+    var hasMortgage = data.some(function(r) { return r.liabilities > 0 || r.house_value > 0; });
+
+    // Account datasets (stacked area)
     var datasets = accountIds.filter(function(a) {
       return data.some(function(r) { return r.accounts[a] > 0; });
     }).map(function(a) {
@@ -218,12 +222,45 @@ var ChartRenderer = {
         borderColor: AccountService.getColor(a),
         backgroundColor: AccountService.getColor(a) + '33',
         fill: true, tension: 0.3, pointRadius: 0, pointHitRadius: 10, borderWidth: 1.5,
+        stack: 'assets'
       };
     });
 
-    document.getElementById(legendId).innerHTML = datasets.map(function(ds) {
+    if (hasMortgage) {
+      // House value as a stacked asset
+      datasets.push({
+        label: 'House Value',
+        data: data.map(function(r) { return r.house_value || 0; }),
+        borderColor: '#8B4513',
+        backgroundColor: '#8B451333',
+        fill: true, tension: 0.3, pointRadius: 0, pointHitRadius: 10, borderWidth: 1.5,
+        stack: 'assets'
+      });
+
+      // Net Worth line (non-stacked overlay)
+      datasets.push({
+        label: 'Net Worth',
+        data: data.map(function(r) { return r.total; }),
+        borderColor: '#202124',
+        backgroundColor: 'transparent',
+        fill: false, tension: 0.3, pointRadius: 2, pointHitRadius: 10, borderWidth: 2.5,
+        borderDash: [6, 3],
+        stack: 'networth'
+      });
+    }
+
+    // Build legend
+    var legendHtml = datasets.map(function(ds) {
+      var style = ds.borderDash ? 'border-top:2px dashed ' + ds.borderColor : 'background:' + ds.borderColor;
+      var dotStyle = ds.borderDash
+        ? 'width:14px;height:0;border-top:2px dashed ' + ds.borderColor + ';margin-right:6px;align-self:center'
+        : 'background:' + ds.borderColor;
+      if (ds.borderDash) {
+        return '<div class="legend-item"><div style="' + dotStyle + '"></div>' + ds.label + '</div>';
+      }
       return '<div class="legend-item"><div class="legend-dot" style="background:' + ds.borderColor + '"></div>' + ds.label + '</div>';
     }).join('');
+    document.getElementById(legendId).innerHTML = legendHtml;
 
     nwChart = new Chart(ctx, {
       type: 'line',
@@ -235,8 +272,20 @@ var ChartRenderer = {
           legend: { display: false },
           tooltip: Object.assign({}, this._baseTooltip(), {
             callbacks: {
-              label: function(ctx) { return ctx.dataset.label + ': ' + Fmt.currency(ctx.parsed.y); },
-              footer: function(items) { return 'Total: ' + Fmt.currency(items.reduce(function(s, i) { return s + i.parsed.y; }, 0)); }
+              label: function(ctx) {
+                return ctx.dataset.label + ': ' + Fmt.currency(ctx.parsed.y);
+              },
+              footer: function(items) {
+                var idx = items[0] ? items[0].dataIndex : 0;
+                var row = data[idx];
+                if (!row) return '';
+                if (hasMortgage) {
+                  return 'Total Assets: ' + Fmt.currency(row.assets) +
+                    '\nMortgage Debt: ' + Fmt.currency(row.liabilities) +
+                    '\nNet Worth: ' + Fmt.currency(row.total);
+                }
+                return 'Total: ' + Fmt.currency(row.total);
+              }
             }
           })
         },

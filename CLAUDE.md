@@ -58,7 +58,7 @@
 | `account-service.js` | Account lookups, classification, emergency fund role queries |
 | `data-service.js` | Filtering, aggregation, time range |
 | `returns-calc.js` | Modified Dietz returns, YTD chaining, per-account comparison |
-| `networth-calc.js` | Net worth aggregation with mortgage debt/equity |
+| `networth-calc.js` | Net worth: liquid/assets/liabilities/total with mortgage integration |
 | `fi-calc.js` | FI progress, years to FI, passive income, savings rate |
 | `goals-calc.js` | Goal status adapter: reads from unified planner output |
 | `emergency-calc.js` | Emergency fund history, flows, coverage metrics |

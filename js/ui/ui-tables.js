@@ -141,7 +141,50 @@ var TableRenderer = {
     });
     rows += this._totalRowWithDelta('Subtotal', recent, 'bank');
 
-    // Grand total
+    // Check if any month has mortgage data
+    var hasMortgage = recent.some(function(r) { return r.liabilities > 0 || r.house_value > 0; });
+
+    if (hasMortgage) {
+      // Liquid total (financial accounts only)
+      var liquidDelta = recent.length >= 2 ? recent[0].liquid - recent[1].liquid : 0;
+      rows += '<tr class="total-row"><td>LIQUID NET WORTH</td>' +
+        recent.map(function(r) { return '<td>' + Fmt.currency(r.liquid) + '</td>'; }).join('') +
+        this._deltaCell(liquidDelta) + '</tr>';
+
+      // House section (asset)
+      rows += this._sectionRow('Property', colCount);
+      rows += '<tr><td>House Market Value</td>' +
+        recent.map(function(r) {
+          var val = r.house_value || 0;
+          return '<td>' + (val > 0 ? Fmt.currency(val) : '-') + '</td>';
+        }).join('') +
+        this._deltaCell(recent.length >= 2 ? (recent[0].house_value || 0) - (recent[1].house_value || 0) : 0) + '</tr>';
+
+      // Total assets
+      var assetsDelta = recent.length >= 2 ? recent[0].assets - recent[1].assets : 0;
+      rows += '<tr class="total-row"><td>TOTAL ASSETS</td>' +
+        recent.map(function(r) { return '<td>' + Fmt.currency(r.assets) + '</td>'; }).join('') +
+        this._deltaCell(assetsDelta) + '</tr>';
+
+      // Liabilities section
+      rows += this._sectionRow('Liabilities', colCount);
+      rows += '<tr><td>Mortgage Balance</td>' +
+        recent.map(function(r) {
+          var val = r.liabilities || 0;
+          return '<td class="negative">' + (val > 0 ? Fmt.currency(val) : '-') + '</td>';
+        }).join('') +
+        this._deltaCell(recent.length >= 2 ? (recent[0].liabilities || 0) - (recent[1].liabilities || 0) : 0) + '</tr>';
+
+      // House equity row
+      rows += '<tr><td>House Equity</td>' +
+        recent.map(function(r) {
+          var eq = r.house_equity || 0;
+          return '<td>' + Fmt.currency(eq) + '</td>';
+        }).join('') +
+        this._deltaCell(recent.length >= 2 ? (recent[0].house_equity || 0) - (recent[1].house_equity || 0) : 0) + '</tr>';
+    }
+
+    // Grand total (Net Worth = Assets - Liabilities)
     var totalDelta = recent.length >= 2 ? recent[0].total - recent[1].total : 0;
     rows += '<tr class="total-row" style="font-size:15px"><td>NET WORTH</td>' +
       recent.map(function(r) { return '<td>' + Fmt.currency(r.total) + '</td>'; }).join('') +

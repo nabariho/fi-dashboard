@@ -178,6 +178,19 @@ describe('NetWorthCalculator', function() {
     assertEqual(result[0].bank, 20000);
   });
 
+  it('computes liquid, assets, liabilities fields without mortgage', function() {
+    var data = [
+      { month: '2024-01', account_id: 'BROKER_A', end_value: 50000, net_contribution: 0 },
+      { month: '2024-01', account_id: 'TRADE_REPUBLIC', end_value: 20000, net_contribution: 0 }
+    ];
+    var accountIds = ['BROKER_A', 'TRADE_REPUBLIC'];
+    var result = NetWorthCalculator.compute(data, accountIds);
+    assertEqual(result[0].liquid, 70000);
+    assertEqual(result[0].assets, 70000);
+    assertEqual(result[0].liabilities, 0);
+    assertEqual(result[0].total, 70000);
+  });
+
   it('computeMoM returns change and percentage', function() {
     var data = [
       { month: '2024-01', total: 100000 },
