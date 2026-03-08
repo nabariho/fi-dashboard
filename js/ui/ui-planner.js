@@ -194,7 +194,12 @@ var PlannerRenderer = {
       }
     }
 
-    // --- FI Timeline ---
+    // --- FI Journey Timeline (visual) ---
+    if (fiProjection && plan && plan.goals) {
+      html += this._renderJourneyTimeline(plan.goals, fiProjection);
+    }
+
+    // --- FI Timeline (details) ---
     if (fiProjection) {
       html += '<div class="table-container"><div class="table-header-row"><h2>FI Timeline</h2></div>';
       html += '<div class="fi-timeline-content">';
@@ -260,6 +265,78 @@ var PlannerRenderer = {
     }
 
     el.innerHTML = html;
+  },
+
+  _renderJourneyTimeline: function(goals, fiProjection) {
+    // Build timeline events: goals with projected completion + FI date
+    var events = [];
+    var now = new Date();
+    var nowStr = now.getFullYear() + '-' + (now.getMonth() < 9 ? '0' : '') + (now.getMonth() + 1);
+
+    goals.forEach(function(g) {
+      if (g.status === 'funded') {
+        events.push({ label: g.name, date: 'Funded', monthsFromNow: -1, status: 'funded' });
+      } else if (g.projected_completion) {
+        var months = PlannerRenderer._monthsBetween(nowStr, g.projected_completion);
+        var delayed = g.target_date && g.projected_completion > g.target_date;
+        events.push({ label: g.name, date: g.projected_completion, monthsFromNow: months, status: delayed ? 'delayed' : 'on_track' });
+      }
+    });
+
+    // Add FI date
+    if (fiProjection.fiDate && fiProjection.fiDate !== 'now') {
+      var fiMonths = Math.ceil(fiProjection.yearsToFI * 12);
+      events.push({ label: 'Financial Independence', date: fiProjection.fiDate, monthsFromNow: fiMonths, status: 'fi' });
+    }
+
+    // Sort by monthsFromNow (funded first, then by date)
+    events.sort(function(a, b) { return a.monthsFromNow - b.monthsFromNow; });
+
+    // Filter to only future events for the timeline bar
+    var futureEvents = events.filter(function(e) { return e.monthsFromNow > 0; });
+    if (!futureEvents.length) return '';
+
+    var maxMonths = futureEvents[futureEvents.length - 1].monthsFromNow;
+
+    var html = '<div class="table-container"><div class="table-header-row"><h2>FI Journey</h2></div>' +
+      '<div class="journey-timeline">';
+
+    // "Now" marker
+    html += '<div class="journey-now"><span class="journey-now-label">Now</span></div>';
+
+    // Timeline bar
+    html += '<div class="journey-bar">';
+
+    futureEvents.forEach(function(e) {
+      var pct = maxMonths > 0 ? (e.monthsFromNow / maxMonths * 100) : 100;
+      var colorMap = { funded: '#0d904f', on_track: '#1a73e8', delayed: '#ea4335', fi: '#9334e6' };
+      var color = colorMap[e.status] || '#1a73e8';
+
+      // Format date for display
+      var dateLabel = e.date;
+      if (dateLabel && dateLabel.length === 7) {
+        var parts = dateLabel.split('-');
+        var mn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        dateLabel = mn[parseInt(parts[1]) - 1] + ' ' + parts[0];
+      }
+
+      html += '<div class="journey-event" style="left:' + pct.toFixed(1) + '%">' +
+        '<div class="journey-dot" style="background:' + color + '"></div>' +
+        '<div class="journey-label">' +
+          '<span class="journey-event-name" style="color:' + color + '">' + e.label + '</span>' +
+          '<span class="journey-event-date">' + dateLabel + '</span>' +
+        '</div>' +
+      '</div>';
+    });
+
+    html += '</div></div></div>';
+    return html;
+  },
+
+  _monthsBetween: function(from, to) {
+    var fp = from.split('-');
+    var tp = to.split('-');
+    return (parseInt(tp[0]) - parseInt(fp[0])) * 12 + (parseInt(tp[1]) - parseInt(fp[1]));
   },
 
   _renderMilestones: function(milestoneStatuses) {

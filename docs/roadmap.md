@@ -191,6 +191,30 @@ Living document tracking planned features, priorities, and progress.
 
 ---
 
+## Phase 10: FI Journey UX & Accounting Accuracy
+
+**Status:** Complete (Step 4b/4d deferred — EF merge + expandable goal cards)
+**Priority:** Highest — transforms the dashboard from data viewer to FI journey companion
+
+**Goal:** Reorganize around the user's FI journey, fix critical accounting gaps (inflation, taxes), add missing features (savings rate trend, Coast FI, what-if scenarios), and restructure tabs around the journey.
+
+### Scope (10 steps, ordered by priority)
+
+1. **Inflation-adjusted FI projections** — real vs nominal returns, tax-aware passive income, derived FI target validation
+2. **Savings rate trend** — 12-month sparkline in FI panel, detailed chart in Cash Flow
+3. **"This Month" home view** — default tab with NW change, attribution, goal progress, actions, FI impact
+4. **Unified Goals tab** — merge Goals + Planning + EF into one tab with journey timeline, goal cards, funding summary
+5. **Merge Budget into Cash Flow** — budget summary + budget-vs-actual as primary Cash Flow view, staleness alerts
+6. **Coast FI** — "even without saving, compound growth reaches FI by age X" milestone
+7. **What-if scenario planning** — interactive sliders for savings, return, income; real-time impact on FI date
+8. **Income growth & tax-aware planning** — derive income trend from cashflow data, tax-adjusted FI target
+9. **Year-over-year review** — annual aggregates, YoY comparison, strategic patterns
+10. **Final tab restructure** — This Month | Investments | Net Worth | Goals | Cash Flow | Mortgage
+
+See `docs/phase10-fi-journey-ux.md` for full plan.
+
+---
+
 ## Design Principles (applies to all phases)
 
 - **Data/UI separation**: calculators are pure functions, renderers handle DOM only

@@ -13,6 +13,38 @@ var FICalculator = {
     return (currentInvestments * withdrawalRate) / 12;
   },
 
+  // After-tax passive income (Spanish capital gains tax 19-26%)
+  passiveIncomeNet: function(currentInvestments, withdrawalRate, taxRate) {
+    var gross = (currentInvestments * withdrawalRate) / 12;
+    return gross * (1 - (taxRate || 0));
+  },
+
+  // Real return adjusted for inflation (Fisher approximation)
+  realReturn: function(nominalReturn, inflationRate) {
+    return nominalReturn - (inflationRate || 0);
+  },
+
+  // What the FI target is in future (nominal) euros
+  fiTargetNominal: function(fiTarget, inflationRate, years) {
+    if (!inflationRate || years <= 0) return fiTarget;
+    return fiTarget * Math.pow(1 + inflationRate, years);
+  },
+
+  // Derived FI target from actual expenses, withdrawal rate, and tax rate
+  // "How much do I actually need to sustain my expenses?"
+  derivedFITarget: function(annualExpenses, withdrawalRate, taxRate) {
+    if (!withdrawalRate || withdrawalRate <= 0) return 0;
+    var effectiveRate = withdrawalRate * (1 - (taxRate || 0));
+    if (effectiveRate <= 0) return Infinity;
+    return annualExpenses / effectiveRate;
+  },
+
+  // Inflation-adjusted years to FI (uses real return instead of nominal)
+  yearsToFIReal: function(currentNW, monthlySavings, annualReturn, inflationRate, fiTarget) {
+    var realReturn = this.realReturn(annualReturn, inflationRate);
+    return this.yearsToFI(currentNW, monthlySavings, realReturn, fiTarget);
+  },
+
   // Estimate years to FI using future value of growing annuity
   // currentNW: current net worth
   // monthlySavings: average monthly savings
@@ -87,6 +119,80 @@ var FICalculator = {
     });
 
     return results;
+  },
+
+  // Compute savings rate trend: per-month savings rate for the last N months.
+  // perfMonthly: aggregated monthly performance data [{ month, net_contribution }]
+  // monthlyIncome: static or per-month income
+  // numMonths: how many months to return (default 12)
+  // Returns: [{ month, savingsRate }]
+  savingsRateTrend: function(perfMonthly, monthlyIncome, numMonths) {
+    if (!perfMonthly.length || monthlyIncome <= 0) return [];
+    var n = numMonths || 12;
+    var recent = perfMonthly.slice(-n);
+    return recent.map(function(r) {
+      return {
+        month: r.month,
+        savingsRate: (r.net_contribution / monthlyIncome) * 100
+      };
+    });
+  },
+
+  // Coast FI: the amount needed today such that compound growth alone
+  // (no further savings) reaches fiTarget by retirement age.
+  // coastFI = fiTarget / (1 + realReturn)^yearsToRetirement
+  coastFI: function(fiTarget, realReturn, yearsToRetirement) {
+    if (yearsToRetirement <= 0 || realReturn <= 0) return fiTarget;
+    return fiTarget / Math.pow(1 + realReturn, yearsToRetirement);
+  },
+
+  // Full Coast FI analysis
+  // Returns { coastFIAmount, reached, pct, yearsToRetirement }
+  coastFIAnalysis: function(currentNW, fiTarget, nominalReturn, inflationRate, birthYear, retirementAge) {
+    if (!birthYear || !retirementAge) return null;
+    var currentAge = new Date().getFullYear() - birthYear;
+    var yearsToRetirement = retirementAge - currentAge;
+    if (yearsToRetirement <= 0) return null;
+
+    var realReturn = this.realReturn(nominalReturn, inflationRate);
+    var coastAmount = this.coastFI(fiTarget, realReturn, yearsToRetirement);
+    var reached = currentNW >= coastAmount;
+    var pct = coastAmount > 0 ? Math.min((currentNW / coastAmount) * 100, 100) : 0;
+
+    return {
+      coastFIAmount: coastAmount,
+      reached: reached,
+      pct: pct,
+      yearsToRetirement: yearsToRetirement,
+      currentAge: currentAge,
+      retirementAge: retirementAge
+    };
+  },
+
+  // Years to FI with income growth: savings increase over time as income grows,
+  // assuming expense ratio stays constant (same savings rate, higher absolute savings).
+  // incomeGrowthRate: annualized income growth (e.g. 0.05 = 5%/yr)
+  yearsToFIWithGrowth: function(currentNW, monthlySavings, annualReturn, fiTarget, incomeGrowthRate) {
+    if (currentNW >= fiTarget) return 0;
+    if (monthlySavings <= 0 && annualReturn <= 0) return Infinity;
+    if (!incomeGrowthRate || incomeGrowthRate <= 0) {
+      return this.yearsToFI(currentNW, monthlySavings, annualReturn, fiTarget);
+    }
+
+    var monthlyReturn = Math.pow(1 + annualReturn, 1/12) - 1;
+    var monthlyGrowth = Math.pow(1 + incomeGrowthRate, 1/12) - 1;
+    var balance = currentNW;
+    var savings = monthlySavings;
+    var months = 0;
+    var maxMonths = 100 * 12;
+
+    while (balance < fiTarget && months < maxMonths) {
+      balance = balance * (1 + monthlyReturn) + savings;
+      savings = savings * (1 + monthlyGrowth);
+      months++;
+    }
+
+    return months >= maxMonths ? Infinity : months / 12;
   },
 
   // Build projection data points for charting

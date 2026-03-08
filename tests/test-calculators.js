@@ -160,6 +160,137 @@ describe('FICalculator', function() {
     assert(result[0].yearsSaved > 0, 'Saving 500 more should reduce years');
     assert(result[1].yearsSaved > result[0].yearsSaved, 'Saving 1000 more should save more than 500');
   });
+
+  it('computes after-tax passive income', function() {
+    // 600k at 4% = 2000/mo gross; at 20% tax = 1600/mo net
+    assertClose(FICalculator.passiveIncomeNet(600000, 0.04, 0.20), 1600, 0.01);
+    // No tax = same as gross
+    assertClose(FICalculator.passiveIncomeNet(600000, 0.04, 0), 2000, 0.01);
+  });
+
+  it('computes real return adjusted for inflation', function() {
+    assertClose(FICalculator.realReturn(0.07, 0.03), 0.04, 0.001);
+    assertClose(FICalculator.realReturn(0.05, 0), 0.05, 0.001);
+  });
+
+  it('computes inflation-adjusted FI target in future euros', function() {
+    // 1M at 3% inflation for 10 years
+    var nominal = FICalculator.fiTargetNominal(1000000, 0.03, 10);
+    assertClose(nominal, 1000000 * Math.pow(1.03, 10), 1);
+    // No inflation = same target
+    assertEqual(FICalculator.fiTargetNominal(1000000, 0, 10), 1000000);
+  });
+
+  it('computes derived FI target from expenses and tax rate', function() {
+    // 30k annual expenses, 4% withdrawal, 20% tax → effective rate = 3.2% → need 937,500
+    var derived = FICalculator.derivedFITarget(30000, 0.04, 0.20);
+    assertClose(derived, 30000 / (0.04 * 0.80), 1);
+    // No tax: 30k / 4% = 750k
+    assertClose(FICalculator.derivedFITarget(30000, 0.04, 0), 750000, 1);
+  });
+
+  it('savingsRateTrend computes per-month rates', function() {
+    var monthly = [
+      { month: '2026-01', net_contribution: 1000 },
+      { month: '2026-02', net_contribution: 1500 },
+      { month: '2026-03', net_contribution: 800 }
+    ];
+    var trend = FICalculator.savingsRateTrend(monthly, 3000, 12);
+    assertEqual(trend.length, 3);
+    assertClose(trend[0].savingsRate, (1000/3000) * 100, 0.01);
+    assertClose(trend[1].savingsRate, (1500/3000) * 100, 0.01);
+    assertEqual(trend[0].month, '2026-01');
+  });
+
+  it('savingsRateTrend returns empty for zero income', function() {
+    var monthly = [{ month: '2026-01', net_contribution: 1000 }];
+    assertEqual(FICalculator.savingsRateTrend(monthly, 0, 12).length, 0);
+  });
+
+  it('coastFI computes the required amount today for growth-only FI', function() {
+    // 1M target, 5% real return, 20 years to retirement
+    // coastFI = 1000000 / (1.05)^20 ≈ 376889
+    var coast = FICalculator.coastFI(1000000, 0.05, 20);
+    assertClose(coast, 376889, 500, 'Coast FI amount');
+  });
+
+  it('coastFIAnalysis returns reached=true when NW exceeds coast amount', function() {
+    var result = FICalculator.coastFIAnalysis(500000, 1000000, 0.07, 0.03, 1993, 55);
+    assert(result !== null, 'Should return analysis');
+    assert(result.coastFIAmount > 0, 'Coast amount should be positive');
+    // With 500k NW, 4% real return, ~26 years to retirement (born 1993, retire 55, now ~2026)
+    // coastFI = 1M / (1.04)^29 ≈ ~320k — so 500k > 320k → reached
+    assertEqual(result.reached, true);
+    assertClose(result.pct, 100, 0.1);
+  });
+
+  it('coastFIAnalysis returns null without birth_year', function() {
+    var result = FICalculator.coastFIAnalysis(500000, 1000000, 0.07, 0.03, null, 55);
+    assertEqual(result, null);
+  });
+
+  it('yearsToFIWithGrowth is shorter than without growth', function() {
+    var noGrowth = FICalculator.yearsToFI(100000, 2000, 0.07, 1000000);
+    var withGrowth = FICalculator.yearsToFIWithGrowth(100000, 2000, 0.07, 1000000, 0.05);
+    assert(withGrowth < noGrowth, 'With income growth (' + withGrowth.toFixed(1) + ') should be < without (' + noGrowth.toFixed(1) + ')');
+  });
+
+  it('yearsToFIWithGrowth falls back to yearsToFI when no growth', function() {
+    var noGrowth = FICalculator.yearsToFI(100000, 2000, 0.07, 1000000);
+    var zeroGrowth = FICalculator.yearsToFIWithGrowth(100000, 2000, 0.07, 1000000, 0);
+    assertEqual(noGrowth, zeroGrowth);
+  });
+
+  it('yearsToFIReal is longer than nominal yearsToFI', function() {
+    var nominal = FICalculator.yearsToFI(100000, 2000, 0.07, 1000000);
+    var real = FICalculator.yearsToFIReal(100000, 2000, 0.07, 0.03, 1000000);
+    assert(real > nominal, 'Real years (' + real.toFixed(1) + ') should be > nominal (' + nominal.toFixed(1) + ')');
+  });
+});
+
+// --- SummaryCalculator ---
+
+describe('SummaryCalculator', function() {
+  it('computeFIImpact detects months closer', function() {
+    var result = SummaryCalculator.computeFIImpact(15, 14);
+    assertEqual(result.direction, 'closer');
+    assertEqual(result.monthsCloser, 12);
+  });
+
+  it('computeFIImpact detects months further', function() {
+    var result = SummaryCalculator.computeFIImpact(14, 15);
+    assertEqual(result.direction, 'further');
+    assertEqual(result.monthsCloser, 12);
+  });
+
+  it('computeFIImpact handles Infinity', function() {
+    var result = SummaryCalculator.computeFIImpact(Infinity, Infinity);
+    assertEqual(result.direction, 'same');
+  });
+
+  it('computeAnnualSummaries aggregates by year', function() {
+    var nwData = [
+      { month: '2024-06', total: 50000, accounts: {} },
+      { month: '2024-12', total: 60000, accounts: {} },
+      { month: '2025-06', total: 75000, accounts: {} },
+      { month: '2025-12', total: 90000, accounts: {} }
+    ];
+    var allData = [
+      { month: '2024-06', account_id: 'A', net_contribution: 3000 },
+      { month: '2024-12', account_id: 'A', net_contribution: 2000 },
+      { month: '2025-06', account_id: 'A', net_contribution: 4000 },
+      { month: '2025-12', account_id: 'A', net_contribution: 3000 }
+    ];
+    var result = SummaryCalculator.computeAnnualSummaries(nwData, allData);
+    assertEqual(result.length, 2);
+    assertEqual(result[0].year, '2024');
+    assertEqual(result[0].endNW, 60000);
+    assertEqual(result[0].totalSaved, 5000);
+    assertEqual(result[1].year, '2025');
+    assertEqual(result[1].startNW, 60000);
+    assertEqual(result[1].endNW, 90000);
+    assertEqual(result[1].nwChange, 30000);
+  });
 });
 
 // --- NetWorthCalculator ---
@@ -742,6 +873,28 @@ describe('CashflowCalculator', function() {
     assertClose(result.goals[0].avgPlanned, 1200, 0.01);
     assertClose(result.goals[0].avgActual, 1250, 0.01);
     assertEqual(result.totalMonths, 2);
+  });
+
+  it('computeIncomeTrend computes growth rate from salary entries', function() {
+    var entries = [
+      { month: '2024-01', type: 'income', category: 'Salary', amount: 3000 },
+      { month: '2024-02', type: 'income', category: 'Salary', amount: 3000 },
+      { month: '2024-03', type: 'income', category: 'Salary', amount: 3000 },
+      { month: '2024-04', type: 'income', category: 'Salary', amount: 3200 },
+      { month: '2024-05', type: 'income', category: 'Salary', amount: 3200 },
+      { month: '2024-06', type: 'income', category: 'Salary', amount: 3200 }
+    ];
+    var result = CashflowCalculator.computeIncomeTrend(entries);
+    assertEqual(result.months.length, 6);
+    assert(result.growthRate > 0, 'Growth rate should be positive: ' + result.growthRate);
+  });
+
+  it('computeIncomeTrend returns zero growth with insufficient data', function() {
+    var entries = [
+      { month: '2024-01', type: 'income', category: 'Salary', amount: 3000 }
+    ];
+    var result = CashflowCalculator.computeIncomeTrend(entries);
+    assertEqual(result.growthRate, 0);
   });
 });
 

@@ -76,6 +76,8 @@ var SavingsCapacityCalculator = {
         row.totalOutflows = actual.totalOutflows;
         row.totalContributions = actual.netSavings;
         row.savingsRate = actual.savingsRate;
+        row.expensesByCategory = actual.expensesByCategory;
+        row.incomeByCategory = actual.incomeByCategory;
         row.dataSource = 'actual';
       } else {
         row.totalTransfers = 0;

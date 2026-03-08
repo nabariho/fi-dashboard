@@ -52,6 +52,58 @@ function refreshSummary() {
   }
 }
 
+// --- Home Tab ("This Month") ---
+
+function refreshHome() {
+  if (typeof HomeRenderer === 'undefined' || typeof SummaryCalculator === 'undefined') return;
+
+  try {
+    var accountIds = AccountService.getNetworthAccountIds();
+    var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+    if (nwData.length < 2) { HomeRenderer.render(null); return; }
+
+    var current = nwData[nwData.length - 1];
+
+    // Compute summary (reuses same logic as Monthly Summary panel)
+    var goals = _cachedGoalPlan ? GoalsCalculator.forSummary(_cachedGoalPlan) : null;
+    var summary = SummaryCalculator.computeMonthlySummary(nwData, allData, goals, [], null);
+
+    // Compute FI impact: how many months closer to FI this month
+    var fiTarget = appConfig.fi_target || 1000000;
+    var expectedReturn = appConfig.expected_return || 0.05;
+    var inflRate = appConfig.inflation_rate || 0;
+    var projReturn = inflRate > 0 ? FICalculator.realReturn(expectedReturn, inflRate) : expectedReturn;
+    var perfData = DataService.filterByAccount(allData, AccountService.isPerformance);
+    var perfMonthly = DataService.aggregateByMonth(perfData);
+    var avgSavings = FICalculator.avgMonthlySavings(perfMonthly, 12);
+
+    var currYearsToFI = FICalculator.yearsToFI(current.total, avgSavings, projReturn, fiTarget);
+    var prev = nwData[nwData.length - 2];
+    var prevYearsToFI = FICalculator.yearsToFI(prev.total, avgSavings, projReturn, fiTarget);
+    var fiImpact = SummaryCalculator.computeFIImpact(prevYearsToFI, currYearsToFI);
+
+    // Savings rate trend
+    var monthlyIncome = appConfig.monthly_income || 0;
+    var savingsRateTrend = FICalculator.savingsRateTrend(perfMonthly, monthlyIncome, 6);
+
+    // Actions
+    var actions = [];
+    if (typeof ActionsCalculator !== 'undefined' && _cachedGoalPlan) {
+      actions = ActionsCalculator.computeActions(_cachedGoalPlan, null, null);
+    }
+
+    var progressPct = FICalculator.progress(current.total, fiTarget);
+
+    // Annual summaries for year-over-year review
+    var annualSummaries = SummaryCalculator.computeAnnualSummaries(nwData, allData, cashflowEntries);
+
+    HomeRenderer.render(summary, _cachedGoalPlan, actions, savingsRateTrend, fiImpact, progressPct, annualSummaries);
+  } catch (e) {
+    console.error('[Home] Error rendering home tab:', e);
+    HomeRenderer.render(null);
+  }
+}
+
 // --- FI Progress (always visible) ---
 
 function refreshFIProgress() {
@@ -65,9 +117,12 @@ function refreshFIProgress() {
   var withdrawalRate = appConfig.withdrawal_rate || 0.04;
   var expectedReturn = appConfig.expected_return || 0.05;
   var monthlyIncome = appConfig.monthly_income || 0;
+  var inflationRate = appConfig.inflation_rate || 0;
+  var taxRate = appConfig.tax_rate_withdrawals || 0;
 
   var progressPct = FICalculator.progress(current.total, fiTarget);
   var passiveIncome = FICalculator.passiveIncome(current.investments, withdrawalRate);
+  var passiveIncomeNet = FICalculator.passiveIncomeNet(current.investments, withdrawalRate, taxRate);
 
   // Savings rate from last 12 months of all performance accounts
   var perfData = DataService.filterByAccount(allData, AccountService.isPerformance);
@@ -76,7 +131,10 @@ function refreshFIProgress() {
   var savingsRate = FICalculator.savingsRate(last12Contrib, Math.min(perfMonthly.length, 12), monthlyIncome);
 
   var avgSavings = FICalculator.avgMonthlySavings(perfMonthly, 12);
-  var yearsToFI = FICalculator.yearsToFI(current.total, avgSavings, expectedReturn, fiTarget);
+  // Use inflation-adjusted calculation when inflation_rate is configured
+  var yearsToFI = inflationRate > 0
+    ? FICalculator.yearsToFIReal(current.total, avgSavings, expectedReturn, inflationRate, fiTarget)
+    : FICalculator.yearsToFI(current.total, avgSavings, expectedReturn, fiTarget);
 
   // Monthly expenses from budget (for passive income coverage stat)
   var monthlyExpenses = 0;
@@ -85,7 +143,60 @@ function refreshFIProgress() {
     monthlyExpenses = budget.total || 0;
   }
 
-  MetricsRenderer.renderFIProgress(progressPct, fiTarget, current.total, yearsToFI, passiveIncome, savingsRate, monthlyExpenses);
+  // Derived FI target from actual expenses (for validation)
+  var derivedFITarget = monthlyExpenses > 0
+    ? FICalculator.derivedFITarget(monthlyExpenses * 12, withdrawalRate, taxRate)
+    : 0;
+
+  // Future nominal target (what fi_target becomes after inflation)
+  var fiTargetNominal = inflationRate > 0 && yearsToFI !== Infinity && yearsToFI > 0
+    ? FICalculator.fiTargetNominal(fiTarget, inflationRate, yearsToFI)
+    : 0;
+
+  // Savings rate trend (last 12 months)
+  var savingsRateTrend = FICalculator.savingsRateTrend(perfMonthly, monthlyIncome, 12);
+
+  // Coast FI analysis
+  var coastFI = FICalculator.coastFIAnalysis(
+    current.total, fiTarget, expectedReturn, inflationRate,
+    appConfig.birth_year, appConfig.target_retirement_age || 55
+  );
+
+  // Income growth rate from actual cashflow data
+  var incomeGrowthRate = 0;
+  if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
+    var incomeTrend = CashflowCalculator.computeIncomeTrend(cashflowEntries);
+    incomeGrowthRate = incomeTrend.growthRate || 0;
+  }
+
+  MetricsRenderer.renderFIProgress(progressPct, fiTarget, current.total, yearsToFI, passiveIncome, savingsRate, monthlyExpenses, {
+    passiveIncomeNet: passiveIncomeNet,
+    taxRate: taxRate,
+    inflationRate: inflationRate,
+    derivedFITarget: derivedFITarget,
+    fiTargetNominal: fiTargetNominal,
+    savingsRateTrend: savingsRateTrend,
+    coastFI: coastFI,
+    incomeGrowthRate: incomeGrowthRate
+  });
+
+  // Bind "What If" button
+  var whatifBtn = document.getElementById('whatifBtn');
+  if (whatifBtn && typeof WhatIfRenderer !== 'undefined') {
+    whatifBtn.addEventListener('click', function() {
+      WhatIfRenderer.open({
+        currentNW: current.total,
+        fiTarget: fiTarget,
+        monthlySavings: Math.round(avgSavings),
+        expectedReturn: expectedReturn,
+        inflationRate: inflationRate,
+        monthlyIncome: monthlyIncome,
+        birthYear: appConfig.birth_year,
+        retirementAge: appConfig.target_retirement_age || 55,
+        incomeGrowthRate: incomeGrowthRate
+      });
+    });
+  }
 }
 
 // --- Financial Goals (always visible) ---
@@ -203,13 +314,6 @@ function refreshEmergency() {
   }
 }
 
-// --- Budget Tab ---
-
-function refreshBudget() {
-  var budget = BudgetCalculator.computeMonthlyBudget(budgetItems);
-  BudgetRenderer.renderBudgetOverview(budget);
-}
-
 // --- Mortgage Tab ---
 
 function refreshMortgage() {
@@ -321,8 +425,31 @@ function refreshCashFlow() {
     allData: allData
   });
 
+  // Compute budget summary for inline display in Cash Flow tab
+  var budgetSummary = null;
+  if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+    budgetSummary = BudgetCalculator.computeMonthlyBudget(budgetItems);
+  }
+
+  // Budget staleness: compare trailing actual expenses vs budget
+  var budgetStale = null;
+  if (budgetSummary && budgetSummary.total > 0 && actualMonths && actualMonths.size >= 3) {
+    var recentActualMonths = monthlyData.filter(function(r) { return r.dataSource === 'actual'; }).slice(-3);
+    if (recentActualMonths.length >= 3) {
+      var avgActualExpenses = recentActualMonths.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / recentActualMonths.length;
+      var deviation = Math.abs(avgActualExpenses - budgetSummary.total) / budgetSummary.total;
+      if (deviation > 0.15) {
+        budgetStale = {
+          avgActual: avgActualExpenses,
+          planned: budgetSummary.total,
+          deviation: deviation
+        };
+      }
+    }
+  }
+
   CashFlowRenderer.render(
-    waterfall, monthlyData, achievability, _cashflowTrailingMonths, goalPlan
+    waterfall, monthlyData, achievability, _cashflowTrailingMonths, goalPlan, budgetSummary, budgetStale
   );
 }
 
@@ -402,13 +529,16 @@ function refreshGoalsTab() {
       var currentNW = nwData2[nwData2.length - 1].total || 0;
       var fiTarget = appConfig.fi_target || 1000000;
       var expectedReturn = appConfig.expected_return || 0.05;
+      var inflRate = appConfig.inflation_rate || 0;
       var perfData = DataService.filterByAccount(allData, AccountService.isPerformance);
       var perfMonthly = DataService.aggregateByMonth(perfData);
       var avgSavings = FICalculator.avgMonthlySavings(perfMonthly, 12);
 
-      var yearsToFI = FICalculator.yearsToFI(currentNW, avgSavings, expectedReturn, fiTarget);
-      var fiDate = FICalculator.fiDate(currentNW, avgSavings, expectedReturn, fiTarget);
-      var sensitivity = FICalculator.sensitivityAnalysis(currentNW, avgSavings, expectedReturn, fiTarget, [200, 500, 1000]);
+      // Use inflation-adjusted return when configured
+      var projReturn = inflRate > 0 ? FICalculator.realReturn(expectedReturn, inflRate) : expectedReturn;
+      var yearsToFI = FICalculator.yearsToFI(currentNW, avgSavings, projReturn, fiTarget);
+      var fiDate = FICalculator.fiDate(currentNW, avgSavings, projReturn, fiTarget);
+      var sensitivity = FICalculator.sensitivityAnalysis(currentNW, avgSavings, projReturn, fiTarget, [200, 500, 1000]);
 
       fiProjection = {
         yearsToFI: yearsToFI,
@@ -518,10 +648,10 @@ function bindEvents() {
       document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
       this.classList.add('active');
       document.getElementById('tab-' + this.dataset.tab).classList.add('active');
-      if (this.dataset.tab === 'investments') refreshInvestments();
+      if (this.dataset.tab === 'home') refreshHome();
+      else if (this.dataset.tab === 'investments') refreshInvestments();
       else if (this.dataset.tab === 'networth') refreshNetWorth();
       else if (this.dataset.tab === 'emergency') refreshEmergency();
-      else if (this.dataset.tab === 'budget') refreshBudget();
       else if (this.dataset.tab === 'mortgage') refreshMortgage();
       else if (this.dataset.tab === 'goals') refreshGoalsTab();
       else if (this.dataset.tab === 'cashflow') refreshCashFlow();
@@ -579,10 +709,10 @@ function showDashboard() {
   if (typeof updateDbModeUI === 'function') updateDbModeUI();
 
   _computeGoalPlan();
+  refreshHome();
   refreshFIProgress();
   refreshGoals();
   refreshSummary();
-  refreshInvestments();
   refreshGoalsTab();
 }
 
@@ -634,6 +764,7 @@ function refreshAll() {
   Chart.helpers.each(Chart.instances, function(instance) { instance.destroy(); });
 
   _computeGoalPlan();
+  refreshHome();
   refreshFIProgress();
   refreshGoals();
   refreshSummary();

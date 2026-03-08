@@ -185,6 +185,91 @@ var SummaryCalculator = {
     return parts.join(' ');
   },
 
+  // Compute how many months closer to FI this month moved us.
+  // prevYears/currYears: yearsToFI before and after this month's changes.
+  // Returns: { monthsCloser: number, direction: 'closer'|'further'|'same' }
+  computeFIImpact: function(prevYearsToFI, currYearsToFI) {
+    if (prevYearsToFI === Infinity && currYearsToFI === Infinity) return { monthsCloser: 0, direction: 'same' };
+    if (prevYearsToFI === Infinity) return { monthsCloser: 0, direction: 'closer' }; // now reachable
+    if (currYearsToFI === Infinity) return { monthsCloser: 0, direction: 'further' };
+    var delta = (prevYearsToFI - currYearsToFI) * 12; // in months
+    return {
+      monthsCloser: Math.round(Math.abs(delta)),
+      direction: delta > 0.5 ? 'closer' : (delta < -0.5 ? 'further' : 'same')
+    };
+  },
+
+  // Compute annual summaries from NW data and monthly contributions.
+  // nwData: array from NetWorthCalculator.compute()
+  // allData: raw MonthEnd rows
+  // cashflowEntries: optional actual income/expense entries
+  // Returns: array of { year, startNW, endNW, nwChange, nwChangePct, totalSaved, marketReturns,
+  //                      savingsRate, totalIncome, totalExpenses }
+  computeAnnualSummaries: function(nwData, allData, cashflowEntries) {
+    if (!nwData || nwData.length < 2) return [];
+
+    // Group NW data by year
+    var byYear = {};
+    nwData.forEach(function(r) {
+      var year = r.month.split('-')[0];
+      if (!byYear[year]) byYear[year] = [];
+      byYear[year].push(r);
+    });
+
+    // Group contributions by year
+    var contribByYear = {};
+    allData.forEach(function(r) {
+      var year = r.month.split('-')[0];
+      contribByYear[year] = (contribByYear[year] || 0) + (r.net_contribution || 0);
+    });
+
+    // Group cashflow by year
+    var cfByYear = {};
+    if (cashflowEntries) {
+      cashflowEntries.forEach(function(e) {
+        var year = e.month.split('-')[0];
+        if (!cfByYear[year]) cfByYear[year] = { income: 0, expenses: 0 };
+        if (e.type === 'income') cfByYear[year].income += (e.amount || 0);
+        else cfByYear[year].expenses += (e.amount || 0);
+      });
+    }
+
+    var years = Object.keys(byYear).sort();
+    var summaries = [];
+    var prevYearEnd = null;
+
+    for (var i = 0; i < years.length; i++) {
+      var year = years[i];
+      var yearData = byYear[year];
+      var startNW = prevYearEnd !== null ? prevYearEnd : yearData[0].total;
+      var endNW = yearData[yearData.length - 1].total;
+      var nwChange = endNW - startNW;
+      var nwChangePct = startNW > 0 ? (nwChange / startNW) * 100 : 0;
+      var totalSaved = contribByYear[year] || 0;
+      var marketReturns = nwChange - totalSaved;
+      var cf = cfByYear[year] || { income: 0, expenses: 0 };
+      var savingsRate = cf.income > 0 ? (totalSaved / cf.income * 100) : 0;
+
+      summaries.push({
+        year: year,
+        startNW: startNW,
+        endNW: endNW,
+        nwChange: nwChange,
+        nwChangePct: nwChangePct,
+        totalSaved: totalSaved,
+        marketReturns: marketReturns,
+        savingsRate: savingsRate,
+        totalIncome: cf.income,
+        totalExpenses: cf.expenses,
+        months: yearData.length
+      });
+
+      prevYearEnd = endNW;
+    }
+
+    return summaries;
+  },
+
   _monthName: function(monthStr) {
     var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

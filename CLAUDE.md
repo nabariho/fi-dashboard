@@ -39,16 +39,16 @@
 - `cli/*.mjs` -- Node.js CLI tools (ESM, zero external deps)
 
 ## Dashboard tabs (7)
-1. **Investments** -- portfolio chart, returns table (% or EUR), per-account comparison
-2. **Net Worth** -- stacked chart, monthly breakdown table with MoM deltas
-3. **Emergency Fund** -- status cards, funding history chart, monthly flows table
-4. **Goals** -- emergency fund + house down payment detail, milestones with glide paths
-5. **Budget** -- monthly breakdown by category (fixed/variable)
-6. **Mortgage** -- amortization schedule, equity, actual vs planned payments
-7. **Cash Flow** -- hybrid actual/derived analysis, planned-vs-actual, category trends, goal achievability
+1. **This Month** -- home view: NW change, attribution, goal progress, actions, FI impact, year-over-year review
+2. **Investments** -- portfolio chart, returns table (% or EUR), per-account comparison
+3. **Net Worth** -- stacked chart, monthly breakdown table with MoM deltas
+4. **Goals** -- unified goal cards, FI journey timeline, funding plan, milestones
+5. **Cash Flow** -- hybrid actual/derived, budget summary + budget-vs-actual, category trends, goal achievability
+6. **Emergency Fund** -- status cards, funding history chart, monthly flows table
+7. **Mortgage** -- amortization schedule, equity, actual vs planned payments
 
 ## Always-visible panels (collapsible, above tabs)
-- **FI Progress** -- progress bar, passive income, years to FI, savings rate
+- **FI Progress** -- progress bar, passive income (net of tax), years to FI (real), savings rate, Coast FI, What-If button
 - **Financial Goals** -- emergency fund + house down payment quick status
 - **Monthly Summary** -- auto-generated narrative, anomaly alerts, metric cards
 
@@ -88,6 +88,7 @@
 | `ui-summary.js` | Monthly summary (narrative, cards, anomaly alerts) |
 | `ui-cashflow.js` | Cash flow tab (waterfall, trends, planned-vs-actual, category trends) |
 | `ui-planner.js` | Goal funding plan, actual vs planned, actions, FI timeline, milestones |
+| `ui-whatif.js` | What-if scenario modal with sliders for FI projections |
 
 ## Admin page tabs (in order)
 - **Config** -- key-value editor (fi_target, withdrawal_rate, etc.)

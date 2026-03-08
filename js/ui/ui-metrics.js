@@ -14,7 +14,9 @@ var MetricsRenderer = {
   },
 
   // Render FI progress bar
-  renderFIProgress: function(progressPct, fiTarget, currentNW, yearsToFI, passiveIncome, savingsRate, monthlyExpenses) {
+  // opts: { passiveIncomeNet, taxRate, inflationRate, derivedFITarget, fiTargetNominal, coastFI }
+  renderFIProgress: function(progressPct, fiTarget, currentNW, yearsToFI, passiveIncome, savingsRate, monthlyExpenses, opts) {
+    opts = opts || {};
     var pct = Math.max(0, Math.min(progressPct, 100)).toFixed(1);
     var pctLabel = progressPct < 0 ? progressPct.toFixed(1) : pct;
     var el = document.getElementById('fiProgress');
@@ -24,19 +26,56 @@ var MetricsRenderer = {
     var contextHtml = '';
     if (yearsToFI !== Infinity && yearsToFI > 0) {
       var targetYear = new Date().getFullYear() + Math.ceil(yearsToFI);
+      var inflNote = opts.inflationRate > 0 ? ' (inflation-adjusted)' : '';
       if (yearsToFI <= 10) {
-        contextHtml = '<div class="fi-context"><span class="fi-context-badge on-track">On Track</span> At current pace, FI by ~' + targetYear + '</div>';
+        contextHtml = '<div class="fi-context"><span class="fi-context-badge on-track">On Track</span> At current pace, FI by ~' + targetYear + inflNote + '</div>';
       } else if (yearsToFI <= 20) {
-        contextHtml = '<div class="fi-context"><span class="fi-context-badge slow">Steady</span> At current pace, FI by ~' + targetYear + '</div>';
+        contextHtml = '<div class="fi-context"><span class="fi-context-badge slow">Steady</span> At current pace, FI by ~' + targetYear + inflNote + '</div>';
       } else {
-        contextHtml = '<div class="fi-context"><span class="fi-context-badge behind">Long Road</span> At current pace, FI by ~' + targetYear + '</div>';
+        contextHtml = '<div class="fi-context"><span class="fi-context-badge behind">Long Road</span> At current pace, FI by ~' + targetYear + inflNote + '</div>';
       }
     }
 
-    // Passive income coverage
+    // Income growth note (only when growth rate is significant)
+    if (opts.incomeGrowthRate && opts.incomeGrowthRate > 0.01) {
+      contextHtml += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Income trend: +' +
+        (opts.incomeGrowthRate * 100).toFixed(1) + '%/yr growth detected</div>';
+    }
+
+    // Target line with inflation context
+    var targetHtml = '<div class="fi-target" style="margin-bottom:8px">Target: ' + Fmt.currencyShort(fiTarget);
+    if (opts.fiTargetNominal > 0) {
+      targetHtml += ' <span style="font-size:12px;color:#5f6368">(~' + Fmt.currencyShort(opts.fiTargetNominal) + ' in future euros)</span>';
+    }
+    targetHtml += '</div>';
+
+    // Derived FI target warning
+    var derivedWarning = '';
+    if (opts.derivedFITarget > 0) {
+      var divergence = Math.abs(opts.derivedFITarget - fiTarget) / fiTarget;
+      if (divergence > 0.10) {
+        var label = opts.derivedFITarget > fiTarget ? 'higher' : 'lower';
+        derivedWarning = '<div class="fi-derived-warning" style="font-size:12px;color:#ea4335;margin-bottom:8px">' +
+          'Based on your expenses, you need ~' + Fmt.currencyShort(opts.derivedFITarget) +
+          ' (' + label + ' than target)' +
+          (opts.taxRate > 0 ? ' incl. ' + (opts.taxRate * 100).toFixed(0) + '% withdrawal tax' : '') +
+          '</div>';
+      }
+    }
+
+    // Passive income: show after-tax when tax is configured
+    var passiveLabel = 'Passive Income';
+    var passiveValue = Fmt.currency(passiveIncome) + '/mo';
+    if (opts.taxRate > 0 && opts.passiveIncomeNet !== undefined) {
+      passiveValue = Fmt.currency(opts.passiveIncomeNet) + '/mo';
+      passiveLabel = 'Passive Income (net)';
+    }
+
+    // Passive income coverage (use net income if available)
     var coverageStat = '';
     if (monthlyExpenses > 0) {
-      var coveragePct = (passiveIncome / monthlyExpenses * 100).toFixed(0);
+      var coverageIncome = (opts.taxRate > 0 && opts.passiveIncomeNet !== undefined) ? opts.passiveIncomeNet : passiveIncome;
+      var coveragePct = (coverageIncome / monthlyExpenses * 100).toFixed(0);
       coverageStat =
         '<div class="fi-stat">' +
           '<span class="fi-stat-value">' + coveragePct + '%</span>' +
@@ -44,8 +83,13 @@ var MetricsRenderer = {
         '</div>';
     }
 
+    // Time to FI label
+    var timeLabel = 'Est. Time to FI';
+    if (opts.inflationRate > 0) timeLabel = 'Time to FI (real)';
+
     el.innerHTML =
-      '<div class="fi-target" style="margin-bottom:8px">Target: ' + Fmt.currencyShort(fiTarget) + '</div>' +
+      targetHtml +
+      derivedWarning +
       contextHtml +
       '<div class="fi-bar-container">' +
         '<div class="fi-bar" style="width:' + pct + '%"></div>' +
@@ -58,18 +102,88 @@ var MetricsRenderer = {
         '</div>' +
         '<div class="fi-stat">' +
           '<span class="fi-stat-value">' + Fmt.years(yearsToFI) + '</span>' +
-          '<span class="fi-stat-label">Est. Time to FI</span>' +
+          '<span class="fi-stat-label">' + timeLabel + '</span>' +
         '</div>' +
         '<div class="fi-stat">' +
-          '<span class="fi-stat-value">' + Fmt.currency(passiveIncome) + '/mo</span>' +
-          '<span class="fi-stat-label">Passive Income</span>' +
+          '<span class="fi-stat-value">' + passiveValue + '</span>' +
+          '<span class="fi-stat-label">' + passiveLabel + '</span>' +
         '</div>' +
         coverageStat +
+        (opts.coastFI ? this._renderCoastFIStat(opts.coastFI) : '') +
         '<div class="fi-stat">' +
           '<span class="fi-stat-value">' + Fmt.pctShort(savingsRate) + '</span>' +
           '<span class="fi-stat-label">Savings Rate (12mo)</span>' +
+          (opts.savingsRateTrend && opts.savingsRateTrend.length >= 3
+            ? '<canvas id="savingsRateSparkline" width="80" height="28" style="margin-top:4px"></canvas>'
+            : '') +
         '</div>' +
       '</div>';
+
+    // Render sparkline after DOM update
+    if (opts.savingsRateTrend && opts.savingsRateTrend.length >= 3) {
+      this._renderSavingsSparkline(opts.savingsRateTrend);
+    }
+
+    // Add "What If" button if WhatIfRenderer is available
+    if (typeof WhatIfRenderer !== 'undefined') {
+      var btnContainer = document.createElement('div');
+      btnContainer.style.cssText = 'text-align:center;margin-top:12px;';
+      btnContainer.innerHTML = '<button class="btn-link" id="whatifBtn" style="font-size:13px;color:var(--primary);cursor:pointer;background:none;border:none;text-decoration:underline;">What if…?</button>';
+      el.appendChild(btnContainer);
+    }
+  },
+
+  // Tiny sparkline chart for savings rate trend
+  _savingsSparkChart: null,
+  _renderSavingsSparkline: function(trend) {
+    var canvas = document.getElementById('savingsRateSparkline');
+    if (!canvas) return;
+    if (this._savingsSparkChart) this._savingsSparkChart.destroy();
+
+    var values = trend.map(function(t) { return t.savingsRate; });
+    // Determine trend direction for color
+    var avg1 = 0, avg2 = 0;
+    var half = Math.floor(values.length / 2);
+    for (var i = 0; i < half; i++) avg1 += values[i];
+    for (var j = half; j < values.length; j++) avg2 += values[j];
+    avg1 /= half;
+    avg2 /= (values.length - half);
+    var color = avg2 >= avg1 ? '#0d904f' : '#ea4335';
+
+    this._savingsSparkChart = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: trend.map(function(t) { return t.month; }),
+        datasets: [{
+          data: values,
+          borderColor: color,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false
+        }]
+      },
+      options: {
+        responsive: false,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { display: false }, y: { display: false } },
+        animation: false
+      }
+    });
+  },
+
+  _renderCoastFIStat: function(coastFI) {
+    if (coastFI.reached) {
+      return '<div class="fi-stat">' +
+        '<span class="fi-stat-value positive">Coast FI ✓</span>' +
+        '<span class="fi-stat-label">Growth alone reaches FI by age ' + coastFI.retirementAge + '</span>' +
+      '</div>';
+    }
+    return '<div class="fi-stat">' +
+      '<span class="fi-stat-value">' + Fmt.pctShort(coastFI.pct) + '</span>' +
+      '<span class="fi-stat-label">Coast FI (' + Fmt.currencyShort(coastFI.coastFIAmount) + ')</span>' +
+    '</div>';
   },
 
   renderInvestments: function(current) {

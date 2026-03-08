@@ -119,17 +119,22 @@
 
     <!-- Navigation tabs -->
     <div class="nav-tabs">
-      <button class="nav-tab active" data-tab="investments">Investments</button>
+      <button class="nav-tab active" data-tab="home">This Month</button>
+      <button class="nav-tab" data-tab="investments">Investments</button>
       <button class="nav-tab" data-tab="networth">Net Worth</button>
-      <button class="nav-tab" data-tab="emergency">Emergency Fund</button>
-      <button class="nav-tab" data-tab="budget">Budget</button>
-      <button class="nav-tab" data-tab="mortgage">Mortgage</button>
       <button class="nav-tab" data-tab="goals">Goals</button>
       <button class="nav-tab" data-tab="cashflow">Cash Flow</button>
+      <button class="nav-tab" data-tab="emergency">Emergency Fund</button>
+      <button class="nav-tab" data-tab="mortgage">Mortgage</button>
+    </div>
+
+    <!-- ==================== THIS MONTH TAB ==================== -->
+    <div class="tab-content active" id="tab-home">
+      <div id="homeContent"></div>
     </div>
 
     <!-- ==================== INVESTMENTS TAB ==================== -->
-    <div class="tab-content active" id="tab-investments">
+    <div class="tab-content" id="tab-investments">
       <div class="filters">
         <div class="filter-group">
           <label>Account:</label>
@@ -237,11 +242,6 @@
       <div id="emergencyContent"></div>
     </div>
 
-    <!-- ==================== BUDGET TAB ==================== -->
-    <div class="tab-content" id="tab-budget">
-      <div id="budgetDetail"></div>
-    </div>
-
     <!-- ==================== MORTGAGE TAB ==================== -->
     <div class="tab-content" id="tab-mortgage">
       <div id="mortgageContent"></div>
@@ -292,6 +292,8 @@
   <script src="js/ui/ui-emergency.js"></script>
   <script src="js/ui/ui-cashflow.js"></script>
   <script src="js/ui/ui-planner.js"></script>
+  <script src="js/ui/ui-home.js"></script>
+  <script src="js/ui/ui-whatif.js"></script>
   <script src="js/crypto.js"></script>
   <script src="js/file-manager.js"></script>
   <script src="js/data-cache.js"></script>

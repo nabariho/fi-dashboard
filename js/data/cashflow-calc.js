@@ -195,6 +195,42 @@ var CashflowCalculator = {
     return months;
   },
 
+  // Compute income trend from cashflow entries.
+  // Returns { months: [{ month, income }], growthRate: annualized growth rate }
+  computeIncomeTrend: function(entries) {
+    if (!entries || !entries.length) return { months: [], growthRate: 0 };
+
+    // Aggregate income by month
+    var byMonth = {};
+    entries.forEach(function(e) {
+      if (e.type === 'income') {
+        byMonth[e.month] = (byMonth[e.month] || 0) + (e.amount || 0);
+      }
+    });
+
+    var months = Object.keys(byMonth).sort().map(function(m) {
+      return { month: m, income: byMonth[m] };
+    });
+
+    // Need at least 6 months to compute meaningful growth rate
+    var growthRate = 0;
+    if (months.length >= 6) {
+      var half = Math.floor(months.length / 2);
+      var firstHalf = months.slice(0, half);
+      var secondHalf = months.slice(-half);
+      var avgFirst = firstHalf.reduce(function(s, m) { return s + m.income; }, 0) / firstHalf.length;
+      var avgSecond = secondHalf.reduce(function(s, m) { return s + m.income; }, 0) / secondHalf.length;
+      if (avgFirst > 0) {
+        // Annualize the growth rate
+        var periodMonths = months.length;
+        var totalGrowth = avgSecond / avgFirst;
+        growthRate = Math.pow(totalGrowth, 12 / periodMonths) - 1;
+      }
+    }
+
+    return { months: months, growthRate: growthRate };
+  },
+
   // Full detail for a single month: itemized income, expenses, transfers with subcategories.
   // Returns: { month, income: { total, items: [{category, subcategory, amount}] },
   //            expenses: { total, items: [...] }, transfers: { total, items: [...] } }

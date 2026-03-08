@@ -14,7 +14,7 @@ var CashFlowRenderer = {
     this._modalData = data;
   },
 
-  render: function(waterfall, monthlyData, achievability, trailingMonths, goalPlan) {
+  render: function(waterfall, monthlyData, achievability, trailingMonths, goalPlan, budgetSummary, budgetStale) {
     var el = document.getElementById('cashflowContent');
     if (!el) return;
 
@@ -22,6 +22,14 @@ var CashFlowRenderer = {
     var actualData = (monthlyData || []).filter(function(r) { return r.dataSource === 'actual'; });
 
     if (!actualData.length) {
+      // Even without actual data, show budget summary if available
+      if (budgetSummary) {
+        el.innerHTML = this._renderBudgetSection(budgetSummary, null) +
+          '<div class="empty-state-panel"><div class="empty-state-icon">&#128200;</div>' +
+          '<div class="empty-state-title">No cash flow data yet</div>' +
+          '<div class="empty-state-desc">Import actual income and expense data via Admin &gt; Cash Flow to see your cash flow analysis and budget-vs-actual comparison.</div></div>';
+        return;
+      }
       el.innerHTML =
         '<div class="empty-state-panel"><div class="empty-state-icon">&#128200;</div>' +
         '<div class="empty-state-title">No cash flow data</div>' +
@@ -31,6 +39,17 @@ var CashFlowRenderer = {
 
     var html = '';
     var latest = actualData[actualData.length - 1];
+
+    // --- Budget staleness alert ---
+    if (budgetStale) {
+      html += '<div class="cf-budget-stale-alert">' +
+        '<strong>Budget may be outdated</strong> — actual expenses averaged ' +
+        Fmt.currency(budgetStale.avgActual) + '/mo vs planned ' +
+        Fmt.currency(budgetStale.planned) + '/mo (' +
+        (budgetStale.deviation * 100).toFixed(0) + '% deviation). ' +
+        'Consider updating your budget in Admin.' +
+      '</div>';
+    }
 
     // --- Metric cards: latest actual month ---
     html += '<div class="metrics">';
@@ -42,6 +61,11 @@ var CashFlowRenderer = {
     var rateClass = rateVal >= 30 ? 'positive' : (rateVal >= 15 ? '' : 'negative');
     html += this._metricCard('Savings Rate', Fmt.pct(rateVal), rateClass);
     html += '</div>';
+
+    // --- Budget Summary + Budget vs Actual ---
+    if (budgetSummary) {
+      html += this._renderBudgetSection(budgetSummary, latest);
+    }
 
     // --- Waterfall chart ---
     html += '<div class="chart-container">' +
@@ -113,6 +137,117 @@ var CashFlowRenderer = {
 
     // Bind click handlers for modal drill-down
     this._bindRowClicks(goalPlan);
+  },
+
+  // --- Budget Summary + Budget-vs-Actual Section ---
+  _renderBudgetSection: function(budgetSummary, latestActual) {
+    var html = '<div class="table-container"><div class="table-header-row"><h2>Monthly Budget</h2></div>';
+
+    // Summary cards row
+    html += '<div class="metrics">';
+    html += this._metricCard('Total Budget', Fmt.currency(budgetSummary.total), '');
+    html += this._metricCard('Fixed', Fmt.currency(budgetSummary.fixed), '');
+    html += this._metricCard('Variable', Fmt.currency(budgetSummary.variable), '');
+    if (latestActual) {
+      var actualExp = latestActual.impliedExpenses || 0;
+      var delta = actualExp - budgetSummary.total;
+      var deltaClass = delta <= 0 ? 'positive' : 'negative';
+      html += this._metricCard('Actual (' + latestActual.month + ')', Fmt.currency(actualExp), deltaClass);
+    }
+    html += '</div>';
+
+    // Budget-vs-actual table by category (when actual data available)
+    if (latestActual && latestActual.expensesByCategory) {
+      html += this._renderBudgetVsActual(budgetSummary, latestActual);
+    } else {
+      // Budget-only category breakdown
+      html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+        '<th>Category</th><th style="text-align:right">Fixed</th>' +
+        '<th style="text-align:right">Variable</th><th style="text-align:right">Total</th>' +
+        '</tr></thead><tbody>';
+
+      var cats = Object.keys(budgetSummary.byCategory).sort();
+      for (var i = 0; i < cats.length; i++) {
+        var cat = cats[i];
+        var catData = budgetSummary.byCategory[cat];
+        var fixedAmt = 0;
+        var varAmt = 0;
+        for (var j = 0; j < catData.items.length; j++) {
+          if (catData.items[j].type === 'fixed') fixedAmt += catData.items[j].monthly;
+          else varAmt += catData.items[j].monthly;
+        }
+        html += '<tr><td>' + cat + '</td>' +
+          '<td style="text-align:right">' + (fixedAmt > 0 ? Fmt.currency(fixedAmt) : '-') + '</td>' +
+          '<td style="text-align:right">' + (varAmt > 0 ? Fmt.currency(varAmt) : '-') + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(catData.planned) + '</td></tr>';
+      }
+
+      html += '</tbody></table></div>';
+    }
+
+    html += '</div>';
+    return html;
+  },
+
+  _renderBudgetVsActual: function(budgetSummary, latestActual) {
+    var expByCat = latestActual.expensesByCategory || {};
+
+    // Collect all categories from both budget and actuals
+    var allCats = {};
+    var cats = Object.keys(budgetSummary.byCategory);
+    for (var i = 0; i < cats.length; i++) allCats[cats[i]] = true;
+    var actualCats = Object.keys(expByCat);
+    for (var j = 0; j < actualCats.length; j++) allCats[actualCats[j]] = true;
+
+    var sortedCats = Object.keys(allCats).sort();
+
+    var html = '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+      '<th>Category</th><th style="text-align:right">Planned</th>' +
+      '<th style="text-align:right">Actual</th><th style="text-align:right">Delta</th>' +
+      '<th style="text-align:right">%</th>' +
+      '</tr></thead><tbody>';
+
+    var totalPlanned = 0;
+    var totalActual = 0;
+
+    for (var k = 0; k < sortedCats.length; k++) {
+      var cat = sortedCats[k];
+      var planned = budgetSummary.byCategory[cat] ? budgetSummary.byCategory[cat].planned : 0;
+      var actual = expByCat[cat] || 0;
+      var delta = actual - planned;
+      var pct = planned > 0 ? (delta / planned * 100) : (actual > 0 ? 100 : 0);
+      var deltaClass = delta <= 0 ? 'positive' : 'negative';
+
+      totalPlanned += planned;
+      totalActual += actual;
+
+      html += '<tr><td>' + cat + '</td>' +
+        '<td style="text-align:right">' + Fmt.currency(planned) + '</td>' +
+        '<td style="text-align:right">' + Fmt.currency(actual) + '</td>' +
+        '<td style="text-align:right" class="' + deltaClass + '">' +
+          (delta >= 0 ? '+' : '') + Fmt.currency(delta) + '</td>' +
+        '<td style="text-align:right" class="' + deltaClass + '">' +
+          (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%</td>' +
+      '</tr>';
+    }
+
+    // Totals row
+    var totalDelta = totalActual - totalPlanned;
+    var totalDeltaClass = totalDelta <= 0 ? 'positive' : 'negative';
+    var totalPct = totalPlanned > 0 ? (totalDelta / totalPlanned * 100) : 0;
+
+    html += '<tr style="font-weight:600;border-top:2px solid var(--border);">' +
+      '<td>Total</td>' +
+      '<td style="text-align:right">' + Fmt.currency(totalPlanned) + '</td>' +
+      '<td style="text-align:right">' + Fmt.currency(totalActual) + '</td>' +
+      '<td style="text-align:right" class="' + totalDeltaClass + '">' +
+        (totalDelta >= 0 ? '+' : '') + Fmt.currency(totalDelta) + '</td>' +
+      '<td style="text-align:right" class="' + totalDeltaClass + '">' +
+        (totalPct >= 0 ? '+' : '') + totalPct.toFixed(0) + '%</td>' +
+    '</tr>';
+
+    html += '</tbody></table></div>';
+    return html;
   },
 
   _metricCard: function(label, value, cls) {
