@@ -128,40 +128,6 @@ function refreshGoals() {
   GoalsRenderer.renderGoalsPanel(emergency, house);
 }
 
-// --- Goals Detail Tab ---
-
-function refreshGoalsDetail() {
-  var emergencyTarget = appConfig.emergency_fund_target || 40000;
-  var houseTarget = appConfig.house_downpayment_target || 80000;
-  var operatingReserve = getOperatingReserve();
-
-  var accountIds = AccountService.getNetworthAccountIds();
-  var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
-  if (!nwData.length) return;
-
-  var latestRow = nwData[nwData.length - 1];
-  var latest = latestRow.accounts;
-
-  var emergency = GoalsCalculator.computeEmergencyFund(latest, emergencyTarget);
-  var house = GoalsCalculator.computeHouseDownPayment(latest, houseTarget, operatingReserve);
-
-  // Compute milestone statuses
-  var milestoneStatuses = [];
-  if (milestonesData && milestonesData.length) {
-    var startDate = nwData[0].month;
-    var currentDate = latestRow.month;
-    var currentValues = {
-      total: latestRow.total || 0,
-      emergency_fund: emergency.available,
-      house_downpayment: house.current,
-      fi_networth: latestRow.total || 0
-    };
-    milestoneStatuses = MilestoneCalculator.computeAll(milestonesData, currentValues, startDate, currentDate);
-  }
-
-  GoalsRenderer.renderGoalsDetail(emergency, house, latest, milestoneStatuses);
-}
-
 // --- Emergency Fund Tab ---
 
 function refreshEmergency() {
@@ -280,9 +246,9 @@ function refreshCashFlow() {
   CashFlowRenderer.render(waterfall, monthlyData, achievability, _cashflowTrailingMonths);
 }
 
-// --- Planning Tab ---
+// --- Goals Tab (unified: funding plan + milestones) ---
 
-function refreshPlanning() {
+function refreshGoalsTab() {
   if (typeof GoalPlannerCalculator === 'undefined' || typeof PlannerRenderer === 'undefined') return;
 
   var monthlyIncome = appConfig.monthly_income || 0;
@@ -308,7 +274,29 @@ function refreshPlanning() {
     latestAccounts: latestAccounts
   });
 
-  PlannerRenderer.render(plan);
+  // Compute milestones
+  var milestoneStatuses = [];
+  if (typeof MilestoneCalculator !== 'undefined' && milestonesData && milestonesData.length) {
+    var accountIds = AccountService.getNetworthAccountIds();
+    var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+    if (nwData.length) {
+      var latestRow = nwData[nwData.length - 1];
+      var emergencyTarget = appConfig.emergency_fund_target || 40000;
+      var houseTarget = appConfig.house_downpayment_target || 80000;
+      var operatingReserve = getOperatingReserve();
+      var emergency = GoalsCalculator.computeEmergencyFund(latestRow.accounts, emergencyTarget);
+      var house = GoalsCalculator.computeHouseDownPayment(latestRow.accounts, houseTarget, operatingReserve);
+      var currentValues = {
+        total: latestRow.total || 0,
+        emergency_fund: emergency.available,
+        house_downpayment: house.current,
+        fi_networth: latestRow.total || 0
+      };
+      milestoneStatuses = MilestoneCalculator.computeAll(milestonesData, currentValues, nwData[0].month, latestRow.month);
+    }
+  }
+
+  PlannerRenderer.render(plan, milestoneStatuses);
 }
 
 // --- Investments Tab ---
@@ -411,11 +399,10 @@ function bindEvents() {
       if (this.dataset.tab === 'investments') refreshInvestments();
       else if (this.dataset.tab === 'networth') refreshNetWorth();
       else if (this.dataset.tab === 'emergency') refreshEmergency();
-      else if (this.dataset.tab === 'goals') refreshGoalsDetail();
       else if (this.dataset.tab === 'budget') refreshBudget();
       else if (this.dataset.tab === 'mortgage') refreshMortgage();
+      else if (this.dataset.tab === 'goals') refreshGoalsTab();
       else if (this.dataset.tab === 'cashflow') refreshCashFlow();
-      else if (this.dataset.tab === 'planning') refreshPlanning();
     });
   });
 
@@ -473,7 +460,7 @@ function showDashboard() {
   refreshGoals();
   refreshSummary();
   refreshInvestments();
-  refreshPlanning();
+  refreshGoalsTab();
 }
 
 function loadData(data) {
@@ -519,7 +506,7 @@ function refreshAll() {
   refreshInvestments();
   refreshMortgage();
   refreshCashFlow();
-  refreshPlanning();
+  refreshGoalsTab();
 
   // Update last-updated badge
   if (allData.length) {
