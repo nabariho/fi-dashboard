@@ -57,10 +57,10 @@ var TableRenderer = {
     var totalMarketPct = totalValue > 0 ? (totalProfit / totalValue * 100) : 0;
 
     var html = '<table class="returns-table"><thead><tr>' +
-      '<th>Account</th><th style="text-align:right">Value</th><th style="text-align:right">Invested</th>' +
-      '<th style="text-align:right">Market Growth</th><th style="text-align:right">Market %</th>' +
-      '<th style="text-align:right">Monthly</th><th style="text-align:right">YTD</th>' +
-      '<th style="text-align:right">All-Time</th></tr></thead><tbody>';
+      '<th>Account</th><th class="text-right">Value</th><th class="text-right">Invested</th>' +
+      '<th class="text-right">Market Growth</th><th class="text-right">Market %</th>' +
+      '<th class="text-right">Monthly</th><th class="text-right">YTD</th>' +
+      '<th class="text-right">All-Time</th></tr></thead><tbody>';
 
     ids.forEach(function(id) {
       var a = comparison.accounts[id];
@@ -73,13 +73,13 @@ var TableRenderer = {
 
       html += '<tr>' +
         '<td>' + AccountService.getName(id) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(a.currentValue) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(a.totalInvested) + '</td>' +
-        '<td style="text-align:right" class="' + profitCls + '">' + Fmt.currency(a.profit) + '</td>' +
-        '<td style="text-align:right" class="' + marketPctCls + '">' + TableRenderer._fmtPctES(marketPct) + '</td>' +
-        '<td style="text-align:right" class="' + momCls + '">' + TableRenderer._fmtPctES(a.monthly) + '</td>' +
-        '<td style="text-align:right" class="' + ytdCls + '">' + TableRenderer._fmtPctES(a.ytd) + '</td>' +
-        '<td style="text-align:right" class="' + cumCls + '">' + TableRenderer._fmtPctES(a.cumReturn) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(a.currentValue) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(a.totalInvested) + '</td>' +
+        '<td class="text-right ' + profitCls + '">' + Fmt.currency(a.profit) + '</td>' +
+        '<td class="text-right ' + marketPctCls + '">' + TableRenderer._fmtPctES(marketPct) + '</td>' +
+        '<td class="text-right ' + momCls + '">' + TableRenderer._fmtPctES(a.monthly) + '</td>' +
+        '<td class="text-right ' + ytdCls + '">' + TableRenderer._fmtPctES(a.ytd) + '</td>' +
+        '<td class="text-right ' + cumCls + '">' + TableRenderer._fmtPctES(a.cumReturn) + '</td>' +
         '</tr>';
     });
 
@@ -88,10 +88,10 @@ var TableRenderer = {
     var totalMarketCls = totalMarketPct >= 0 ? 'positive' : 'negative';
     html += '<tr class="total-row">' +
       '<td>TOTAL</td>' +
-      '<td style="text-align:right">' + Fmt.currency(totalValue) + '</td>' +
-      '<td style="text-align:right">' + Fmt.currency(totalInvested) + '</td>' +
-      '<td style="text-align:right" class="' + totalProfitCls + '">' + Fmt.currency(totalProfit) + '</td>' +
-      '<td style="text-align:right" class="' + totalMarketCls + '">' + TableRenderer._fmtPctES(totalMarketPct) + '</td>' +
+      '<td class="text-right">' + Fmt.currency(totalValue) + '</td>' +
+      '<td class="text-right">' + Fmt.currency(totalInvested) + '</td>' +
+      '<td class="text-right ' + totalProfitCls + '">' + Fmt.currency(totalProfit) + '</td>' +
+      '<td class="text-right ' + totalMarketCls + '">' + TableRenderer._fmtPctES(totalMarketPct) + '</td>' +
       '<td colspan="3"></td></tr>';
 
     html += '</tbody></table>';
@@ -186,7 +186,7 @@ var TableRenderer = {
 
     // Grand total (Net Worth = Assets - Liabilities)
     var totalDelta = recent.length >= 2 ? recent[0].total - recent[1].total : 0;
-    rows += '<tr class="total-row" style="font-size:15px"><td>NET WORTH</td>' +
+    rows += '<tr class="total-row nw-grand-total"><td>NET WORTH</td>' +
       recent.map(function(r) { return '<td>' + Fmt.currency(r.total) + '</td>'; }).join('') +
       this._deltaCell(totalDelta) + '</tr>';
 

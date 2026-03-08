@@ -11,7 +11,7 @@ var GoalAllocationService = {
   },
 
   addMonths: function(monthStr, n) {
-    var parts = (monthStr || '2025-01').split('-');
+    var parts = (monthStr || new Date().toISOString().slice(0, 7)).split('-');
     var y = parseInt(parts[0]) || 2025;
     var m = parseInt(parts[1]) || 1;
     m += n;

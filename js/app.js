@@ -8,6 +8,13 @@ var cashflowEntries = [];
 var cashflowCategories = [];
 var cashflowSubcategories = [];
 var _cachedGoalPlan = null; // Shared planner output for Goals panel, Summary, and Goals tab
+var _cachedNWData = null; // Shared NW computation for Summary, Home, FI Progress
+
+function _computeNWData() {
+  var accountIds = AccountService.getNetworthAccountIds();
+  _cachedNWData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+  return _cachedNWData;
+}
 
 // --- Monthly Summary (always visible) ---
 
@@ -15,8 +22,7 @@ function refreshSummary() {
   if (typeof SummaryCalculator === 'undefined' || typeof SummaryRenderer === 'undefined') return;
 
   try {
-    var accountIds = AccountService.getNetworthAccountIds();
-    var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+    var nwData = _cachedNWData || _computeNWData();
     if (nwData.length < 2) { SummaryRenderer.renderEmptyState(); return; }
 
     // Compute goals for summary context from unified planner
@@ -58,8 +64,7 @@ function refreshHome() {
   if (typeof HomeRenderer === 'undefined' || typeof SummaryCalculator === 'undefined') return;
 
   try {
-    var accountIds = AccountService.getNetworthAccountIds();
-    var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+    var nwData = _cachedNWData || _computeNWData();
     if (nwData.length < 2) { HomeRenderer.render(null); return; }
 
     var current = nwData[nwData.length - 1];
@@ -107,9 +112,7 @@ function refreshHome() {
 // --- FI Progress (always visible) ---
 
 function refreshFIProgress() {
-  // Compute current net worth from all networth-flagged accounts
-  var accountIds = AccountService.getNetworthAccountIds();
-  var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+  var nwData = _cachedNWData || _computeNWData();
   if (!nwData.length) return;
 
   var current = nwData[nwData.length - 1];
@@ -703,10 +706,12 @@ function showDashboard() {
   if (typeof updateDbModeUI === 'function') updateDbModeUI();
 
   _computeGoalPlan();
+  _computeNWData();
   refreshHome();
   refreshFIProgress();
   refreshGoals();
   refreshSummary();
+  _cachedNWData = null; // free after initial render
   refreshGoalsTab();
 }
 
@@ -758,10 +763,12 @@ function refreshAll() {
   Chart.helpers.each(Chart.instances, function(instance) { instance.destroy(); });
 
   _computeGoalPlan();
+  _computeNWData();
   refreshHome();
   refreshFIProgress();
   refreshGoals();
   refreshSummary();
+  _cachedNWData = null; // free after panel render
   refreshInvestments();
   refreshMortgage();
   refreshCashFlow();

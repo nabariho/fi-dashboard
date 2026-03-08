@@ -76,9 +76,9 @@ var CashFlowRenderer = {
     // --- Monthly Cash Flow table (clickable rows) ---
     html += '<div class="table-container"><div class="table-header-row"><h2>Monthly Cash Flow</h2></div>' +
       '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th>Month</th><th style="text-align:right">Income</th>' +
-      '<th style="text-align:right">Expenses</th><th style="text-align:right">Transfers</th>' +
-      '<th style="text-align:right">Net Savings</th><th style="text-align:right">Rate</th>' +
+      '<th>Month</th><th class="text-right">Income</th>' +
+      '<th class="text-right">Expenses</th><th class="text-right">Transfers</th>' +
+      '<th class="text-right">Net Savings</th><th class="text-right">Rate</th>' +
       '</tr></thead><tbody>';
 
     for (var i = actualData.length - 1; i >= 0; i--) {
@@ -87,14 +87,14 @@ var CashFlowRenderer = {
       var rc = rate >= 30 ? 'positive' : (rate >= 15 ? '' : 'negative');
       var transfers = r.totalTransfers || 0;
 
-      html += '<tr class="cf-row-clickable" data-month="' + r.month + '" style="cursor:pointer;">' +
+      html += '<tr class="cf-row-clickable" data-month="' + r.month + '">' +
         '<td>' + r.month + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(r.income) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(r.impliedExpenses) + '</td>' +
-        '<td style="text-align:right">' + (transfers > 0 ? Fmt.currency(transfers) : '-') + '</td>' +
-        '<td style="text-align:right" class="' + (r.totalContributions >= 0 ? 'positive' : 'negative') + '">' +
+        '<td class="text-right">' + Fmt.currency(r.income) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(r.impliedExpenses) + '</td>' +
+        '<td class="text-right">' + (transfers > 0 ? Fmt.currency(transfers) : '-') + '</td>' +
+        '<td class="text-right ' + (r.totalContributions >= 0 ? 'positive' : 'negative') + '">' +
           Fmt.currency(r.totalContributions) + '</td>' +
-        '<td style="text-align:right" class="' + rc + '">' + Fmt.pct(rate) + '</td>' +
+        '<td class="text-right ' + rc + '">' + Fmt.pct(rate) + '</td>' +
       '</tr>';
     }
 
@@ -107,13 +107,13 @@ var CashFlowRenderer = {
       var avgTransfers = recent.reduce(function(s, r) { return s + (r.totalTransfers || 0); }, 0) / n;
       var avgSavings = recent.reduce(function(s, r) { return s + r.totalContributions; }, 0) / n;
       var avgRate = avgIncome > 0 ? (avgIncome - avgExp) / avgIncome * 100 : 0;
-      html += '<tr style="font-weight:600;border-top:2px solid var(--border);">' +
+      html += '<tr class="table-total-row">' +
         '<td>' + n + '-mo avg</td>' +
-        '<td style="text-align:right">' + Fmt.currency(avgIncome) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(avgExp) + '</td>' +
-        '<td style="text-align:right">' + (avgTransfers > 0 ? Fmt.currency(avgTransfers) : '-') + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(avgSavings) + '</td>' +
-        '<td style="text-align:right">' + Fmt.pct(avgRate) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(avgIncome) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(avgExp) + '</td>' +
+        '<td class="text-right">' + (avgTransfers > 0 ? Fmt.currency(avgTransfers) : '-') + '</td>' +
+        '<td class="text-right">' + Fmt.currency(avgSavings) + '</td>' +
+        '<td class="text-right">' + Fmt.pct(avgRate) + '</td>' +
       '</tr>';
     }
 
@@ -162,8 +162,8 @@ var CashFlowRenderer = {
     } else {
       // Budget-only category breakdown
       html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-        '<th>Category</th><th style="text-align:right">Fixed</th>' +
-        '<th style="text-align:right">Variable</th><th style="text-align:right">Total</th>' +
+        '<th>Category</th><th class="text-right">Fixed</th>' +
+        '<th class="text-right">Variable</th><th class="text-right">Total</th>' +
         '</tr></thead><tbody>';
 
       var cats = Object.keys(budgetSummary.byCategory).sort();
@@ -177,9 +177,9 @@ var CashFlowRenderer = {
           else varAmt += catData.items[j].monthly;
         }
         html += '<tr><td>' + cat + '</td>' +
-          '<td style="text-align:right">' + (fixedAmt > 0 ? Fmt.currency(fixedAmt) : '-') + '</td>' +
-          '<td style="text-align:right">' + (varAmt > 0 ? Fmt.currency(varAmt) : '-') + '</td>' +
-          '<td style="text-align:right">' + Fmt.currency(catData.planned) + '</td></tr>';
+          '<td class="text-right">' + (fixedAmt > 0 ? Fmt.currency(fixedAmt) : '-') + '</td>' +
+          '<td class="text-right">' + (varAmt > 0 ? Fmt.currency(varAmt) : '-') + '</td>' +
+          '<td class="text-right">' + Fmt.currency(catData.planned) + '</td></tr>';
       }
 
       html += '</tbody></table></div>';
@@ -202,9 +202,9 @@ var CashFlowRenderer = {
     var sortedCats = Object.keys(allCats).sort();
 
     var html = '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th>Category</th><th style="text-align:right">Planned</th>' +
-      '<th style="text-align:right">Actual</th><th style="text-align:right">Delta</th>' +
-      '<th style="text-align:right">%</th>' +
+      '<th>Category</th><th class="text-right">Planned</th>' +
+      '<th class="text-right">Actual</th><th class="text-right">Delta</th>' +
+      '<th class="text-right">%</th>' +
       '</tr></thead><tbody>';
 
     var totalPlanned = 0;
@@ -222,11 +222,11 @@ var CashFlowRenderer = {
       totalActual += actual;
 
       html += '<tr><td>' + cat + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(planned) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(actual) + '</td>' +
-        '<td style="text-align:right" class="' + deltaClass + '">' +
+        '<td class="text-right">' + Fmt.currency(planned) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(actual) + '</td>' +
+        '<td class="text-right ' + deltaClass + '">' +
           (delta >= 0 ? '+' : '') + Fmt.currency(delta) + '</td>' +
-        '<td style="text-align:right" class="' + deltaClass + '">' +
+        '<td class="text-right ' + deltaClass + '">' +
           (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%</td>' +
       '</tr>';
     }
@@ -236,13 +236,13 @@ var CashFlowRenderer = {
     var totalDeltaClass = totalDelta <= 0 ? 'positive' : 'negative';
     var totalPct = totalPlanned > 0 ? (totalDelta / totalPlanned * 100) : 0;
 
-    html += '<tr style="font-weight:600;border-top:2px solid var(--border);">' +
+    html += '<tr class="table-total-row">' +
       '<td>Total</td>' +
-      '<td style="text-align:right">' + Fmt.currency(totalPlanned) + '</td>' +
-      '<td style="text-align:right">' + Fmt.currency(totalActual) + '</td>' +
-      '<td style="text-align:right" class="' + totalDeltaClass + '">' +
+      '<td class="text-right">' + Fmt.currency(totalPlanned) + '</td>' +
+      '<td class="text-right">' + Fmt.currency(totalActual) + '</td>' +
+      '<td class="text-right ' + totalDeltaClass + '">' +
         (totalDelta >= 0 ? '+' : '') + Fmt.currency(totalDelta) + '</td>' +
-      '<td style="text-align:right" class="' + totalDeltaClass + '">' +
+      '<td class="text-right ' + totalDeltaClass + '">' +
         (totalPct >= 0 ? '+' : '') + totalPct.toFixed(0) + '%</td>' +
     '</tr>';
 
@@ -529,9 +529,9 @@ var CashFlowRenderer = {
     // Goal table
     html += '<table class="cf-detail-table"><thead><tr>' +
       '<th>Goal</th><th>P</th>' +
-      '<th style="text-align:right">Planned/mo</th>' +
-      '<th style="text-align:right">Actual</th>' +
-      '<th style="text-align:right">Delta</th>' +
+      '<th class="text-right">Planned/mo</th>' +
+      '<th class="text-right">Actual</th>' +
+      '<th class="text-right">Delta</th>' +
       '<th>Status</th>' +
     '</tr></thead><tbody>';
 
@@ -560,9 +560,9 @@ var CashFlowRenderer = {
       html += '<tr>' +
         '<td>' + g.name + '</td>' +
         '<td>P' + g.priority + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(g.planned) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(g.actual) + '</td>' +
-        '<td style="text-align:right" class="' + deltaClass + '">' +
+        '<td class="text-right">' + Fmt.currency(g.planned) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(g.actual) + '</td>' +
+        '<td class="text-right ' + deltaClass + '">' +
           (g.delta >= 0 ? '+' : '') + Fmt.currency(g.delta) + '</td>' +
         '<td class="' + statusClass + '">' + statusLabel + '</td>' +
       '</tr>';
@@ -570,11 +570,11 @@ var CashFlowRenderer = {
 
     // Totals row
     var totalDelta = gf.totalActual - gf.totalPlanned;
-    html += '<tr style="font-weight:600;border-top:2px solid var(--border);">' +
+    html += '<tr class="table-total-row">' +
       '<td colspan="2">Total</td>' +
-      '<td style="text-align:right">' + Fmt.currency(gf.totalPlanned) + '</td>' +
-      '<td style="text-align:right">' + Fmt.currency(gf.totalActual) + '</td>' +
-      '<td style="text-align:right">' + (totalDelta >= 0 ? '+' : '') + Fmt.currency(totalDelta) + '</td>' +
+      '<td class="text-right">' + Fmt.currency(gf.totalPlanned) + '</td>' +
+      '<td class="text-right">' + Fmt.currency(gf.totalActual) + '</td>' +
+      '<td class="text-right">' + (totalDelta >= 0 ? '+' : '') + Fmt.currency(totalDelta) + '</td>' +
       '<td></td>' +
     '</tr>';
 
@@ -583,17 +583,17 @@ var CashFlowRenderer = {
   },
 
   _renderDetailTable: function(items, showSubcategory) {
-    if (!items.length) return '<p style="color:var(--text-secondary);font-size:13px;">No entries</p>';
+    if (!items.length) return '<p class="text-secondary">No entries</p>';
 
     var html = '<table class="cf-detail-table"><thead><tr>' +
       '<th>Category</th>';
     if (showSubcategory) html += '<th>Subcategory</th>';
-    html += '<th style="text-align:right">Amount</th></tr></thead><tbody>';
+    html += '<th class="text-right">Amount</th></tr></thead><tbody>';
 
     items.forEach(function(item) {
       html += '<tr><td>' + item.category + '</td>';
       if (showSubcategory) html += '<td>' + (item.subcategory || '-') + '</td>';
-      html += '<td style="text-align:right">' + Fmt.currency(item.amount) + '</td></tr>';
+      html += '<td class="text-right">' + Fmt.currency(item.amount) + '</td></tr>';
     });
 
     html += '</tbody></table>';

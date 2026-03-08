@@ -38,14 +38,14 @@ var MetricsRenderer = {
 
     // Income growth note (only when growth rate is significant)
     if (opts.incomeGrowthRate && opts.incomeGrowthRate > 0.01) {
-      contextHtml += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Income trend: +' +
+      contextHtml += '<div class="fi-income-trend">Income trend: +' +
         (opts.incomeGrowthRate * 100).toFixed(1) + '%/yr growth detected</div>';
     }
 
     // Target line with inflation context
-    var targetHtml = '<div class="fi-target" style="margin-bottom:8px">Target: ' + Fmt.currencyShort(fiTarget);
+    var targetHtml = '<div class="fi-target fi-target-line">Target: ' + Fmt.currencyShort(fiTarget);
     if (opts.fiTargetNominal > 0) {
-      targetHtml += ' <span style="font-size:12px;color:#5f6368">(~' + Fmt.currencyShort(opts.fiTargetNominal) + ' in future euros)</span>';
+      targetHtml += ' <span class="text-secondary">(~' + Fmt.currencyShort(opts.fiTargetNominal) + ' in future euros)</span>';
     }
     targetHtml += '</div>';
 
@@ -55,7 +55,7 @@ var MetricsRenderer = {
       var divergence = Math.abs(opts.derivedFITarget - fiTarget) / fiTarget;
       if (divergence > 0.10) {
         var label = opts.derivedFITarget > fiTarget ? 'higher' : 'lower';
-        derivedWarning = '<div class="fi-derived-warning" style="font-size:12px;color:#ea4335;margin-bottom:8px">' +
+        derivedWarning = '<div class="fi-derived-warning">' +
           'Based on your expenses, you need ~' + Fmt.currencyShort(opts.derivedFITarget) +
           ' (' + label + ' than target)' +
           (opts.taxRate > 0 ? ' incl. ' + (opts.taxRate * 100).toFixed(0) + '% withdrawal tax' : '') +
@@ -127,8 +127,8 @@ var MetricsRenderer = {
     // Add "What If" button if WhatIfRenderer is available
     if (typeof WhatIfRenderer !== 'undefined') {
       var btnContainer = document.createElement('div');
-      btnContainer.style.cssText = 'text-align:center;margin-top:12px;';
-      btnContainer.innerHTML = '<button class="btn-link" id="whatifBtn" style="font-size:13px;color:var(--primary);cursor:pointer;background:none;border:none;text-decoration:underline;">What if…?</button>';
+      btnContainer.className = 'fi-whatif-container';
+      btnContainer.innerHTML = '<button class="btn-link" id="whatifBtn">What if…?</button>';
       el.appendChild(btnContainer);
     }
   },

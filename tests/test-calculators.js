@@ -168,8 +168,9 @@ describe('FICalculator', function() {
     assertClose(FICalculator.passiveIncomeNet(600000, 0.04, 0), 2000, 0.01);
   });
 
-  it('computes real return adjusted for inflation', function() {
-    assertClose(FICalculator.realReturn(0.07, 0.03), 0.04, 0.001);
+  it('computes real return adjusted for inflation (exact Fisher)', function() {
+    // Exact: (1.07)/(1.03) - 1 = 0.03883
+    assertClose(FICalculator.realReturn(0.07, 0.03), (1.07 / 1.03) - 1, 0.0001);
     assertClose(FICalculator.realReturn(0.05, 0), 0.05, 0.001);
   });
 

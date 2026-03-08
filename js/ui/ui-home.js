@@ -6,7 +6,7 @@ var HomeRenderer = {
     var el = document.getElementById('homeContent');
     if (!el) return;
     if (!summary) {
-      el.innerHTML = '<p style="color:#5f6368;padding:24px">Not enough data for a monthly review. Add at least 2 months of data.</p>';
+      el.innerHTML = '<div class="empty-state-panel"><div class="empty-state-title">Not enough data</div><div class="empty-state-desc">Add at least 2 months of data for a monthly review.</div></div>';
       return;
     }
 
@@ -171,16 +171,24 @@ var HomeRenderer = {
     var previous = annualSummaries[annualSummaries.length - 2];
 
     html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th></th><th style="text-align:right">' + previous.year + '</th>' +
-      '<th style="text-align:right">' + current.year + '</th>' +
-      '<th style="text-align:right">Change</th>' +
+      '<th></th><th class="text-right">' + previous.year + '</th>' +
+      '<th class="text-right">' + current.year + '</th>' +
+      '<th class="text-right">Change</th>' +
     '</tr></thead><tbody>';
 
     html += this._yoyRow('Net Worth (end)', previous.endNW, current.endNW);
     html += this._yoyRow('NW Growth', previous.nwChange, current.nwChange);
     html += this._yoyRow('NW Growth %', previous.nwChangePct, current.nwChangePct, true);
     html += this._yoyRow('Total Saved', previous.totalSaved, current.totalSaved);
-    html += this._yoyRow('Market Returns', previous.marketReturns, current.marketReturns);
+    html += this._yoyRow('Investment Returns', previous.marketReturns, current.marketReturns);
+
+    // Show debt reduction and house value change when they exist
+    if (current.debtReduction > 0 || previous.debtReduction > 0) {
+      html += this._yoyRow('Debt Reduction', previous.debtReduction || 0, current.debtReduction || 0);
+    }
+    if (current.houseValueChange || previous.houseValueChange) {
+      html += this._yoyRow('Property Value Change', previous.houseValueChange || 0, current.houseValueChange || 0);
+    }
 
     if (current.totalIncome > 0 || previous.totalIncome > 0) {
       html += this._yoyRow('Income', previous.totalIncome, current.totalIncome);
@@ -204,9 +212,9 @@ var HomeRenderer = {
 
     return '<tr>' +
       '<td>' + label + '</td>' +
-      '<td style="text-align:right">' + fmt(prev) + '</td>' +
-      '<td style="text-align:right">' + fmt(curr) + '</td>' +
-      '<td style="text-align:right" class="' + deltaClass + '">' + deltaFmt + '</td>' +
+      '<td class="text-right">' + fmt(prev) + '</td>' +
+      '<td class="text-right">' + fmt(curr) + '</td>' +
+      '<td class="text-right ' + deltaClass + '">' + deltaFmt + '</td>' +
     '</tr>';
   }
 };

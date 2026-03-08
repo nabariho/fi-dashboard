@@ -4,7 +4,7 @@
 var GoalRulesService = {
   evaluate: function(goals, context) {
     context = context || {};
-    var asOfMonth = context.asOfMonth || '2025-01';
+    var asOfMonth = context.asOfMonth || new Date().toISOString().slice(0, 7);
     var monthlyIncome = context.monthlyIncome || 0;
     var monthlyExpenses = context.monthlyExpenses || 0;
     var latestAccounts = context.latestAccounts || {};

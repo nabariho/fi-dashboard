@@ -287,8 +287,8 @@ var PlannerRenderer = {
   _renderLedger: function(ledger, accountIds) {
     var html = '<div class="table-container"><div class="table-header-row"><h2>Account Ledger Integrity</h2></div>' +
       '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th>Account</th><th style="text-align:right">Balance</th><th style="text-align:right">Manual Claims</th>' +
-      '<th style="text-align:right">Tracked Claims</th><th style="text-align:right">Total Claimed</th><th style="text-align:right">Unassigned</th>' +
+      '<th>Account</th><th class="text-right">Balance</th><th class="text-right">Manual Claims</th>' +
+      '<th class="text-right">Tracked Claims</th><th class="text-right">Total Claimed</th><th class="text-right">Unassigned</th>' +
       '</tr></thead><tbody>';
 
     accountIds.forEach(function(accountId) {
@@ -297,11 +297,11 @@ var PlannerRenderer = {
       var over = totalClaimed > (row.balance || 0) + 0.01;
       html += '<tr>' +
         '<td>' + AccountService.getName(accountId) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(row.balance || 0) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(row.manual_claims || 0) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(row.tracked_claims || 0) + '</td>' +
-        '<td style="text-align:right" class="' + (over ? 'negative' : 'positive') + '">' + Fmt.currency(totalClaimed) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(row.unassigned || 0) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(row.balance || 0) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(row.manual_claims || 0) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(row.tracked_claims || 0) + '</td>' +
+        '<td class="text-right ' + (over ? 'negative' : 'positive') + '">' + Fmt.currency(totalClaimed) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(row.unassigned || 0) + '</td>' +
       '</tr>';
     });
 
@@ -409,8 +409,8 @@ var PlannerRenderer = {
     // Sensitivity table
     if (fiProjection.sensitivity && fiProjection.sensitivity.length) {
       html += '<div class="fi-sensitivity"><table class="returns-table"><thead><tr>' +
-        '<th style="text-align:right">Save Extra/mo</th><th>FI Date</th>' +
-        '<th style="text-align:right">Years Saved</th>' +
+        '<th class="text-right">Save Extra/mo</th><th>FI Date</th>' +
+        '<th class="text-right">Years Saved</th>' +
         '</tr></thead><tbody>';
 
       fiProjection.sensitivity.forEach(function(s) {
@@ -422,9 +422,9 @@ var PlannerRenderer = {
         }
         var saved = s.yearsSaved === Infinity ? '-' : s.yearsSaved.toFixed(1) + ' years';
         html += '<tr>' +
-          '<td style="text-align:right">+' + Fmt.currency(s.extraSavings) + '</td>' +
+          '<td class="text-right">+' + Fmt.currency(s.extraSavings) + '</td>' +
           '<td>' + dLabel + '</td>' +
-          '<td style="text-align:right" class="positive">' + saved + '</td>' +
+          '<td class="text-right positive">' + saved + '</td>' +
         '</tr>';
       });
 

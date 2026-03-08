@@ -2,11 +2,15 @@
   --primary: #1a73e8;
   --positive: #0d904f;
   --negative: #d93025;
+  --warning: #e8710a;
+  --accent: #9334e6;
   --bg: #f8f9fa;
+  --surface: #ffffff;
   --card-bg: #ffffff;
   --text: #202124;
   --text-secondary: #5f6368;
   --border: #e0e0e0;
+  --border-light: #f0f0f0;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -653,6 +657,42 @@ select {
 
 .positive { color: var(--positive); }
 .negative { color: var(--negative); }
+.warning-text { color: var(--warning); }
+
+/* === UTILITY CLASSES === */
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-secondary { color: var(--text-secondary); font-size: 12px; }
+.text-muted { color: var(--text-secondary); }
+.font-semibold { font-weight: 600; }
+.font-tabular { font-variant-numeric: tabular-nums; }
+
+.table-total-row td {
+  font-weight: 600;
+  border-top: 2px solid var(--border);
+}
+
+.table-footer-row td {
+  font-weight: 600;
+  background: var(--bg);
+}
+
+.btn-link {
+  font-size: 13px;
+  color: var(--primary);
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.btn-link:hover { opacity: 0.8; }
+
+.fi-whatif-container { text-align: center; margin-top: 12px; }
+.fi-income-trend { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.fi-target-line { margin-bottom: 8px; }
+.fi-derived-warning { font-size: 12px; color: var(--negative); margin-bottom: 8px; }
 
 /* === CHART === */
 .chart-container {
@@ -789,6 +829,7 @@ tr:hover { background: var(--bg); }
 .nw-breakdown td { text-align: right; font-variant-numeric: tabular-nums; }
 .nw-breakdown td:first-child { text-align: left; font-weight: 600; }
 .nw-breakdown tr.total-row td { font-weight: 700; border-top: 2px solid var(--border); }
+.nw-breakdown tr.nw-grand-total td { font-size: 15px; }
 .nw-breakdown tr.section-row td {
   font-weight: 700;
   font-size: 12px;
@@ -1519,6 +1560,21 @@ tr:hover { background: var(--bg); }
   .goal-header { flex-direction: column; align-items: flex-start; gap: 4px; }
   .milestone-header { flex-direction: column; align-items: flex-start; gap: 4px; }
   .milestones-list { padding: 12px 16px 16px; }
+
+  /* Phase 10 components */
+  .whatif-modal { max-width: 100%; }
+  .whatif-body { padding: 16px; }
+  .goal-cards-grid { padding: 0 12px 12px; }
+  .goal-expand-header { padding: 12px; }
+  .goal-detail-grid { grid-template-columns: repeat(2, 1fr); }
+  .home-attribution { gap: 16px; flex-wrap: wrap; }
+  .home-key-numbers { grid-template-columns: repeat(2, 1fr); }
+  .journey-bar { height: 100px; }
+  .journey-event-name { font-size: 11px; }
+
+  /* Nav tabs: hide scrollbar but allow scroll */
+  .nav-tabs { scrollbar-width: none; -ms-overflow-style: none; }
+  .nav-tabs::-webkit-scrollbar { display: none; }
 }
 
 /* Phone */
@@ -1579,6 +1635,27 @@ tr:hover { background: var(--bg); }
   .cf-modal-grid { grid-template-columns: 1fr; }
   .cf-modal-summary { flex-wrap: wrap; gap: 8px; }
   .cf-summary-arrow { display: none; }
+
+  /* Phase 10 phone */
+  .whatif-modal { max-width: 100%; margin: 8px; }
+  .whatif-sliders { gap: 12px; }
+  .whatif-table { font-size: 12px; }
+  .goal-expand-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .goal-expand-right { margin-left: 0; width: 100%; justify-content: space-between; }
+  .goal-expand-progress { max-width: 100%; }
+  .goal-detail-grid { grid-template-columns: 1fr 1fr; }
+  .goal-funding-actual { grid-template-columns: 1fr 1fr; }
+  .home-headline-value { font-size: 24px; }
+  .home-key-numbers { grid-template-columns: repeat(2, 1fr); }
+  .home-attribution { flex-direction: column; gap: 8px; }
+  .home-attr-item { flex-direction: row; gap: 8px; }
+  .journey-bar { height: 80px; overflow-x: auto; min-width: 300px; }
+  .journey-event-name { font-size: 10px; }
+  .journey-event-date { font-size: 9px; }
+
+  /* Year review table */
+  .home-year-review table { font-size: 12px; }
+  .home-year-review th, .home-year-review td { padding: 6px 8px; }
 }
 
 /* === CASH FLOW MODAL === */
@@ -1738,7 +1815,8 @@ tr:hover { background: var(--bg); }
   border-bottom: none;
 }
 
-/* Clickable row hover */
+/* Clickable row */
+.cf-row-clickable { cursor: pointer; }
 .cf-row-clickable:hover {
   background: rgba(26,115,232,0.06);
 }
@@ -1921,7 +1999,7 @@ tr:hover { background: var(--bg); }
   border-radius: 4px;
   transition: width 0.3s ease;
 }
-.home-goal-bar.funded { background: var(--green); }
+.home-goal-bar.funded { background: var(--positive); }
 .home-goal-bar.on-track { background: #1a73e8; }
 .home-goal-bar.at-risk { background: #f9ab00; }
 .home-goal-detail {

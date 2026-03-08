@@ -65,7 +65,7 @@ var NetWorthCalculator = {
     });
     var startOfYear = decPrev.length ? decPrev[0].total : data[0].total;
     var change = current.total - startOfYear;
-    var pct = startOfYear > 0 ? (change / startOfYear) * 100 : 0;
+    var pct = Math.abs(startOfYear) > 0.01 ? (change / Math.abs(startOfYear)) * 100 : 0;
 
     return { change: change, pct: pct };
   },
@@ -77,7 +77,7 @@ var NetWorthCalculator = {
     var current = data[data.length - 1];
     var prev = data[data.length - 2];
     var change = current.total - prev.total;
-    var pct = prev.total > 0 ? (change / prev.total) * 100 : 0;
+    var pct = Math.abs(prev.total) > 0.01 ? (change / Math.abs(prev.total)) * 100 : 0;
 
     return { change: change, pct: pct };
   }

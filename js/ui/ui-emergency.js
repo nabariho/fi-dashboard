@@ -172,12 +172,12 @@ var EmergencyRenderer = {
       '<div class="table-header-row"><h2>Monthly Flows</h2></div>' +
       '<div class="nw-table-scroll"><table class="nw-breakdown"><thead><tr>' +
         '<th>Month</th>' +
-        '<th style="text-align:right">Starting</th>' +
-        '<th style="text-align:right">Contributions</th>' +
-        '<th style="text-align:right">Withdrawals</th>' +
-        '<th style="text-align:right">Market Change</th>' +
-        '<th style="text-align:right">Ending</th>' +
-        '<th style="text-align:right">vs Target</th>' +
+        '<th class="text-right">Starting</th>' +
+        '<th class="text-right">Contributions</th>' +
+        '<th class="text-right">Withdrawals</th>' +
+        '<th class="text-right">Market Change</th>' +
+        '<th class="text-right">Ending</th>' +
+        '<th class="text-right">vs Target</th>' +
       '</tr></thead><tbody>';
 
     // Show most recent first
@@ -196,12 +196,12 @@ var EmergencyRenderer = {
 
       html += '<tr' + (hasWithdrawal ? ' class="ef-withdrawal-row"' : '') + '>' +
         '<td>' + h.month + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(starting) + '</td>' +
-        '<td style="text-align:right">' + (h.contributions > 0 ? '+' + Fmt.currency(h.contributions) : '-') + '</td>' +
-        '<td style="text-align:right">' + (h.withdrawals < 0 ? '<span class="negative">' + Fmt.currency(h.withdrawals) + '</span>' : '-') + '</td>' +
-        '<td style="text-align:right">' + (h.marketChange !== 0 ? '<span class="' + (h.marketChange >= 0 ? 'positive' : 'negative') + '">' + (h.marketChange >= 0 ? '+' : '') + Fmt.currency(h.marketChange) + '</span>' : '-') + '</td>' +
-        '<td style="text-align:right;font-weight:500">' + Fmt.currency(h.balance) + '</td>' +
-        '<td style="text-align:right" class="' + diffClass + '">' + (diff >= 0 ? '+' : '') + Fmt.currency(diff) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(starting) + '</td>' +
+        '<td class="text-right">' + (h.contributions > 0 ? '+' + Fmt.currency(h.contributions) : '-') + '</td>' +
+        '<td class="text-right">' + (h.withdrawals < 0 ? '<span class="negative">' + Fmt.currency(h.withdrawals) + '</span>' : '-') + '</td>' +
+        '<td class="text-right">' + (h.marketChange !== 0 ? '<span class="' + (h.marketChange >= 0 ? 'positive' : 'negative') + '">' + (h.marketChange >= 0 ? '+' : '') + Fmt.currency(h.marketChange) + '</span>' : '-') + '</td>' +
+        '<td class="text-right font-semibold">' + Fmt.currency(h.balance) + '</td>' +
+        '<td class="text-right ' + diffClass + '">' + (diff >= 0 ? '+' : '') + Fmt.currency(diff) + '</td>' +
       '</tr>';
     }
 

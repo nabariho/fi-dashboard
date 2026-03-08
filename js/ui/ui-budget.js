@@ -37,8 +37,8 @@ var BudgetRenderer = {
     html += '<div class="table-container">' +
       '<div class="table-header-row"><h2>Budget Items by Category</h2></div>' +
       '<table class="budget-table"><thead><tr>' +
-        '<th>Item</th><th>Type</th><th style="text-align:right">Amount</th>' +
-        '<th>Frequency</th><th style="text-align:right">Monthly</th>' +
+        '<th>Item</th><th>Type</th><th class="text-right">Amount</th>' +
+        '<th>Frequency</th><th class="text-right">Monthly</th>' +
       '</tr></thead><tbody>';
 
     for (var c = 0; c < categories.length; c++) {
@@ -47,7 +47,7 @@ var BudgetRenderer = {
 
       // Category header row
       html += '<tr class="budget-category-row"><td colspan="4">' + cat + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(group.planned) + '</td></tr>';
+        '<td class="text-right">' + Fmt.currency(group.planned) + '</td></tr>';
 
       // Item rows
       for (var j = 0; j < group.items.length; j++) {
@@ -55,9 +55,9 @@ var BudgetRenderer = {
         html += '<tr>' +
           '<td class="budget-item-name">' + item.name + '</td>' +
           '<td><span class="budget-type-badge budget-type-' + item.type + '">' + item.type + '</span></td>' +
-          '<td style="text-align:right">' + Fmt.currency(item.amount) + '</td>' +
+          '<td class="text-right">' + Fmt.currency(item.amount) + '</td>' +
           '<td>' + this._frequencyLabel(item.type, item.frequency) + '</td>' +
-          '<td style="text-align:right">' + Fmt.currency(item.monthly) + '</td>' +
+          '<td class="text-right">' + Fmt.currency(item.monthly) + '</td>' +
         '</tr>';
       }
     }
@@ -65,7 +65,7 @@ var BudgetRenderer = {
     // Total row
     html += '<tr class="total-row">' +
       '<td colspan="4"><strong>Total Monthly Budget</strong></td>' +
-      '<td style="text-align:right"><strong>' + Fmt.currency(budget.total) + '</strong></td>' +
+      '<td class="text-right"><strong>' + Fmt.currency(budget.total) + '</strong></td>' +
     '</tr>';
 
     html += '</tbody></table></div>';

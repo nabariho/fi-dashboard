@@ -218,9 +218,9 @@ var MortgageRenderer = {
       '<div class="nw-table-scroll">' +
       '<table class="amort-table">' +
       '<thead><tr>' +
-      '<th>Month</th><th style="text-align:right">Payment</th><th style="text-align:right">Principal</th>' +
-      '<th style="text-align:right">Interest</th><th style="text-align:right">Extra</th>' +
-      '<th style="text-align:right">Balance</th>' +
+      '<th>Month</th><th class="text-right">Payment</th><th class="text-right">Principal</th>' +
+      '<th class="text-right">Interest</th><th class="text-right">Extra</th>' +
+      '<th class="text-right">Balance</th>' +
       '</tr></thead><tbody>';
 
     var yearKeys = Object.keys(years).sort();
@@ -237,22 +237,22 @@ var MortgageRenderer = {
         var hasExtra = s.extra > 0;
         html += '<tr class="' + (hasExtra ? 'extra-payment-row' : '') + '">' +
           '<td>' + s.month + '</td>' +
-          '<td style="text-align:right">' + Fmt.currency(s.payment) + '</td>' +
-          '<td style="text-align:right">' + Fmt.currency(s.principal_paid) + '</td>' +
-          '<td style="text-align:right">' + Fmt.currency(s.interest_paid) + '</td>' +
-          '<td style="text-align:right">' + (hasExtra ? Fmt.currency(s.extra) : '') + '</td>' +
-          '<td style="text-align:right">' + Fmt.currency(s.balance) + '</td>' +
+          '<td class="text-right">' + Fmt.currency(s.payment) + '</td>' +
+          '<td class="text-right">' + Fmt.currency(s.principal_paid) + '</td>' +
+          '<td class="text-right">' + Fmt.currency(s.interest_paid) + '</td>' +
+          '<td class="text-right">' + (hasExtra ? Fmt.currency(s.extra) : '') + '</td>' +
+          '<td class="text-right">' + Fmt.currency(s.balance) + '</td>' +
           '</tr>';
       });
 
       // Year subtotal row
       html += '<tr class="amort-year-row">' +
         '<td><strong>' + year + ' Total</strong></td>' +
-        '<td style="text-align:right"><strong>' + Fmt.currency(yearPayment) + '</strong></td>' +
-        '<td style="text-align:right"><strong>' + Fmt.currency(yearPrincipal) + '</strong></td>' +
-        '<td style="text-align:right"><strong>' + Fmt.currency(yearInterest) + '</strong></td>' +
-        '<td style="text-align:right"><strong>' + (yearExtra > 0 ? Fmt.currency(yearExtra) : '') + '</strong></td>' +
-        '<td style="text-align:right"></td>' +
+        '<td class="text-right"><strong>' + Fmt.currency(yearPayment) + '</strong></td>' +
+        '<td class="text-right"><strong>' + Fmt.currency(yearPrincipal) + '</strong></td>' +
+        '<td class="text-right"><strong>' + Fmt.currency(yearInterest) + '</strong></td>' +
+        '<td class="text-right"><strong>' + (yearExtra > 0 ? Fmt.currency(yearExtra) : '') + '</strong></td>' +
+        '<td class="text-right"></td>' +
         '</tr>';
     });
 
@@ -266,17 +266,17 @@ var MortgageRenderer = {
       '<div class="nw-table-scroll">' +
       '<table class="admin-table">' +
       '<thead><tr>' +
-      '<th>Month</th><th style="text-align:right">Planned</th><th style="text-align:right">Actual</th>' +
-      '<th style="text-align:right">Difference</th>' +
+      '<th>Month</th><th class="text-right">Planned</th><th class="text-right">Actual</th>' +
+      '<th class="text-right">Difference</th>' +
       '</tr></thead><tbody>';
 
     comparison.forEach(function(c) {
       var diffClass = c.diff > 0.01 ? 'positive' : (c.diff < -0.01 ? 'negative' : '');
       html += '<tr>' +
         '<td>' + c.month + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(c.planned_payment) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(c.actual_payment) + '</td>' +
-        '<td style="text-align:right" class="' + diffClass + '">' + Fmt.currency(c.diff) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(c.planned_payment) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(c.actual_payment) + '</td>' +
+        '<td class="text-right ' + diffClass + '">' + Fmt.currency(c.diff) + '</td>' +
         '</tr>';
     });
 

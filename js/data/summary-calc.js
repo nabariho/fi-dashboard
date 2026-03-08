@@ -200,11 +200,11 @@ var SummaryCalculator = {
   },
 
   // Compute annual summaries from NW data and monthly contributions.
-  // nwData: array from NetWorthCalculator.compute()
-  // allData: raw MonthEnd rows
+  // nwData: array from NetWorthCalculator.compute() — includes mortgage/house integration
+  // allData: raw MonthEnd rows (investment + bank accounts only)
   // cashflowEntries: optional actual income/expense entries
-  // Returns: array of { year, startNW, endNW, nwChange, nwChangePct, totalSaved, marketReturns,
-  //                      savingsRate, totalIncome, totalExpenses }
+  // Returns: array of { year, startNW, endNW, nwChange, nwChangePct, totalSaved,
+  //   marketReturns, debtReduction, houseValueChange, savingsRate, totalIncome, totalExpenses }
   computeAnnualSummaries: function(nwData, allData, cashflowEntries) {
     if (!nwData || nwData.length < 2) return [];
 
@@ -216,37 +216,57 @@ var SummaryCalculator = {
       byYear[year].push(r);
     });
 
-    // Group contributions by year
+    // Group contributions by year (from MonthEnd rows — investments + bank only)
     var contribByYear = {};
     allData.forEach(function(r) {
       var year = r.month.split('-')[0];
       contribByYear[year] = (contribByYear[year] || 0) + (r.net_contribution || 0);
     });
 
-    // Group cashflow by year
+    // Group cashflow by year — use CashflowCalculator for proper classification
     var cfByYear = {};
-    if (cashflowEntries) {
-      cashflowEntries.forEach(function(e) {
-        var year = e.month.split('-')[0];
+    if (cashflowEntries && cashflowEntries.length && typeof CashflowCalculator !== 'undefined') {
+      var allMonths = CashflowCalculator.computeAllMonths(cashflowEntries);
+      allMonths.forEach(function(m) {
+        var year = m.month.split('-')[0];
         if (!cfByYear[year]) cfByYear[year] = { income: 0, expenses: 0 };
-        if (e.type === 'income') cfByYear[year].income += (e.amount || 0);
-        else cfByYear[year].expenses += (e.amount || 0);
+        cfByYear[year].income += m.totalIncome;
+        cfByYear[year].expenses += m.totalExpenses;
       });
     }
 
     var years = Object.keys(byYear).sort();
     var summaries = [];
     var prevYearEnd = null;
+    var prevYearEndMortgage = null;
+    var prevYearEndHouseValue = null;
 
     for (var i = 0; i < years.length; i++) {
       var year = years[i];
       var yearData = byYear[year];
+      var startRow = prevYearEnd !== null ? null : yearData[0];
+      var endRow = yearData[yearData.length - 1];
       var startNW = prevYearEnd !== null ? prevYearEnd : yearData[0].total;
-      var endNW = yearData[yearData.length - 1].total;
+      var endNW = endRow.total;
       var nwChange = endNW - startNW;
-      var nwChangePct = startNW > 0 ? (nwChange / startNW) * 100 : 0;
+
+      // Fix: handle negative NW for percentage calculation
+      var nwChangePct = Math.abs(startNW) > 0.01 ? (nwChange / Math.abs(startNW)) * 100 : 0;
+
       var totalSaved = contribByYear[year] || 0;
-      var marketReturns = nwChange - totalSaved;
+
+      // Decompose NW change: contributions + investment gains + debt reduction + house value change
+      var startMortgage = prevYearEndMortgage !== null ? prevYearEndMortgage : (startRow ? startRow.mortgage_balance || 0 : 0);
+      var endMortgage = endRow.mortgage_balance || 0;
+      var debtReduction = startMortgage - endMortgage; // positive means debt went down
+
+      var startHouseValue = prevYearEndHouseValue !== null ? prevYearEndHouseValue : (startRow ? startRow.house_value || 0 : 0);
+      var endHouseValue = endRow.house_value || 0;
+      var houseValueChange = endHouseValue - startHouseValue;
+
+      // Market returns = NW change minus savings, debt reduction, and house appreciation
+      var marketReturns = nwChange - totalSaved - debtReduction - houseValueChange;
+
       var cf = cfByYear[year] || { income: 0, expenses: 0 };
       var savingsRate = cf.income > 0 ? (totalSaved / cf.income * 100) : 0;
 
@@ -258,6 +278,8 @@ var SummaryCalculator = {
         nwChangePct: nwChangePct,
         totalSaved: totalSaved,
         marketReturns: marketReturns,
+        debtReduction: debtReduction,
+        houseValueChange: houseValueChange,
         savingsRate: savingsRate,
         totalIncome: cf.income,
         totalExpenses: cf.expenses,
@@ -265,6 +287,8 @@ var SummaryCalculator = {
       });
 
       prevYearEnd = endNW;
+      prevYearEndMortgage = endMortgage;
+      prevYearEndHouseValue = endHouseValue;
     }
 
     return summaries;

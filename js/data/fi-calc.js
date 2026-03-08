@@ -19,9 +19,11 @@ var FICalculator = {
     return gross * (1 - (taxRate || 0));
   },
 
-  // Real return adjusted for inflation (Fisher approximation)
+  // Real return adjusted for inflation (exact Fisher equation)
   realReturn: function(nominalReturn, inflationRate) {
-    return nominalReturn - (inflationRate || 0);
+    var i = inflationRate || 0;
+    if (i === 0) return nominalReturn;
+    return (1 + nominalReturn) / (1 + i) - 1;
   },
 
   // What the FI target is in future (nominal) euros
