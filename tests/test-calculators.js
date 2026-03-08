@@ -277,6 +277,55 @@ describe('Fmt', function() {
   });
 });
 
+// --- ActionsCalculator ---
+
+describe('ActionsCalculator', function() {
+  it('generates budget_deficit action when savings insufficient', function() {
+    var plan = {
+      goals: [{ goal_id: 'g1', status: 'at_risk', required_monthly: 1000 }],
+      budget_deficit: 300,
+      budget_surplus: 0,
+      required_total: 1000,
+      available_for_goals: 700
+    };
+    var actions = ActionsCalculator.computeActions(plan, null, null);
+    assert(actions.some(function(a) { return a.type === 'budget_deficit'; }), 'Should have budget_deficit');
+    assertEqual(actions[0].severity, 'error');
+  });
+
+  it('generates surplus action when budget exceeds requirements', function() {
+    var plan = {
+      goals: [{ goal_id: 'g1', name: 'Goal A', status: 'on_track', required_monthly: 500, priority: 1 }],
+      budget_deficit: 0,
+      budget_surplus: 200,
+      required_total: 500,
+      available_for_goals: 700
+    };
+    var actions = ActionsCalculator.computeActions(plan, null, null);
+    assert(actions.some(function(a) { return a.type === 'surplus'; }), 'Should suggest surplus allocation');
+  });
+
+  it('generates redirect action when goal is funded and others at risk', function() {
+    var plan = {
+      goals: [
+        { goal_id: 'g1', name: 'Done Goal', status: 'funded', required_monthly: 0, priority: 1 },
+        { goal_id: 'g2', name: 'Needs Help', status: 'at_risk', required_monthly: 800, priority: 2 }
+      ],
+      budget_deficit: 0,
+      budget_surplus: 0,
+      required_total: 800,
+      available_for_goals: 500
+    };
+    var actions = ActionsCalculator.computeActions(plan, null, null);
+    assert(actions.some(function(a) { return a.type === 'redirect_funds'; }), 'Should suggest redirect');
+  });
+
+  it('returns empty array when no plan', function() {
+    var actions = ActionsCalculator.computeActions(null, null, null);
+    assertEqual(actions.length, 0);
+  });
+});
+
 // --- GoalAccountingService ---
 
 describe('GoalAccountingService', function() {

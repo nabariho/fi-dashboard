@@ -1376,6 +1376,21 @@ tr:hover { background: var(--bg); }
   background: #e8f0fe;
   color: #1a73e8;
 }
+.summary-alert-success {
+  background: #e6f4ea;
+  color: #137333;
+}
+.action-detail {
+  font-size: 12px;
+  margin-top: 4px;
+  opacity: 0.85;
+}
+.actions-list {
+  padding: 0 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
 /* === MORTGAGE === */
 .mortgage-summary {

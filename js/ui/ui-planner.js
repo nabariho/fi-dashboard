@@ -17,7 +17,7 @@ var PlannerRenderer = {
     return '';
   },
 
-  render: function(plan, milestoneStatuses, fundingHistory) {
+  render: function(plan, milestoneStatuses, fundingHistory, actions) {
     var el = document.getElementById('goalsContent');
     if (!el) return;
 
@@ -30,6 +30,28 @@ var PlannerRenderer = {
     }
 
     var html = '';
+
+    // --- Recommended Actions ---
+    if (actions && actions.length) {
+      var severityIcons = { error: '&#9888;', warning: '&#9888;', info: '&#128161;', success: '&#10003;' };
+      var severityClasses = { error: 'summary-alert-error', warning: 'summary-alert-warning', info: 'summary-alert-info', success: 'summary-alert-success' };
+
+      html += '<div class="table-container"><div class="table-header-row"><h2>Recommended Actions</h2></div>' +
+        '<div class="actions-list">';
+
+      actions.forEach(function(a) {
+        var icon = severityIcons[a.severity] || '&#128161;';
+        var cls = severityClasses[a.severity] || 'summary-alert-info';
+        html += '<div class="summary-alert ' + cls + '">' +
+          '<div><strong>' + icon + ' ' + a.message + '</strong></div>';
+        if (a.detail) {
+          html += '<div class="action-detail">' + a.detail + '</div>';
+        }
+        html += '</div>';
+      });
+
+      html += '</div></div>';
+    }
 
     // --- Funding plan ---
     if (plan && plan.goals && plan.goals.length) {
