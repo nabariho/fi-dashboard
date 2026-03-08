@@ -4,6 +4,7 @@
 var mortgageData = null;
 var milestonesData = [];
 var plannerGoalsData = [];
+var cashflowEntries = [];
 
 // --- Monthly Summary (always visible) ---
 
@@ -217,6 +218,15 @@ function refreshCashFlow() {
     return;
   }
 
+  // Hybrid: override with actual cashflow data where available
+  var actualMonths = null;
+  if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
+    actualMonths = CashflowCalculator.getMonthsWithActuals(cashflowEntries);
+    monthlyData = SavingsCapacityCalculator.computeMonthlyHybrid(
+      allData, cashflowEntries, { monthlyIncome: monthlyIncome }
+    );
+  }
+
   // Budget total for comparison
   var budgetTotal = 0;
   if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
@@ -243,7 +253,28 @@ function refreshCashFlow() {
   var waterfall = SavingsCapacityCalculator.computeWaterfall(monthlyData, budgetTotal, goalPlan, _cashflowTrailingMonths);
   var achievability = SavingsCapacityCalculator.computeAchievability(goalPlan, waterfall.actualSavings);
 
-  CashFlowRenderer.render(waterfall, monthlyData, achievability, _cashflowTrailingMonths);
+  // Planned vs actual data
+  var plannedVsActual = null;
+  if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length && budgetItems.length) {
+    var latestActualMonth = null;
+    if (actualMonths && actualMonths.size > 0) {
+      actualMonths.forEach(function(m) {
+        if (!latestActualMonth || m > latestActualMonth) latestActualMonth = m;
+      });
+    }
+    if (latestActualMonth) {
+      plannedVsActual = CashflowCalculator.computePlannedVsActual(cashflowEntries, budgetItems, latestActualMonth);
+      plannedVsActual.month = latestActualMonth;
+    }
+  }
+
+  // Category trends
+  var categoryTrends = null;
+  if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
+    categoryTrends = CashflowCalculator.computeCategoryTrends(cashflowEntries, 12);
+  }
+
+  CashFlowRenderer.render(waterfall, monthlyData, achievability, _cashflowTrailingMonths, plannedVsActual, categoryTrends);
 }
 
 // --- Goals Tab (unified: funding plan + milestones) ---
@@ -476,6 +507,7 @@ function loadData(data) {
     if (typeof clone.track_current_from_accounts === 'undefined') clone.track_current_from_accounts = true;
     return clone;
   });
+  cashflowEntries = data.cashflowEntries || [];
 }
 
 // --- Cache Status + Refresh ---
@@ -833,7 +865,8 @@ function updateDbModeUI() {
         budgetItems: budgetItems,
         milestones: milestonesData,
         mortgage: mortgageData,
-        plannerGoals: plannerGoalsData
+        plannerGoals: plannerGoalsData,
+        cashflowEntries: cashflowEntries
       };
       DataExport.exportXLSX(data);
     } catch (err) {

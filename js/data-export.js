@@ -149,6 +149,22 @@ var DataExport = (function() {
     wsMilestones['!cols'] = [{ wch: 16 }, { wch: 22 }, { wch: 12 }, { wch: 14 }, { wch: 22 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, wsMilestones, 'Milestones');
 
+    // --- CashFlow sheet ---
+    if (data.cashflowEntries && data.cashflowEntries.length) {
+      var cfRows = [['entry_id', 'month', 'type', 'category', 'amount', 'notes']];
+      var cfData = data.cashflowEntries.slice().sort(function(a, b) {
+        if (a.month !== b.month) return a.month < b.month ? -1 : 1;
+        return (a.entry_id || '').localeCompare(b.entry_id || '');
+      });
+      for (var cf = 0; cf < cfData.length; cf++) {
+        var cfe = cfData[cf];
+        cfRows.push([cfe.entry_id, cfe.month, cfe.type, cfe.category, cfe.amount, cfe.notes || '']);
+      }
+      var wsCashFlow = XLSX.utils.aoa_to_sheet(cfRows);
+      wsCashFlow['!cols'] = [{ wch: 28 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 30 }];
+      XLSX.utils.book_append_sheet(wb, wsCashFlow, 'CashFlow');
+    }
+
     // --- Mortgage sheet (3 sections) ---
     if (data.mortgage) {
       var mort = data.mortgage;

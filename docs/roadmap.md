@@ -135,6 +135,25 @@ Living document tracking planned features, priorities, and progress.
 
 ---
 
+## Phase 8: Monthly Income & Expense Tracking
+
+**Status:** Done
+**Priority:** High — provides real data to replace derived proxies
+
+**Goal:** Track actual monthly income and expenses by category, build historical view for spotting improvement areas, and feed real data into Cash Flow tab.
+
+### Scope
+- Cashflow entries data structure: `{ entry_id, month, type, category, amount, notes }`
+- `CashflowCalculator` pure functions: month summary, planned-vs-actual, category trends
+- Hybrid mode in `SavingsCapacityCalculator`: override derived data with actuals where available
+- Admin Cash Flow tab: Quick Add Month (pre-populated from budget categories + income), single entry add, inline edit, month filter
+- Dashboard Cash Flow tab enhancements: data source indicator (actual/derived), planned-vs-actual bar chart + table, category trends stacked bar chart
+- StorageManager integration: `cashflow` record type for DB mode
+- XLSX export includes CashFlow sheet
+- 8 unit tests for CashflowCalculator
+
+---
+
 ## Design Principles (applies to all phases)
 
 - **Data/UI separation**: calculators are pure functions, renderers handle DOM only
@@ -166,3 +185,4 @@ Living document tracking planned features, priorities, and progress.
 - [x] XLSX export with all data types
 - [x] Monthly summary with auto-generated narrative
 - [x] Anomaly detection for data validation
+- [x] Monthly income & expense tracking with planned-vs-actual (Phase 8)

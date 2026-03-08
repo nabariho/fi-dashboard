@@ -71,6 +71,14 @@ var StorageManager = (function() {
       }
     }
 
+    // Cashflow entries: one record per entry
+    if (data.cashflowEntries) {
+      for (var cf = 0; cf < data.cashflowEntries.length; cf++) {
+        var cfe = data.cashflowEntries[cf];
+        map['cashflow|' + cfe.entry_id] = cfe;
+      }
+    }
+
     return map;
   }
 
@@ -129,7 +137,8 @@ var StorageManager = (function() {
       budgetItems: [],
       milestones: [],
       mortgage: null,
-      plannerGoals: []
+      plannerGoals: [],
+      cashflowEntries: []
     };
 
     for (var i = 0; i < records.length; i++) {
@@ -156,6 +165,9 @@ var StorageManager = (function() {
         case 'planner_goal':
           data.plannerGoals.push(r.payload);
           break;
+        case 'cashflow':
+          data.cashflowEntries.push(r.payload);
+          break;
       }
     }
 
@@ -167,6 +179,10 @@ var StorageManager = (function() {
     data.plannerGoals.sort(function(a, b) {
       if ((a.priority || 99) !== (b.priority || 99)) return (a.priority || 99) - (b.priority || 99);
       return (a.goal_id || '').localeCompare(b.goal_id || '');
+    });
+    data.cashflowEntries.sort(function(a, b) {
+      if (a.month !== b.month) return a.month > b.month ? -1 : 1;
+      return (a.entry_id || '').localeCompare(b.entry_id || '');
     });
 
     return data;

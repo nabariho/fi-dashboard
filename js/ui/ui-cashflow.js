@@ -4,8 +4,10 @@
 var CashFlowRenderer = {
   _waterfallChart: null,
   _trendChart: null,
+  _pvaChart: null,
+  _categoryTrendChart: null,
 
-  render: function(waterfall, monthlyData, achievability, trailingMonths) {
+  render: function(waterfall, monthlyData, achievability, trailingMonths, plannedVsActual, categoryTrends) {
     var el = document.getElementById('cashflowContent');
     if (!el) return;
 
@@ -82,20 +84,66 @@ var CashFlowRenderer = {
       html += '</tbody></table></div></div>';
     }
 
+    // --- Planned vs Actual section ---
+    if (plannedVsActual && plannedVsActual.month) {
+      html += '<div class="chart-container">' +
+        '<div class="chart-header"><h2>Planned vs Actual (' + plannedVsActual.month + ')</h2></div>' +
+        '<canvas id="pvaChart"></canvas>' +
+      '</div>';
+
+      html += '<div class="table-container"><div class="table-header-row"><h2>Budget Comparison</h2></div>' +
+        '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+        '<th>Category</th><th style="text-align:right">Planned</th><th style="text-align:right">Actual</th><th style="text-align:right">Delta</th>' +
+        '</tr></thead><tbody>';
+
+      var pvaCats = Object.keys(plannedVsActual.byCategory).sort();
+      pvaCats.forEach(function(cat) {
+        var row = plannedVsActual.byCategory[cat];
+        var deltaClass = row.delta > 50 ? 'negative' : (row.delta < -50 ? 'positive' : '');
+        html += '<tr>' +
+          '<td>' + cat + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(row.planned) + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(row.actual) + '</td>' +
+          '<td style="text-align:right" class="' + deltaClass + '">' + Fmt.currency(row.delta) + '</td>' +
+          '</tr>';
+      });
+
+      var tDeltaClass = plannedVsActual.totals.delta > 50 ? 'negative' : (plannedVsActual.totals.delta < -50 ? 'positive' : '');
+      html += '<tr style="font-weight:600"><td>Total</td>' +
+        '<td style="text-align:right">' + Fmt.currency(plannedVsActual.totals.planned) + '</td>' +
+        '<td style="text-align:right">' + Fmt.currency(plannedVsActual.totals.actual) + '</td>' +
+        '<td style="text-align:right" class="' + tDeltaClass + '">' + Fmt.currency(plannedVsActual.totals.delta) + '</td>' +
+        '</tr>';
+
+      html += '</tbody></table></div></div>';
+    }
+
+    // --- Category Trends chart ---
+    if (categoryTrends && categoryTrends.months.length > 1) {
+      html += '<div class="chart-container">' +
+        '<div class="chart-header"><h2>Expense Category Trends</h2></div>' +
+        '<canvas id="categoryTrendChart"></canvas>' +
+      '</div>';
+    }
+
     // --- Monthly breakdown table ---
     html += '<div class="table-container"><div class="table-header-row"><h2>Monthly Cash Flow</h2></div>' +
       '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th>Month</th><th style="text-align:right">Income</th><th style="text-align:right">Net Contributions</th>' +
+      '<th>Month</th><th style="text-align:center">Source</th><th style="text-align:right">Income</th><th style="text-align:right">Net Contributions</th>' +
       '<th style="text-align:right">Savings Accts</th><th style="text-align:right">Transactional</th>' +
-      '<th style="text-align:right">Implied Expenses</th><th style="text-align:right">Savings Rate</th>' +
+      '<th style="text-align:right">Expenses</th><th style="text-align:right">Savings Rate</th>' +
       '</tr></thead><tbody>';
 
     var displayed = monthlyData.slice(-24);
     for (var i = displayed.length - 1; i >= 0; i--) {
       var r = displayed[i];
       var rateClass = r.savingsRate >= 0.3 ? 'positive' : (r.savingsRate >= 0.15 ? '' : 'negative');
+      var sourceLabel = r.dataSource === 'actual'
+        ? '<span style="color:#0d904f;font-size:11px" title="From actual income/expense entries">Actual</span>'
+        : '<span style="color:var(--text-secondary);font-size:11px" title="Derived from account contributions">Derived</span>';
       html += '<tr>' +
         '<td>' + r.month + '</td>' +
+        '<td style="text-align:center">' + sourceLabel + '</td>' +
         '<td style="text-align:right">' + Fmt.currency(r.income) + '</td>' +
         '<td style="text-align:right" class="' + (r.totalContributions >= 0 ? 'positive' : 'negative') + '">' + Fmt.currency(r.totalContributions) + '</td>' +
         '<td style="text-align:right">' + Fmt.currency(r.savingsContributions) + '</td>' +
@@ -112,6 +160,12 @@ var CashFlowRenderer = {
     // Render charts after DOM is ready
     this._renderWaterfallChart(waterfall);
     this._renderTrendChart(monthlyData);
+    if (plannedVsActual && plannedVsActual.month) {
+      this._renderPVAChart(plannedVsActual);
+    }
+    if (categoryTrends && categoryTrends.months.length > 1) {
+      this._renderCategoryTrendChart(categoryTrends);
+    }
   },
 
   _renderWaterfallChart: function(waterfall) {
@@ -262,6 +316,81 @@ var CashFlowRenderer = {
             ticks: { callback: function(v) { return v + '%'; } },
             grid: { display: false }
           }
+        }
+      }
+    });
+  },
+
+  _renderPVAChart: function(pva) {
+    var canvas = document.getElementById('pvaChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    if (this._pvaChart) this._pvaChart.destroy();
+
+    var cats = Object.keys(pva.byCategory).sort();
+    var plannedData = cats.map(function(c) { return pva.byCategory[c].planned; });
+    var actualData = cats.map(function(c) { return pva.byCategory[c].actual; });
+
+    this._pvaChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: cats,
+        datasets: [
+          { label: 'Planned', data: plannedData, backgroundColor: '#1a73e8', barPercentage: 0.6 },
+          { label: 'Actual', data: actualData, backgroundColor: '#e8710a', barPercentage: 0.6 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return ctx.dataset.label + ': ' + Fmt.currency(ctx.raw); }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { ticks: { callback: function(v) { return Fmt.currency(v); } } }
+        }
+      }
+    });
+  },
+
+  _renderCategoryTrendChart: function(trends) {
+    var canvas = document.getElementById('categoryTrendChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    if (this._categoryTrendChart) this._categoryTrendChart.destroy();
+
+    var colors = ['#1a73e8', '#d93025', '#e8710a', '#0d904f', '#9334e6', '#185abc', '#b31412', '#ea8600', '#137333', '#7627bb', '#669df6', '#ee675c'];
+    var datasets = trends.categories.map(function(cat, i) {
+      return {
+        label: cat,
+        data: trends.series[cat],
+        backgroundColor: colors[i % colors.length],
+        fill: true,
+        borderWidth: 0
+      };
+    });
+
+    this._categoryTrendChart = new Chart(canvas, {
+      type: 'bar',
+      data: { labels: trends.months, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return ctx.dataset.label + ': ' + Fmt.currency(ctx.raw); }
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true, grid: { display: false } },
+          y: { stacked: true, ticks: { callback: function(v) { return Fmt.currency(v); } } }
         }
       }
     });

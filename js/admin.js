@@ -20,6 +20,7 @@ var AdminState = {
   plannerGoals: [],
   milestones: [],
   mortgage: null,
+  cashflowEntries: [],
   originalFileText: null,
   filename: null,
   wasEncrypted: false,
@@ -52,9 +53,11 @@ function updateTabBadges() {
   var b4 = document.getElementById('badge-monthend');
   var b5 = document.getElementById('badge-milestones');
   var b6 = document.getElementById('badge-mortgage');
+  var bCashflow = document.getElementById('badge-cashflow');
   if (b1) b1.textContent = Object.keys(AdminState.config).length;
   if (b2) b2.textContent = AdminState.accounts.length;
   if (b3) b3.textContent = AdminState.budgetItems.length;
+  if (bCashflow) bCashflow.textContent = AdminState.cashflowEntries.length;
   if (bPlanning) bPlanning.textContent = AdminState.plannerGoals.length;
   if (b5) b5.textContent = AdminState.milestones.length;
   if (b4) b4.textContent = AdminState.data.length;
@@ -178,6 +181,7 @@ function loadAdminData(data) {
   AdminState.milestones = (data.milestones || []).map(function(m) {
     return Object.assign({}, m, { sub_targets: (m.sub_targets || []).map(function(s) { return Object.assign({}, s); }) });
   });
+  AdminState.cashflowEntries = (data.cashflowEntries || []).map(function(e) { return Object.assign({}, e); });
   if (data.mortgage) {
     AdminState.mortgage = Object.assign({}, data.mortgage, {
       extra_payments: (data.mortgage.extra_payments || []).map(function(e) { return Object.assign({}, e); }),
@@ -239,6 +243,7 @@ function renderActiveTab() {
   if (tab === 'config') renderConfig();
   else if (tab === 'accounts') renderAccounts();
   else if (tab === 'budget') renderBudget();
+  else if (tab === 'cashflow') renderCashflowAdmin();
   else if (tab === 'planning') renderPlanning();
   else if (tab === 'milestones') renderMilestones();
   else if (tab === 'monthend') renderMonthEnd();
@@ -1623,6 +1628,304 @@ function addMonthEnd() {
   showToast('Row added: ' + month + ' / ' + accountId);
 }
 
+// --- Cash Flow Tab ---
+
+function cashflowSlugify(str) {
+  return (str || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+function cashflowTitleCase(str) {
+  return (str || '').trim().replace(/\w\S*/g, function(txt) {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+  });
+}
+
+function renderCashflowAdmin() {
+  var container = document.getElementById('cashflowAdminTable');
+  var entries = AdminState.cashflowEntries;
+
+  // Gather existing expense categories from budget items for datalist
+  var budgetCategories = [];
+  var catSet = {};
+  (AdminState.budgetItems || []).forEach(function(b) {
+    var cat = b.category || 'Other';
+    if (!catSet[cat]) { catSet[cat] = true; budgetCategories.push(cat); }
+  });
+  budgetCategories.sort();
+
+  // Default income categories
+  var incomeCategories = ['Salary', 'Bonus', 'Other'];
+
+  var html = '<div class="section-header">' +
+    '<h2>Cash Flow Entries</h2>' +
+    '<p class="section-desc">Track actual monthly income and expenses. Use Quick Add to pre-populate from budget categories, or add individual entries below.</p>' +
+    '</div>';
+
+  // --- Quick Add Month ---
+  var today = new Date();
+  var defaultMonth = today.getFullYear() + '-' + pad2(today.getMonth() + 1);
+
+  html += '<div class="add-form-card">' +
+    '<div class="add-form-title">Quick Add Month</div>' +
+    '<div class="add-form-row" style="margin-bottom:12px">' +
+    '<div class="add-form-field"><label>Month</label><input type="month" id="cfQuickMonth" value="' + defaultMonth + '" style="width:160px"></div>' +
+    '<button class="btn-add" onclick="quickAddCashflowMonth()">Generate Rows</button>' +
+    '</div>' +
+    '<div id="cfQuickGrid"></div>' +
+    '</div>';
+
+  // --- Single entry add ---
+  html += '<div class="add-form-card">' +
+    '<div class="add-form-title">Add Single Entry</div>' +
+    '<div class="add-form-row">' +
+    '<div class="add-form-field"><label>Month</label><input type="month" id="cfNewMonth" value="' + defaultMonth + '" style="width:140px"></div>' +
+    '<div class="add-form-field"><label>Type</label><select id="cfNewType"><option value="expense">Expense</option><option value="income">Income</option></select></div>' +
+    '<div class="add-form-field"><label>Category</label><input type="text" id="cfNewCategory" placeholder="Category" list="cfCategoryList" style="width:140px"></div>' +
+    '<div class="add-form-field"><label>Amount</label><input type="number" step="any" id="cfNewAmount" placeholder="0" style="width:100px"></div>' +
+    '<div class="add-form-field"><label>Notes</label><input type="text" id="cfNewNotes" placeholder="" style="width:120px"></div>' +
+    '<button class="btn-add" onclick="addCashflowEntry()">Add</button>' +
+    '</div></div>';
+
+  // Datalist for categories
+  html += '<datalist id="cfCategoryList">';
+  budgetCategories.forEach(function(c) { html += '<option value="' + escHtml(c) + '">'; });
+  incomeCategories.forEach(function(c) { html += '<option value="' + escHtml(c) + '">'; });
+  html += '</datalist>';
+
+  // --- Historical table with month filter ---
+  var months = {};
+  entries.forEach(function(e) { months[e.month] = true; });
+  var monthList = Object.keys(months).sort().reverse();
+
+  html += '<div style="margin-top:16px;display:flex;align-items:center;gap:12px">' +
+    '<label><strong>Filter month:</strong></label>' +
+    '<select id="cfFilterMonth" onchange="renderCashflowAdmin()" style="padding:6px 10px">' +
+    '<option value="ALL">All months</option>';
+  monthList.forEach(function(m) { html += '<option value="' + m + '">' + m + '</option>'; });
+  html += '</select></div>';
+
+  var filterMonth = 'ALL';
+  var filterEl = document.getElementById('cfFilterMonth');
+  if (filterEl) filterMonth = filterEl.value;
+
+  var filtered = entries;
+  if (filterMonth !== 'ALL') {
+    filtered = entries.filter(function(e) { return e.month === filterMonth; });
+  }
+
+  html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
+    '<th>Month</th><th>Type</th><th>Category</th><th>Amount</th><th>Notes</th><th></th>' +
+    '</tr></thead><tbody>';
+
+  if (!filtered.length) {
+    html += '<tr><td colspan="6"><div class="empty-state">No cash flow entries' + (filterMonth !== 'ALL' ? ' for ' + filterMonth : '') + '. Use Quick Add or the form above.</div></td></tr>';
+  }
+
+  filtered.forEach(function(e) {
+    var idx = entries.indexOf(e);
+    var typeClass = e.type === 'income' ? 'style="color:#0d904f"' : '';
+    html += '<tr>' +
+      '<td>' + escHtml(e.month) + '</td>' +
+      '<td ' + typeClass + '>' + escHtml(e.type) + '</td>' +
+      '<td><input type="text" value="' + escHtml(e.category) + '" data-idx="' + idx + '" data-field="category" class="cf-field" style="width:130px"></td>' +
+      '<td><input type="number" step="any" value="' + e.amount + '" data-idx="' + idx + '" data-field="amount" class="cf-num" style="width:100px"></td>' +
+      '<td><input type="text" value="' + escHtml(e.notes || '') + '" data-idx="' + idx + '" data-field="notes" class="cf-field" style="width:120px"></td>' +
+      '<td style="width:60px"><button class="btn-delete" data-idx="' + idx + '" onclick="deleteCashflowEntry(this)">Delete</button></td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+
+  // Restore filter selection
+  var newFilterEl = document.getElementById('cfFilterMonth');
+  if (newFilterEl && filterMonth !== 'ALL') {
+    newFilterEl.value = filterMonth;
+  }
+
+  // Bind inline edit events
+  container.querySelectorAll('.cf-field').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      var field = this.dataset.field;
+      var val = this.value;
+      if (field === 'category') val = cashflowTitleCase(val);
+      AdminState.cashflowEntries[idx][field] = val;
+      if (field === 'category') {
+        // Regenerate entry_id
+        var e = AdminState.cashflowEntries[idx];
+        e.entry_id = e.month + '_' + e.type + '_' + cashflowSlugify(e.category);
+      }
+      markDirty();
+    });
+  });
+
+  container.querySelectorAll('.cf-num').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      var val = parseFloat(this.value);
+      if (!isNaN(val) && val >= 0) {
+        AdminState.cashflowEntries[idx].amount = val;
+        markDirty();
+      }
+    });
+  });
+}
+
+function quickAddCashflowMonth() {
+  var monthInput = document.getElementById('cfQuickMonth');
+  var month = monthInput.value;
+  if (!/^\d{4}-\d{2}$/.test(month)) { monthInput.classList.add('input-error'); return; }
+
+  // Check for existing entries this month
+  var existing = AdminState.cashflowEntries.filter(function(e) { return e.month === month; });
+  if (existing.length > 0 && !confirm('There are already ' + existing.length + ' entries for ' + month + '. Add more rows?')) return;
+
+  // Build grid: income rows + expense rows from budget categories
+  var grid = document.getElementById('cfQuickGrid');
+
+  // Get unique budget categories with planned amounts
+  var budgetByCategory = {};
+  (AdminState.budgetItems || []).forEach(function(b) {
+    if (!b.active) return;
+    var cat = b.category || 'Other';
+    var monthly = b.amount;
+    if (b.frequency === 'yearly') monthly = b.amount / 12;
+    else if (b.frequency === 'quarterly') monthly = b.amount / 4;
+    if (!budgetByCategory[cat]) budgetByCategory[cat] = 0;
+    budgetByCategory[cat] += monthly;
+  });
+  var expenseCategories = Object.keys(budgetByCategory).sort();
+
+  var html = '<table class="admin-table" style="margin-top:8px"><thead><tr>' +
+    '<th>Type</th><th>Category</th><th>Planned</th><th>Actual Amount</th>' +
+    '</tr></thead><tbody>';
+
+  // Income rows
+  var incomeDefaults = ['Salary', 'Bonus', 'Other'];
+  incomeDefaults.forEach(function(cat) {
+    html += '<tr style="background:#e6f4ea33">' +
+      '<td style="color:#0d904f">income</td>' +
+      '<td>' + escHtml(cat) + '</td>' +
+      '<td style="color:var(--text-secondary)">-</td>' +
+      '<td><input type="number" step="any" class="cf-quick-amount" data-type="income" data-category="' + escHtml(cat) + '" placeholder="0" style="width:100px"></td>' +
+      '</tr>';
+  });
+
+  // Expense rows from budget
+  expenseCategories.forEach(function(cat) {
+    html += '<tr>' +
+      '<td>expense</td>' +
+      '<td>' + escHtml(cat) + '</td>' +
+      '<td style="color:var(--text-secondary)">' + budgetByCategory[cat].toFixed(0) + '</td>' +
+      '<td><input type="number" step="any" class="cf-quick-amount" data-type="expense" data-category="' + escHtml(cat) + '" placeholder="0" style="width:100px"></td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table>' +
+    '<div style="margin-top:8px"><button class="btn-add" onclick="saveQuickCashflow()">Save Non-Zero Entries</button></div>';
+
+  grid.innerHTML = html;
+}
+
+function saveQuickCashflow() {
+  var month = document.getElementById('cfQuickMonth').value;
+  var inputs = document.querySelectorAll('.cf-quick-amount');
+  var added = 0;
+
+  inputs.forEach(function(input) {
+    var amt = parseFloat(input.value);
+    if (!amt || amt <= 0) return;
+
+    var type = input.dataset.type;
+    var category = cashflowTitleCase(input.dataset.category);
+    var entryId = month + '_' + type + '_' + cashflowSlugify(category);
+
+    // Check for duplicate entry_id
+    var exists = AdminState.cashflowEntries.some(function(e) { return e.entry_id === entryId; });
+    if (exists) return;
+
+    AdminState.cashflowEntries.push({
+      entry_id: entryId,
+      month: month,
+      type: type,
+      category: category,
+      amount: amt,
+      notes: ''
+    });
+    added++;
+  });
+
+  if (added > 0) {
+    // Sort entries: newest first
+    AdminState.cashflowEntries.sort(function(a, b) {
+      if (a.month !== b.month) return a.month > b.month ? -1 : 1;
+      return (a.entry_id || '').localeCompare(b.entry_id || '');
+    });
+    markDirty();
+    renderCashflowAdmin();
+    showToast(added + ' cash flow entries added for ' + month);
+  } else {
+    showToast('No non-zero amounts to add');
+  }
+}
+
+function addCashflowEntry() {
+  var monthEl = document.getElementById('cfNewMonth');
+  var typeEl = document.getElementById('cfNewType');
+  var catEl = document.getElementById('cfNewCategory');
+  var amtEl = document.getElementById('cfNewAmount');
+  var notesEl = document.getElementById('cfNewNotes');
+
+  monthEl.classList.remove('input-error');
+  catEl.classList.remove('input-error');
+  amtEl.classList.remove('input-error');
+
+  var month = monthEl.value;
+  var type = typeEl.value;
+  var category = cashflowTitleCase(catEl.value);
+  var amount = parseFloat(amtEl.value);
+
+  if (!/^\d{4}-\d{2}$/.test(month)) { monthEl.classList.add('input-error'); return; }
+  if (!category) { catEl.classList.add('input-error'); return; }
+  if (isNaN(amount) || amount <= 0) { amtEl.classList.add('input-error'); return; }
+
+  var entryId = month + '_' + type + '_' + cashflowSlugify(category);
+
+  // Check for duplicate
+  if (AdminState.cashflowEntries.some(function(e) { return e.entry_id === entryId; })) {
+    alert('Entry "' + entryId + '" already exists. Edit the existing row instead.');
+    return;
+  }
+
+  AdminState.cashflowEntries.push({
+    entry_id: entryId,
+    month: month,
+    type: type,
+    category: category,
+    amount: amount,
+    notes: notesEl.value.trim()
+  });
+
+  AdminState.cashflowEntries.sort(function(a, b) {
+    if (a.month !== b.month) return a.month > b.month ? -1 : 1;
+    return (a.entry_id || '').localeCompare(b.entry_id || '');
+  });
+
+  markDirty();
+  renderCashflowAdmin();
+  showToast('Entry added: ' + category + ' (' + type + ')');
+}
+
+function deleteCashflowEntry(btn) {
+  var idx = parseInt(btn.dataset.idx);
+  var entry = AdminState.cashflowEntries[idx];
+  if (!confirm('Delete "' + entry.entry_id + '"?')) return;
+  AdminState.cashflowEntries.splice(idx, 1);
+  markDirty();
+  renderCashflowAdmin();
+}
+
 // --- Validation ---
 
 function validate() {
@@ -1701,6 +2004,16 @@ function validate() {
     meKeys[key] = true;
   });
 
+  var cfIds = {};
+  AdminState.cashflowEntries.forEach(function(e) {
+    if (!/^\d{4}-\d{2}$/.test(e.month)) errors.push('Cash Flow: invalid month "' + e.month + '".');
+    if (!e.category) errors.push('Cash Flow: missing category for entry "' + e.entry_id + '".');
+    if (typeof e.amount !== 'number' || e.amount <= 0) errors.push('Cash Flow: "' + e.entry_id + '" amount must be > 0.');
+    if (e.type !== 'income' && e.type !== 'expense') errors.push('Cash Flow: "' + e.entry_id + '" type must be income or expense.');
+    if (cfIds[e.entry_id]) errors.push('Cash Flow: duplicate entry_id "' + e.entry_id + '".');
+    cfIds[e.entry_id] = true;
+  });
+
   return errors;
 }
 
@@ -1735,7 +2048,8 @@ async function save() {
       data: AdminState.data,
       budgetItems: AdminState.budgetItems,
       plannerGoals: AdminState.plannerGoals,
-      milestones: AdminState.milestones
+      milestones: AdminState.milestones,
+      cashflowEntries: AdminState.cashflowEntries
     };
     if (AdminState.mortgage) {
       updated.mortgage = AdminState.mortgage;

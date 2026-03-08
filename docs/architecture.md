@@ -94,6 +94,8 @@
 | `mortgage-calc.js` | Amortization schedule, equity, actual vs planned |
 | `summary-calc.js` | Monthly summary: NW change, attribution, narrative |
 | `anomaly-calc.js` | Anomaly detection: unusual changes, zero balances |
+| `cashflow-calc.js` | Actual income/expense analysis, planned-vs-actual, category trends |
+| `savings-capacity-calc.js` | Derived savings capacity, hybrid actual/derived, waterfall, achievability |
 | `goal-planner-calc.js` | Goal planning orchestration (calls GoalRulesService) |
 | `goal-rules-service.js` | Goal normalization, validation, funding evaluation |
 | `goal-accounting-service.js` | Source-of-funds integrity, oversubscription detection |
@@ -110,6 +112,7 @@
 | `ui-budget.js` | Budget overview: summary cards + category-grouped table |
 | `ui-mortgage.js` | Mortgage dashboard: summary cards, balance chart, amort table, equity |
 | `ui-summary.js` | Monthly summary panel: narrative, cards, anomaly alerts |
+| `ui-cashflow.js` | Cash flow tab: waterfall, trends, planned-vs-actual, category trends |
 | `ui-planner.js` | Goal funding plan table + account ledger integrity |
 
 ### Orchestration (`js/app.js`)
@@ -238,6 +241,7 @@ RLS policies ensure users can only access their own rows.
 | `monthend` | `2024-01\|BROKER_A` | One per month+account |
 | `budget` | `rent` | One per budget item |
 | `milestone` | `end_2026` | One per milestone |
+| `cashflow` | `2026-03_expense_housing` | One per income/expense entry |
 | `mortgage` | `main` | 0 or 1 |
 | `planner_goal` | `emergency_fund` | One per funding goal |
 
@@ -259,6 +263,7 @@ Decrypted payload:
   "accounts": [{ "account_id": "...", "emergency_fund_role": "dedicated|backup|none", ... }],
   "data": [{ "month": "2024-01", "account_id": "...", "end_value": 0, "net_contribution": 0 }],
   "budgetItems": [{ "item_id": "...", ... }],
+  "cashflowEntries": [{ "entry_id": "2026-03_expense_housing", "month": "2026-03", "type": "expense", "category": "Housing", "amount": 900, "notes": "" }],
   "plannerGoals": [{ "goal_id": "...", "name": "...", "target_amount": 0, "priority": 1, "funding_accounts": ["ACCT_ID"], "track_current_from_accounts": true }],
   "milestones": [{ "milestone_id": "...", "target_date": "YYYY-MM", "total_target": 0, "sub_targets": [] }],
   "mortgage": {

@@ -6,6 +6,7 @@
 - **DB mode**: Sign in with email + passphrase (Supabase backend)
 - **File mode**: Load an encrypted `.fjson` file and enter the passphrase
 - For testing, use `data/sample.json` (unencrypted) with the test runner
+- **Business requirements**: See `docs/business-requirements.md` for full feature specs, data model, and calculation details
 
 ## Architecture
 - Vanilla JS, no build step, no frameworks, no TypeScript
@@ -20,6 +21,7 @@
 - **DB mode**: Supabase zero-knowledge backend -- all data encrypted client-side with AES-256-GCM before sending to server. Server sees only opaque hashes and ciphertext.
 - Both modes produce identical data shapes -- `loadData()` is the shared entry point
 - `StorageManager` abstracts the difference; `js/config.js` holds Supabase credentials
+- Record types: `config`, `account`, `monthend`, `budget`, `cashflow`, `milestone`, `mortgage`, `planner_goal`
 
 ## File conventions
 - `js/data/*.js` -- pure calculators, no DOM, no side effects
@@ -43,7 +45,7 @@
 4. **Goals** -- emergency fund + house down payment detail, milestones with glide paths
 5. **Budget** -- monthly breakdown by category (fixed/variable)
 6. **Mortgage** -- amortization schedule, equity, actual vs planned payments
-7. **Planning** -- priority-based goal funding allocation, account ledger integrity
+7. **Cash Flow** -- hybrid actual/derived analysis, planned-vs-actual, category trends, goal achievability
 
 ## Always-visible panels (collapsible, above tabs)
 - **FI Progress** -- progress bar, passive income, years to FI, savings rate
@@ -61,6 +63,8 @@
 | `goals-calc.js` | Emergency fund & house down payment status |
 | `emergency-calc.js` | Emergency fund history, flows, coverage metrics |
 | `budget-calc.js` | Monthly budget breakdown, operating reserve |
+| `cashflow-calc.js` | Actual income/expense analysis, planned-vs-actual, category trends |
+| `savings-capacity-calc.js` | Derived savings capacity, hybrid actual/derived, waterfall, achievability |
 | `milestone-calc.js` | Milestone progress, glide path, sub-targets |
 | `mortgage-calc.js` | Amortization schedule, equity, actual vs planned |
 | `summary-calc.js` | Monthly summary narrative, attribution |
@@ -81,16 +85,27 @@
 | `ui-mortgage.js` | Mortgage dashboard (cards, chart, amort table, equity) |
 | `ui-emergency.js` | Emergency fund tab (status cards, chart, flow table) |
 | `ui-summary.js` | Monthly summary (narrative, cards, anomaly alerts) |
+| `ui-cashflow.js` | Cash flow tab (waterfall, trends, planned-vs-actual, category trends) |
 | `ui-planner.js` | Goal funding plan table + account ledger |
 
-## Admin page tabs
+## Admin page tabs (in order)
 - **Config** -- key-value editor (fi_target, withdrawal_rate, etc.)
-- **Accounts** -- account CRUD with emergency_fund_role (none/dedicated/backup)
+- **Accounts** -- account CRUD with emergency_fund_role and cashflow_role
 - **Budget** -- budget item CRUD (fixed/variable, frequency, category)
+- **Cash Flow** -- Quick Add Month (from budget categories), single entry add, inline edit, month filter
 - **Planning** -- goal funding CRUD (priority, target_date, funding_accounts)
 - **Milestones** -- milestone CRUD with sub-targets
 - **MonthEnd** -- Quick Add grid + monthly data table
 - **Mortgage** -- mortgage parameters, extra payments, actual payments, valuations
+
+## Cash Flow system
+- **Cashflow entries**: `{ entry_id, month, type, category, amount, notes }` -- actual income/expenses
+- **entry_id format**: `YYYY-MM_type_slug(category)` e.g. `2026-03_expense_housing`
+- **Hybrid mode**: `SavingsCapacityCalculator.computeMonthlyHybrid()` overrides derived data with actuals
+- **dataSource flag**: each monthly row has `dataSource: 'actual' | 'derived'`
+- **Planned vs Actual**: compares budget items against expense entries by category
+- **Category trends**: stacked bar chart of expense categories over time
+- **Script load order**: `cashflow-calc.js` must load before `savings-capacity-calc.js`
 
 ## Security rules
 - NEVER commit sensitive data (no .fjson files, no real balances)
@@ -105,6 +120,7 @@
 - Open `tests/test-runner.html` in a browser -- tests cover all calculators and crypto
 - Open `tests/test-db-crypto.html` for DB crypto unit tests
 - When modifying a calculator, run the relevant test file
+- CashflowCalculator has 8 tests covering computeMonth, computeAllMonths, plannedVsActual, categoryTrends, slugify
 
 ## CLI
 - `node cli/fi-data.mjs <command> --file <path>`
@@ -123,3 +139,12 @@
 - Encrypted file format version is "v": 1 -- bump on breaking changes
 - `FileManager.loadFromSession()` returns a Promise (async decryption)
 - Account emergency fund roles are configured per-account via `emergency_fund_role` field (none/dedicated/backup)
+- New data types must be added to: StorageManager (buildRecordMap + reassembleData), loadData/loadAdminData, save data object, XLSX export, sw.js cache
+- See `docs/business-requirements.md` for detailed feature specs and calculation formulas
+
+## Documentation index
+- `docs/business-requirements.md` -- Full feature specs, data model, calculations, testing requirements
+- `docs/architecture.md` -- Module map, data flows, security model, DB schema
+- `docs/roadmap.md` -- Development phases (all complete except benchmark tracking)
+- `docs/enhancement_candidates.md` -- Known gaps and future improvements
+- `docs/data-export.md` -- XLSX export structure and migration guide

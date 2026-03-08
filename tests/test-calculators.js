@@ -420,3 +420,89 @@ describe('SavingsCapacityCalculator', function() {
     assert(result[1].confidence === 0, 'Goal 2 should have 0 confidence');
   });
 });
+
+// --- CashflowCalculator ---
+
+describe('CashflowCalculator', function() {
+  var testEntries = [
+    { entry_id: '2024-01_income_salary', month: '2024-01', type: 'income', category: 'Salary', amount: 3200, notes: '' },
+    { entry_id: '2024-01_income_bonus', month: '2024-01', type: 'income', category: 'Bonus', amount: 500, notes: '' },
+    { entry_id: '2024-01_expense_housing', month: '2024-01', type: 'expense', category: 'Housing', amount: 900, notes: '' },
+    { entry_id: '2024-01_expense_food', month: '2024-01', type: 'expense', category: 'Food', amount: 400, notes: '' },
+    { entry_id: '2024-02_income_salary', month: '2024-02', type: 'income', category: 'Salary', amount: 3200, notes: '' },
+    { entry_id: '2024-02_expense_housing', month: '2024-02', type: 'expense', category: 'Housing', amount: 900, notes: '' },
+    { entry_id: '2024-02_expense_food', month: '2024-02', type: 'expense', category: 'Food', amount: 350, notes: '' },
+    { entry_id: '2024-02_expense_transport', month: '2024-02', type: 'expense', category: 'Transport', amount: 150, notes: '' }
+  ];
+
+  it('computeMonth aggregates income and expenses', function() {
+    var result = CashflowCalculator.computeMonth(testEntries, '2024-01');
+    assertClose(result.totalIncome, 3700, 0.01);
+    assertClose(result.totalExpenses, 1300, 0.01);
+    assertClose(result.netSavings, 2400, 0.01);
+    assertClose(result.savingsRate, 2400 / 3700, 0.001);
+    assertEqual(result.incomeByCategory['Salary'], 3200);
+    assertEqual(result.incomeByCategory['Bonus'], 500);
+    assertEqual(result.expensesByCategory['Housing'], 900);
+    assertEqual(result.expensesByCategory['Food'], 400);
+  });
+
+  it('computeMonth returns zeros for empty month', function() {
+    var result = CashflowCalculator.computeMonth(testEntries, '2099-01');
+    assertEqual(result.totalIncome, 0);
+    assertEqual(result.totalExpenses, 0);
+    assertEqual(result.netSavings, 0);
+    assertEqual(result.savingsRate, 0);
+  });
+
+  it('computeAllMonths returns summaries for all months', function() {
+    var result = CashflowCalculator.computeAllMonths(testEntries);
+    assertEqual(result.length, 2);
+    assertEqual(result[0].month, '2024-01');
+    assertEqual(result[1].month, '2024-02');
+    assertClose(result[1].totalExpenses, 1400, 0.01);
+  });
+
+  it('getMonthsWithActuals returns correct set', function() {
+    var months = CashflowCalculator.getMonthsWithActuals(testEntries);
+    assertEqual(months.size, 2);
+    assert(months.has('2024-01'), 'Should have 2024-01');
+    assert(months.has('2024-02'), 'Should have 2024-02');
+  });
+
+  it('slugify produces valid slugs', function() {
+    assertEqual(CashflowCalculator.slugify('Housing'), 'housing');
+    assertEqual(CashflowCalculator.slugify('  Food & Drink '), 'food--drink');
+    assertEqual(CashflowCalculator.slugify('Transport Costs'), 'transport-costs');
+  });
+
+  it('buildEntryId generates correct format', function() {
+    var id = CashflowCalculator.buildEntryId('2024-03', 'expense', 'Housing');
+    assertEqual(id, '2024-03_expense_housing');
+  });
+
+  it('computePlannedVsActual compares budget to actuals', function() {
+    var budgetItems = [
+      { item_id: 'b1', name: 'Rent', type: 'fixed', amount: 950, frequency: 'monthly', category: 'Housing', active: true },
+      { item_id: 'b2', name: 'Groceries', type: 'variable', amount: 350, frequency: 'monthly', category: 'Food', active: true }
+    ];
+    var result = CashflowCalculator.computePlannedVsActual(testEntries, budgetItems, '2024-01');
+    assertClose(result.byCategory['Housing'].planned, 950, 0.01);
+    assertClose(result.byCategory['Housing'].actual, 900, 0.01);
+    assertClose(result.byCategory['Housing'].delta, -50, 0.01);
+    assertClose(result.byCategory['Food'].planned, 350, 0.01);
+    assertClose(result.byCategory['Food'].actual, 400, 0.01);
+    assertClose(result.byCategory['Food'].delta, 50, 0.01);
+  });
+
+  it('computeCategoryTrends tracks categories over time', function() {
+    var result = CashflowCalculator.computeCategoryTrends(testEntries, 12);
+    assertEqual(result.months.length, 2);
+    assert(result.categories.indexOf('Housing') >= 0, 'Should include Housing');
+    assert(result.categories.indexOf('Food') >= 0, 'Should include Food');
+    assertEqual(result.series['Housing'][0], 900);
+    assertEqual(result.series['Housing'][1], 900);
+    assertEqual(result.series['Food'][0], 400);
+    assertEqual(result.series['Food'][1], 350);
+  });
+});

@@ -21,7 +21,7 @@ Both methods export the same data — use whichever page you're already on.
 
 ## XLSX Structure
 
-The exported workbook contains up to 7 sheets:
+The exported workbook contains up to 8 sheets:
 
 ### Sheet 1: Config
 
@@ -101,7 +101,22 @@ Goal funding plan. One row per funding goal.
 | `track_current_from_accounts` | boolean | Auto-track current value from funding accounts |
 | `funding_accounts_csv` | string | Comma-separated account IDs that fund this goal |
 
-### Sheet 6: Milestones
+### Sheet 6: CashFlow (optional)
+
+Actual income and expense entries. Only present when cashflow data exists. One row per entry.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `entry_id` | string | Unique identifier (e.g. `2026-03_expense_housing`) |
+| `month` | string | Month in `YYYY-MM` format |
+| `type` | string | `income` or `expense` |
+| `category` | string | Category name (e.g. `Salary`, `Housing`, `Food`) |
+| `amount` | number | Amount in EUR (always positive) |
+| `notes` | string | Optional notes |
+
+Sorted by month ascending, then entry_id alphabetically.
+
+### Sheet 7: Milestones
 
 Milestone targets with sub-targets. Flattened — one row per sub-target, with milestone fields repeated.
 
@@ -114,7 +129,7 @@ Milestone targets with sub-targets. Flattened — one row per sub-target, with m
 | `sub_goal` | string | Sub-target goal type (e.g. `FI Net Worth`, `Emergency Fund`) |
 | `sub_amount` | number | Sub-target amount (EUR) |
 
-### Sheet 7: Mortgage (optional)
+### Sheet 8: Mortgage (optional)
 
 Only present if mortgage data exists. Contains 4 sections separated by headers:
 

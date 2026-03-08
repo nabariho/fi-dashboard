@@ -54,6 +54,32 @@ var SavingsCapacityCalculator = {
     });
   },
 
+  // Compute monthly data with actual cashflow overrides where available.
+  // For months with actual entries, replaces income/expenses/savingsRate with real data.
+  // Returns same shape as computeMonthly, with additional dataSource field.
+  computeMonthlyHybrid: function(data, cashflowEntries, options) {
+    var derived = this.computeMonthly(data, options);
+    if (!cashflowEntries || !cashflowEntries.length || typeof CashflowCalculator === 'undefined') {
+      return derived.map(function(r) { r.dataSource = 'derived'; return r; });
+    }
+
+    var actualMonths = CashflowCalculator.getMonthsWithActuals(cashflowEntries);
+
+    return derived.map(function(row) {
+      if (actualMonths.has(row.month)) {
+        var actual = CashflowCalculator.computeMonth(cashflowEntries, row.month);
+        row.income = actual.totalIncome;
+        row.impliedExpenses = actual.totalExpenses;
+        row.totalContributions = actual.netSavings;
+        row.savingsRate = actual.savingsRate;
+        row.dataSource = 'actual';
+      } else {
+        row.dataSource = 'derived';
+      }
+      return row;
+    });
+  },
+
   // Compute trailing average over last N months
   computeTrailingAverage: function(monthlyData, trailingMonths) {
     var n = trailingMonths || 6;
