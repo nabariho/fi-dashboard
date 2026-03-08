@@ -137,9 +137,10 @@ var CashFlowRenderer = {
     // --- Monthly breakdown table ---
     html += '<div class="table-container"><div class="table-header-row"><h2>Monthly Cash Flow</h2></div>' +
       '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th>Month</th><th style="text-align:center">Source</th><th style="text-align:right">Income</th><th style="text-align:right">Net Contributions</th>' +
-      '<th style="text-align:right">Savings Accts</th><th style="text-align:right">Transactional</th>' +
-      '<th style="text-align:right">Expenses</th><th style="text-align:right">Savings Rate</th>' +
+      '<th>Month</th><th style="text-align:center">Source</th><th style="text-align:right">Income</th>' +
+      '<th style="text-align:right">Expenses</th><th style="text-align:right">Transfers</th>' +
+      '<th style="text-align:right">Total Out</th>' +
+      '<th style="text-align:right">Net Savings</th><th style="text-align:right">Savings Rate</th>' +
       '</tr></thead><tbody>';
 
     var displayed = monthlyData.slice(-24);
@@ -149,14 +150,16 @@ var CashFlowRenderer = {
       var sourceLabel = r.dataSource === 'actual'
         ? '<span style="color:#0d904f;font-size:11px" title="From actual income/expense entries">Actual</span>'
         : '<span style="color:var(--text-secondary);font-size:11px" title="Derived from account contributions">Derived</span>';
+      var transfers = r.totalTransfers || 0;
+      var totalOut = r.totalOutflows || (r.impliedExpenses + transfers);
       html += '<tr>' +
         '<td>' + r.month + '</td>' +
         '<td style="text-align:center">' + sourceLabel + '</td>' +
         '<td style="text-align:right">' + Fmt.currency(r.income) + '</td>' +
-        '<td style="text-align:right" class="' + (r.totalContributions >= 0 ? 'positive' : 'negative') + '">' + Fmt.currency(r.totalContributions) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(r.savingsContributions) + '</td>' +
-        '<td style="text-align:right">' + Fmt.currency(r.transactionalContributions) + '</td>' +
         '<td style="text-align:right">' + Fmt.currency(r.impliedExpenses) + '</td>' +
+        '<td style="text-align:right">' + (transfers > 0 ? Fmt.currency(transfers) : '-') + '</td>' +
+        '<td style="text-align:right">' + Fmt.currency(totalOut) + '</td>' +
+        '<td style="text-align:right" class="' + (r.totalContributions >= 0 ? 'positive' : 'negative') + '">' + Fmt.currency(r.totalContributions) + '</td>' +
         '<td style="text-align:right" class="' + rateClass + '">' + Fmt.pct(r.savingsRate * 100) + '</td>' +
       '</tr>';
     }

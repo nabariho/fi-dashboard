@@ -118,6 +118,7 @@ var CashflowNormalizationService = (function() {
       var category = clone(c);
       if (typeof category.active === 'undefined') category.active = true;
       if (typeof category.sort_order === 'undefined') category.sort_order = 0;
+      if (category.type === 'expense' && !category.classification) category.classification = 'spending';
       return category;
     }).sort(function(a, b) {
       if ((a.sort_order || 0) !== (b.sort_order || 0)) return (a.sort_order || 0) - (b.sort_order || 0);

@@ -72,10 +72,14 @@ var SavingsCapacityCalculator = {
         var actual = CashflowCalculator.computeMonth(cashflowEntries, row.month, categories, subcategories);
         row.income = actual.totalIncome;
         row.impliedExpenses = actual.totalExpenses;
+        row.totalTransfers = actual.totalTransfers;
+        row.totalOutflows = actual.totalOutflows;
         row.totalContributions = actual.netSavings;
         row.savingsRate = actual.savingsRate;
         row.dataSource = 'actual';
       } else {
+        row.totalTransfers = 0;
+        row.totalOutflows = row.impliedExpenses;
         row.dataSource = 'derived';
       }
       return row;

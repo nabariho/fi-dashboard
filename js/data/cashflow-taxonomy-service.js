@@ -70,7 +70,8 @@ var CashflowTaxonomyService = (function() {
       type: type,
       name: normalizedName,
       active: true,
-      sort_order: maxOrder + 1
+      sort_order: maxOrder + 1,
+      classification: type === 'expense' ? 'spending' : null
     };
   }
 
@@ -151,6 +152,9 @@ var CashflowTaxonomyService = (function() {
         errors.push('Cashflow categories: "' + c.category_id + '" type must be income or expense.');
       }
       if (!c.name) errors.push('Cashflow categories: "' + c.category_id + '" missing name.');
+      if (c.type === 'expense' && c.classification && c.classification !== 'spending' && c.classification !== 'transfer') {
+        errors.push('Cashflow categories: "' + c.category_id + '" classification must be "spending" or "transfer".');
+      }
       var key = (c.type || '') + '|' + titleCase(c.name || '');
       if (categoryNameKeys[key]) errors.push('Cashflow categories: duplicate name "' + c.name + '" for type "' + c.type + '".');
       categoryNameKeys[key] = true;

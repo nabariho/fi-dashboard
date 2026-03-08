@@ -23,15 +23,30 @@ var CashflowCalculator = {
     return entry.subcategory_id;
   },
 
+  // Look up the classification for a category_id ('spending' or 'transfer').
+  _resolveClassification: function(entry, categories) {
+    if (entry.category_id && categories) {
+      for (var i = 0; i < categories.length; i++) {
+        if (categories[i].category_id === entry.category_id) {
+          return categories[i].classification || 'spending';
+        }
+      }
+    }
+    return 'spending';
+  },
+
   // Compute summary for a single month.
-  // Returns: { month, totalIncome, totalExpenses, netSavings, savingsRate,
-  //            incomeByCategory, expensesByCategory, expensesBySubcategory }
+  // Returns: { month, totalIncome, totalExpenses, totalTransfers, totalOutflows,
+  //            netSavings, savingsRate, incomeByCategory, expensesByCategory,
+  //            transfersByCategory, expensesBySubcategory }
   computeMonth: function(entries, month, categories, subcategories) {
     var monthEntries = (entries || []).filter(function(e) { return e.month === month; });
     var totalIncome = 0;
     var totalExpenses = 0;
+    var totalTransfers = 0;
     var incomeByCategory = {};
     var expensesByCategory = {};
+    var transfersByCategory = {};
     var expensesBySubcategory = {};
 
     for (var i = 0; i < monthEntries.length; i++) {
@@ -42,17 +57,25 @@ var CashflowCalculator = {
         var incomeCategory = this._resolveCategoryName(e, categories);
         incomeByCategory[incomeCategory] = (incomeByCategory[incomeCategory] || 0) + amt;
       } else {
-        totalExpenses += amt;
+        var classification = this._resolveClassification(e, categories);
         var expenseCategory = this._resolveCategoryName(e, categories);
         var expenseSubcategory = this._resolveSubcategoryName(e, subcategories);
-        expensesByCategory[expenseCategory] = (expensesByCategory[expenseCategory] || 0) + amt;
-        if (expenseSubcategory) {
-          var subKey = expenseCategory + ' > ' + expenseSubcategory;
-          expensesBySubcategory[subKey] = (expensesBySubcategory[subKey] || 0) + amt;
+
+        if (classification === 'transfer') {
+          totalTransfers += amt;
+          transfersByCategory[expenseCategory] = (transfersByCategory[expenseCategory] || 0) + amt;
+        } else {
+          totalExpenses += amt;
+          expensesByCategory[expenseCategory] = (expensesByCategory[expenseCategory] || 0) + amt;
+          if (expenseSubcategory) {
+            var subKey = expenseCategory + ' > ' + expenseSubcategory;
+            expensesBySubcategory[subKey] = (expensesBySubcategory[subKey] || 0) + amt;
+          }
         }
       }
     }
 
+    var totalOutflows = totalExpenses + totalTransfers;
     var netSavings = totalIncome - totalExpenses;
     var savingsRate = totalIncome > 0 ? netSavings / totalIncome : 0;
 
@@ -60,10 +83,13 @@ var CashflowCalculator = {
       month: month,
       totalIncome: totalIncome,
       totalExpenses: totalExpenses,
+      totalTransfers: totalTransfers,
+      totalOutflows: totalOutflows,
       netSavings: netSavings,
       savingsRate: savingsRate,
       incomeByCategory: incomeByCategory,
       expensesByCategory: expensesByCategory,
+      transfersByCategory: transfersByCategory,
       expensesBySubcategory: expensesBySubcategory
     };
   },

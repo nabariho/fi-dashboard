@@ -505,6 +505,28 @@ describe('CashflowCalculator', function() {
     assertEqual(result.series['Food'][0], 400);
     assertEqual(result.series['Food'][1], 350);
   });
+
+  it('computeMonth separates transfers from spending', function() {
+    var entriesWithTransfer = [
+      { entry_id: 't1', month: '2024-03', type: 'income', category: 'Salary', category_id: 'income_salary', amount: 3000, notes: '' },
+      { entry_id: 't2', month: '2024-03', type: 'expense', category: 'Housing', category_id: 'expense_housing', amount: 800, notes: '' },
+      { entry_id: 't3', month: '2024-03', type: 'expense', category: 'Investing', category_id: 'expense_investing', amount: 1200, notes: '' }
+    ];
+    var cats = [
+      { category_id: 'expense_housing', type: 'expense', name: 'Housing', classification: 'spending' },
+      { category_id: 'expense_investing', type: 'expense', name: 'Investing', classification: 'transfer' }
+    ];
+    var result = CashflowCalculator.computeMonth(entriesWithTransfer, '2024-03', cats);
+    assertClose(result.totalIncome, 3000, 0.01, 'income');
+    assertClose(result.totalExpenses, 800, 0.01, 'expenses (spending only)');
+    assertClose(result.totalTransfers, 1200, 0.01, 'transfers');
+    assertClose(result.totalOutflows, 2000, 0.01, 'total outflows');
+    assertClose(result.netSavings, 2200, 0.01, 'net savings = income - spending');
+    assertClose(result.savingsRate, 2200 / 3000, 0.001, 'savings rate excludes transfers');
+    assertEqual(result.expensesByCategory['Housing'], 800);
+    assertEqual(result.transfersByCategory['Investing'], 1200);
+    assert(!result.expensesByCategory['Investing'], 'Investing should not be in expensesByCategory');
+  });
 });
 
 // --- CashflowNormalizationService ---

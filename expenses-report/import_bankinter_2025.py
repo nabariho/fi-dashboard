@@ -12,10 +12,10 @@ Output: cashflow_import_2025.json with cashflowEntries, cashflowCategories,
 Rules:
   - Card transactions are categorized by merchant pattern matching
   - Account XLSX "RECIBO VISA CLASICA" entries are EXCLUDED (already in card PDFs)
-  - Outbound transfers to brokers are EXCLUDED (investment contributions, not expenses)
-  - Revolut top-ups via card are EXCLUDED (transfer, not expense)
+  - Broker transfers + Revolut/BBVA/joint account = 'transfer' classification (not spending)
   - Refunds (ANUL.) reduce the corresponding category total
   - Amounts are aggregated per month + category + subcategory
+  - Categories carry a 'classification' field: 'spending' (real expenses) or 'transfer'
 """
 
 import json
@@ -55,6 +55,8 @@ EXPENSE_CATEGORIES = {
     'Leisure': {'id': 'expense_leisure', 'sort': 18},
     'Housing': {'id': 'expense_housing', 'sort': 19},
     'Taxes': {'id': 'expense_taxes', 'sort': 20},
+    'Investing': {'id': 'expense_investing', 'sort': 21, 'classification': 'transfer'},
+    'Internal Transfer': {'id': 'expense_internal-transfer', 'sort': 22, 'classification': 'transfer'},
     'Other': {'id': 'expense_other', 'sort': 99},
 }
 
@@ -102,6 +104,18 @@ SUBCATEGORIES = {
     'expense_leisure': {
         'Shared Events': {'id': 'expense_leisure_shared-events', 'sort': 1},
     },
+    # Investing
+    'expense_investing': {
+        'Interactive Brokers': {'id': 'expense_investing_interactive-brokers', 'sort': 1},
+        'Indexa Capital': {'id': 'expense_investing_indexa-capital', 'sort': 2},
+        'Trade Republic': {'id': 'expense_investing_trade-republic', 'sort': 3},
+    },
+    # Internal Transfer
+    'expense_internal-transfer': {
+        'Revolut': {'id': 'expense_internal-transfer_revolut', 'sort': 1},
+        'BBVA': {'id': 'expense_internal-transfer_bbva', 'sort': 2},
+        'Joint Account': {'id': 'expense_internal-transfer_joint-account', 'sort': 3},
+    },
     # Car
     'expense_car': {
         'Repair': {'id': 'expense_car_repair', 'sort': 1},
@@ -113,8 +127,8 @@ SUBCATEGORIES = {
 
 # Order matters: first match wins. Patterns are case-insensitive.
 CARD_RULES = [
-    # Exclude: Revolut top-ups (transfers, not expenses)
-    (r'REVOLUT\*\*7530', None, None),  # None = skip
+    # Revolut top-ups — internal transfer, not spending
+    (r'REVOLUT\*\*7530', 'Internal Transfer', 'Revolut'),
 
     # Food Delivery
     (r'UBER \*EATS|UBER\*EATS', 'Food Delivery', 'Uber Eats'),
@@ -217,6 +231,17 @@ XLSX_INCOME_RULES = [
 ]
 
 XLSX_EXPENSE_RULES = [
+    # === TRANSFER categories (not real spending) ===
+    # Investment transfers
+    (r'interactive.?bro', 'Investing', 'Interactive Brokers'),
+    (r'Indexa', 'Investing', 'Indexa Capital'),
+    (r'Trade Republic', 'Investing', 'Trade Republic'),
+    # Internal transfers between own accounts
+    (r'Revolut', 'Internal Transfer', 'Revolut'),
+    (r'Mi BBVA|Bbva telefono', 'Internal Transfer', 'BBVA'),
+    (r'Eva y Ruben', 'Internal Transfer', 'Joint Account'),
+
+    # === SPENDING categories (real expenses) ===
     # Housing — rent payments to landlord (various transfer formats)
     (r'Esteban Betanc', 'Housing', None),
     # Housing — property management
@@ -235,17 +260,11 @@ XLSX_EXPENSE_RULES = [
     (r'COMISION|COM\.', 'Bank Fees', None),
 ]
 
-# Patterns to EXCLUDE from XLSX (not expenses)
+# Patterns to EXCLUDE from XLSX (not tracked at all)
 XLSX_EXCLUDE_PATTERNS = [
-    r'RECIBO VISA',                   # Card bill — already in card PDFs
-    r'TRASPASO',                      # Transfers to other accounts
-    r'A CUENTA .* BANKINTER',         # Internal transfers
-    r'interactive.?bro',              # Investment transfers (various spellings/truncations)
-    r'Indexa',                        # Investment transfers
-    r'Trade Republic',                # Investment transfers
-    r'Eva y Ruben',                   # Joint account transfer
-    r'Revolut',                       # Transfer to Revolut
-    r'Mi BBVA|Bbva telefono',         # Transfer to BBVA
+    r'RECIBO VISA',                   # Card bill — already detailed in card PDFs
+    r'TRASPASO',                      # Internal bank transfers (no external account)
+    r'A CUENTA .* BANKINTER',         # Internal Bankinter transfers
     r'V\.M\.Dia-Ruben Dominguez',     # Self-transfer
 ]
 
@@ -479,13 +498,15 @@ def main():
     # Build categories list
     categories = []
     for name, info in EXPENSE_CATEGORIES.items():
-        categories.append({
+        cat = {
             'category_id': info['id'],
             'type': 'expense',
             'name': name,
             'active': True,
             'sort_order': info['sort'],
-        })
+            'classification': info.get('classification', 'spending'),
+        }
+        categories.append(cat)
     for name, info in INCOME_CATEGORIES.items():
         categories.append({
             'category_id': info['id'],
@@ -590,24 +611,33 @@ def main():
     # === 6. Summary ===
     print(f"\nTotal entries: {len(entries)}")
     print("\n--- Monthly Summary ---")
-    month_totals = defaultdict(lambda: {'income': 0, 'expenses': 0})
+    # Build a set of transfer category IDs for splitting
+    transfer_cat_ids = set()
+    for name, info in EXPENSE_CATEGORIES.items():
+        if info.get('classification') == 'transfer':
+            transfer_cat_ids.add(info['id'])
+
+    month_totals = defaultdict(lambda: {'income': 0, 'spending': 0, 'transfers': 0})
     for e in entries:
         if e['type'] == 'income':
             month_totals[e['month']]['income'] += e['amount']
+        elif e.get('category_id') in transfer_cat_ids:
+            month_totals[e['month']]['transfers'] += e['amount']
         else:
-            month_totals[e['month']]['expenses'] += e['amount']
+            month_totals[e['month']]['spending'] += e['amount']
 
     for month in sorted(month_totals.keys()):
         t = month_totals[month]
-        savings = t['income'] - t['expenses']
+        savings = t['income'] - t['spending']
         rate = (savings / t['income'] * 100) if t['income'] > 0 else 0
-        print(f"  {month}  Income: {t['income']:>8.2f}  Expenses: {t['expenses']:>8.2f}  "
-              f"Savings: {savings:>8.2f}  Rate: {rate:>5.1f}%")
+        print(f"  {month}  Income: {t['income']:>8.2f}  Spending: {t['spending']:>8.2f}  "
+              f"Transfers: {t['transfers']:>8.2f}  Net Savings: {savings:>8.2f}  Rate: {rate:>5.1f}%")
 
     total_income = sum(t['income'] for t in month_totals.values())
-    total_expenses = sum(t['expenses'] for t in month_totals.values())
-    print(f"\n  TOTAL   Income: {total_income:>8.2f}  Expenses: {total_expenses:>8.2f}  "
-          f"Savings: {total_income - total_expenses:>8.2f}")
+    total_spending = sum(t['spending'] for t in month_totals.values())
+    total_transfers = sum(t['transfers'] for t in month_totals.values())
+    print(f"\n  TOTAL   Income: {total_income:>8.2f}  Spending: {total_spending:>8.2f}  "
+          f"Transfers: {total_transfers:>8.2f}  Net Savings: {total_income - total_spending:>8.2f}")
 
     print("\n--- Category Breakdown ---")
     cat_totals = defaultdict(float)

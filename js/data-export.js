@@ -65,7 +65,7 @@ var DataExport = (function() {
 
     // --- Cashflow categories sheet ---
     if (data.cashflowCategories && data.cashflowCategories.length) {
-      var cfcRows = [['category_id', 'type', 'name', 'active', 'sort_order']];
+      var cfcRows = [['category_id', 'type', 'name', 'active', 'sort_order', 'classification']];
       var cfcData = data.cashflowCategories.slice().sort(function(a, b) {
         if ((a.type || '') !== (b.type || '')) return (a.type || '').localeCompare(b.type || '');
         if ((a.sort_order || 0) !== (b.sort_order || 0)) return (a.sort_order || 0) - (b.sort_order || 0);
@@ -73,10 +73,10 @@ var DataExport = (function() {
       });
       for (var c = 0; c < cfcData.length; c++) {
         var cat = cfcData[c];
-        cfcRows.push([cat.category_id, cat.type, cat.name, cat.active !== false, cat.sort_order || 0]);
+        cfcRows.push([cat.category_id, cat.type, cat.name, cat.active !== false, cat.sort_order || 0, cat.classification || '']);
       }
       var wsCashflowCategories = XLSX.utils.aoa_to_sheet(cfcRows);
-      wsCashflowCategories['!cols'] = [{ wch: 26 }, { wch: 10 }, { wch: 24 }, { wch: 8 }, { wch: 10 }];
+      wsCashflowCategories['!cols'] = [{ wch: 26 }, { wch: 10 }, { wch: 24 }, { wch: 8 }, { wch: 10 }, { wch: 14 }];
       XLSX.utils.book_append_sheet(wb, wsCashflowCategories, 'CashflowCategories');
     }
 

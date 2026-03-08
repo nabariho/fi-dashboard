@@ -5,147 +5,184 @@
       "type": "expense",
       "name": "Food Delivery",
       "active": true,
-      "sort_order": 1
+      "sort_order": 1,
+      "classification": "spending"
     },
     {
       "category_id": "expense_restaurants",
       "type": "expense",
       "name": "Restaurants",
       "active": true,
-      "sort_order": 2
+      "sort_order": 2,
+      "classification": "spending"
     },
     {
       "category_id": "expense_groceries",
       "type": "expense",
       "name": "Groceries",
       "active": true,
-      "sort_order": 3
+      "sort_order": 3,
+      "classification": "spending"
     },
     {
       "category_id": "expense_transport",
       "type": "expense",
       "name": "Transport",
       "active": true,
-      "sort_order": 4
+      "sort_order": 4,
+      "classification": "spending"
     },
     {
       "category_id": "expense_fuel",
       "type": "expense",
       "name": "Fuel",
       "active": true,
-      "sort_order": 5
+      "sort_order": 5,
+      "classification": "spending"
     },
     {
       "category_id": "expense_shopping",
       "type": "expense",
       "name": "Shopping",
       "active": true,
-      "sort_order": 6
+      "sort_order": 6,
+      "classification": "spending"
     },
     {
       "category_id": "expense_subscriptions",
       "type": "expense",
       "name": "Subscriptions",
       "active": true,
-      "sort_order": 7
+      "sort_order": 7,
+      "classification": "spending"
     },
     {
       "category_id": "expense_health",
       "type": "expense",
       "name": "Health",
       "active": true,
-      "sort_order": 8
+      "sort_order": 8,
+      "classification": "spending"
     },
     {
       "category_id": "expense_car",
       "type": "expense",
       "name": "Car",
       "active": true,
-      "sort_order": 9
+      "sort_order": 9,
+      "classification": "spending"
     },
     {
       "category_id": "expense_travel",
       "type": "expense",
       "name": "Travel",
       "active": true,
-      "sort_order": 10
+      "sort_order": 10,
+      "classification": "spending"
     },
     {
       "category_id": "expense_education",
       "type": "expense",
       "name": "Education",
       "active": true,
-      "sort_order": 11
+      "sort_order": 11,
+      "classification": "spending"
     },
     {
       "category_id": "expense_insurance",
       "type": "expense",
       "name": "Insurance",
       "active": true,
-      "sort_order": 12
+      "sort_order": 12,
+      "classification": "spending"
     },
     {
       "category_id": "expense_donations",
       "type": "expense",
       "name": "Donations",
       "active": true,
-      "sort_order": 13
+      "sort_order": 13,
+      "classification": "spending"
     },
     {
       "category_id": "expense_entertainment",
       "type": "expense",
       "name": "Entertainment",
       "active": true,
-      "sort_order": 14
+      "sort_order": 14,
+      "classification": "spending"
     },
     {
       "category_id": "expense_gifts",
       "type": "expense",
       "name": "Gifts",
       "active": true,
-      "sort_order": 15
+      "sort_order": 15,
+      "classification": "spending"
     },
     {
       "category_id": "expense_utilities",
       "type": "expense",
       "name": "Utilities",
       "active": true,
-      "sort_order": 16
+      "sort_order": 16,
+      "classification": "spending"
     },
     {
       "category_id": "expense_bank-fees",
       "type": "expense",
       "name": "Bank Fees",
       "active": true,
-      "sort_order": 17
+      "sort_order": 17,
+      "classification": "spending"
     },
     {
       "category_id": "expense_leisure",
       "type": "expense",
       "name": "Leisure",
       "active": true,
-      "sort_order": 18
+      "sort_order": 18,
+      "classification": "spending"
     },
     {
       "category_id": "expense_housing",
       "type": "expense",
       "name": "Housing",
       "active": true,
-      "sort_order": 19
+      "sort_order": 19,
+      "classification": "spending"
     },
     {
       "category_id": "expense_taxes",
       "type": "expense",
       "name": "Taxes",
       "active": true,
-      "sort_order": 20
+      "sort_order": 20,
+      "classification": "spending"
+    },
+    {
+      "category_id": "expense_investing",
+      "type": "expense",
+      "name": "Investing",
+      "active": true,
+      "sort_order": 21,
+      "classification": "transfer"
+    },
+    {
+      "category_id": "expense_internal-transfer",
+      "type": "expense",
+      "name": "Internal Transfer",
+      "active": true,
+      "sort_order": 22,
+      "classification": "transfer"
     },
     {
       "category_id": "expense_other",
       "type": "expense",
       "name": "Other",
       "active": true,
-      "sort_order": 99
+      "sort_order": 99,
+      "classification": "spending"
     },
     {
       "category_id": "income_salary",
@@ -304,6 +341,48 @@
       "sort_order": 1
     },
     {
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "category_id": "expense_investing",
+      "name": "Interactive Brokers",
+      "active": true,
+      "sort_order": 1
+    },
+    {
+      "subcategory_id": "expense_investing_indexa-capital",
+      "category_id": "expense_investing",
+      "name": "Indexa Capital",
+      "active": true,
+      "sort_order": 2
+    },
+    {
+      "subcategory_id": "expense_investing_trade-republic",
+      "category_id": "expense_investing",
+      "name": "Trade Republic",
+      "active": true,
+      "sort_order": 3
+    },
+    {
+      "subcategory_id": "expense_internal-transfer_revolut",
+      "category_id": "expense_internal-transfer",
+      "name": "Revolut",
+      "active": true,
+      "sort_order": 1
+    },
+    {
+      "subcategory_id": "expense_internal-transfer_bbva",
+      "category_id": "expense_internal-transfer",
+      "name": "BBVA",
+      "active": true,
+      "sort_order": 2
+    },
+    {
+      "subcategory_id": "expense_internal-transfer_joint-account",
+      "category_id": "expense_internal-transfer",
+      "name": "Joint Account",
+      "active": true,
+      "sort_order": 3
+    },
+    {
       "subcategory_id": "expense_car_repair",
       "category_id": "expense_car",
       "name": "Repair",
@@ -395,6 +474,28 @@
       "notes": "Imported from Bankinter 2025",
       "subcategory_id": null,
       "subcategory": ""
+    },
+    {
+      "entry_id": "2025-12_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 2400.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-12_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 2000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
     },
     {
       "entry_id": "2025-12_expense_expense_leisure_expense_leisure_shared-events",
@@ -738,6 +839,28 @@
       "subcategory": ""
     },
     {
+      "entry_id": "2025-10_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1200.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-10_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
+    },
+    {
       "entry_id": "2025-10_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-10",
       "type": "expense",
@@ -903,6 +1026,39 @@
       "subcategory": ""
     },
     {
+      "entry_id": "2025-09_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1200.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-09_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
+    },
+    {
+      "entry_id": "2025-09_expense_expense_investing_expense_investing_trade-republic",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 32000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_trade-republic",
+      "subcategory": "Trade Republic"
+    },
+    {
       "entry_id": "2025-09_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-09",
       "type": "expense",
@@ -1033,6 +1189,39 @@
       "notes": "Imported from Bankinter 2025",
       "subcategory_id": null,
       "subcategory": ""
+    },
+    {
+      "entry_id": "2025-08_expense_expense_internal-transfer_expense_internal-transfer_revolut",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Internal Transfer",
+      "category_id": "expense_internal-transfer",
+      "amount": 250.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_internal-transfer_revolut",
+      "subcategory": "Revolut"
+    },
+    {
+      "entry_id": "2025-08_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1200.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-08_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 4000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
     },
     {
       "entry_id": "2025-08_expense_expense_leisure_expense_leisure_shared-events",
@@ -1178,6 +1367,39 @@
       "subcategory": ""
     },
     {
+      "entry_id": "2025-07_expense_expense_internal-transfer_expense_internal-transfer_revolut",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Internal Transfer",
+      "category_id": "expense_internal-transfer",
+      "amount": 300.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_internal-transfer_revolut",
+      "subcategory": "Revolut"
+    },
+    {
+      "entry_id": "2025-07_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1200.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-07_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
+    },
+    {
       "entry_id": "2025-07_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-07",
       "type": "expense",
@@ -1319,6 +1541,39 @@
       "notes": "Imported from Bankinter 2025",
       "subcategory_id": null,
       "subcategory": ""
+    },
+    {
+      "entry_id": "2025-06_expense_expense_internal-transfer_expense_internal-transfer_revolut",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Internal Transfer",
+      "category_id": "expense_internal-transfer",
+      "amount": 550.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_internal-transfer_revolut",
+      "subcategory": "Revolut"
+    },
+    {
+      "entry_id": "2025-06_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1200.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-06_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
     },
     {
       "entry_id": "2025-06_expense_expense_leisure_expense_leisure_shared-events",
@@ -1519,6 +1774,50 @@
       "subcategory": ""
     },
     {
+      "entry_id": "2025-05_expense_expense_internal-transfer_expense_internal-transfer_bbva",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Internal Transfer",
+      "category_id": "expense_internal-transfer",
+      "amount": 100.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_internal-transfer_bbva",
+      "subcategory": "BBVA"
+    },
+    {
+      "entry_id": "2025-05_expense_expense_internal-transfer_expense_internal-transfer_revolut",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Internal Transfer",
+      "category_id": "expense_internal-transfer",
+      "amount": 100.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_internal-transfer_revolut",
+      "subcategory": "Revolut"
+    },
+    {
+      "entry_id": "2025-05_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1200.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-05_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
+    },
+    {
       "entry_id": "2025-05_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-05",
       "type": "expense",
@@ -1695,6 +1994,28 @@
       "subcategory": ""
     },
     {
+      "entry_id": "2025-04_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1200.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-04_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
+    },
+    {
       "entry_id": "2025-04_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-04",
       "type": "expense",
@@ -1803,6 +2124,28 @@
       "notes": "Imported from Bankinter 2025",
       "subcategory_id": null,
       "subcategory": ""
+    },
+    {
+      "entry_id": "2025-03_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1200.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-03_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
     },
     {
       "entry_id": "2025-03_expense_expense_leisure_expense_leisure_shared-events",
@@ -2003,6 +2346,50 @@
       "subcategory": ""
     },
     {
+      "entry_id": "2025-02_expense_expense_internal-transfer_expense_internal-transfer_joint-account",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Internal Transfer",
+      "category_id": "expense_internal-transfer",
+      "amount": 4948.75,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_internal-transfer_joint-account",
+      "subcategory": "Joint Account"
+    },
+    {
+      "entry_id": "2025-02_expense_expense_internal-transfer_expense_internal-transfer_revolut",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Internal Transfer",
+      "category_id": "expense_internal-transfer",
+      "amount": 100.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_internal-transfer_revolut",
+      "subcategory": "Revolut"
+    },
+    {
+      "entry_id": "2025-02_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1200.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-02_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
+    },
+    {
       "entry_id": "2025-02_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-02",
       "type": "expense",
@@ -2155,6 +2542,39 @@
       "notes": "Imported from Bankinter 2025",
       "subcategory_id": null,
       "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_expense_expense_internal-transfer_expense_internal-transfer_bbva",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Internal Transfer",
+      "category_id": "expense_internal-transfer",
+      "amount": 500.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_internal-transfer_bbva",
+      "subcategory": "BBVA"
+    },
+    {
+      "entry_id": "2025-01_expense_expense_investing_expense_investing_indexa-capital",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1200.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_indexa-capital",
+      "subcategory": "Indexa Capital"
+    },
+    {
+      "entry_id": "2025-01_expense_expense_investing_expense_investing_interactive-brokers",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Investing",
+      "category_id": "expense_investing",
+      "amount": 1000.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_investing_interactive-brokers",
+      "subcategory": "Interactive Brokers"
     },
     {
       "entry_id": "2025-01_expense_expense_leisure_expense_leisure_shared-events",
