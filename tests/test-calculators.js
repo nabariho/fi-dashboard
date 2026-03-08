@@ -549,6 +549,32 @@ describe('CashflowCalculator', function() {
     assertEqual(detail.transfers.items.length, 1);
     assertClose(detail.netSavings, 2375, 0.01, 'net savings');
   });
+
+  it('computeGoalFundingReality detects overdrawn goals', function() {
+    var allData = [
+      { month: '2024-03', account_id: 'IBKR', end_value: 10000, net_contribution: 2200 },
+      { month: '2024-03', account_id: 'EF_SAVINGS', end_value: 5000, net_contribution: -500 }
+    ];
+    var goals = [
+      { goal_id: 'retirement', name: 'Retirement', priority: 1, allocated_monthly: 1000, funding_accounts: ['IBKR'] },
+      { goal_id: 'emergency', name: 'Emergency Fund', priority: 2, allocated_monthly: 500, funding_accounts: ['EF_SAVINGS'] }
+    ];
+    var netSavings = 1700;
+    var result = CashflowCalculator.computeGoalFundingReality('2024-03', allData, goals, netSavings);
+
+    assertEqual(result.goals.length, 2);
+    // Retirement: planned 1000, actual 2200 (overfunded)
+    assertEqual(result.goals[0].name, 'Retirement');
+    assertClose(result.goals[0].actual, 2200, 0.01, 'retirement actual');
+    assertEqual(result.goals[0].status, 'overfunded');
+    // Emergency: planned 500, actual -500 (withdrawn)
+    assertEqual(result.goals[1].name, 'Emergency Fund');
+    assertClose(result.goals[1].actual, -500, 0.01, 'emergency actual');
+    assertEqual(result.goals[1].status, 'withdrawn');
+    // Total actual = 2200 + (-500) = 1700, available = 1700, overdrawn = 0
+    assertClose(result.totalActual, 1700, 0.01, 'total actual');
+    assertClose(result.overdrawn, 0, 0.01, 'overdrawn');
+  });
 });
 
 // --- CashflowNormalizationService ---

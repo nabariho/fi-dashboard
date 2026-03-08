@@ -259,11 +259,12 @@ function refreshCashFlow() {
   var waterfall = SavingsCapacityCalculator.computeWaterfall(monthlyData, budgetTotal, goalPlan, _cashflowTrailingMonths);
   var achievability = SavingsCapacityCalculator.computeAchievability(goalPlan, waterfall.actualSavings);
 
-  // Provide modal drill-down data
+  // Provide modal drill-down data (includes allData for goal funding reality)
   CashFlowRenderer.setModalData({
     cashflowEntries: cashflowEntries,
     categories: cashflowCategories,
-    subcategories: cashflowSubcategories
+    subcategories: cashflowSubcategories,
+    allData: allData
   });
 
   CashFlowRenderer.render(

@@ -242,6 +242,78 @@ var CashflowCalculator = {
     };
   },
 
+  // Compute actual goal funding for a month from MonthEnd account data.
+  // Compares net_contribution to each goal's funding accounts against available savings.
+  // Returns: { availableSavings, goals: [{ name, priority, planned, actual, delta, status }],
+  //            totalPlanned, totalActual, overdrawn }
+  computeGoalFundingReality: function(month, allData, plannerGoals, netSavings) {
+    if (!plannerGoals || !plannerGoals.length || !allData) {
+      return { availableSavings: netSavings || 0, goals: [], totalPlanned: 0, totalActual: 0, overdrawn: 0 };
+    }
+
+    // Get net_contribution by account for this month
+    var contribByAccount = {};
+    (allData || []).forEach(function(r) {
+      if (r.month === month) {
+        contribByAccount[r.account_id] = r.net_contribution || 0;
+      }
+    });
+
+    var goals = [];
+    var totalPlanned = 0;
+    var totalActual = 0;
+
+    plannerGoals.forEach(function(g) {
+      var fundingAccounts = g.funding_accounts || [];
+      if (!fundingAccounts.length) return;
+
+      // Sum actual net_contribution across this goal's funding accounts
+      var actual = 0;
+      fundingAccounts.forEach(function(accId) {
+        actual += (contribByAccount[accId] || 0);
+      });
+
+      var planned = g.allocated_monthly || 0;
+      var delta = actual - planned;
+
+      var status = 'on_track';
+      if (actual < 0) {
+        status = 'withdrawn'; // money left this goal's accounts
+      } else if (planned > 0 && actual < planned * 0.5) {
+        status = 'underfunded';
+      } else if (actual > planned * 1.5 && planned > 0) {
+        status = 'overfunded';
+      }
+
+      goals.push({
+        goal_id: g.goal_id,
+        name: g.name || g.goal_id,
+        priority: g.priority || 99,
+        planned: planned,
+        actual: actual,
+        delta: delta,
+        status: status,
+        funding_accounts: fundingAccounts
+      });
+
+      totalPlanned += planned;
+      totalActual += actual;
+    });
+
+    goals.sort(function(a, b) { return a.priority - b.priority; });
+
+    var available = netSavings || 0;
+    var overdrawn = Math.max(0, totalActual - available);
+
+    return {
+      availableSavings: available,
+      goals: goals,
+      totalPlanned: totalPlanned,
+      totalActual: totalActual,
+      overdrawn: overdrawn
+    };
+  },
+
   // Generate a slug from a category name (lowercase, spaces to hyphens).
   slugify: function(str) {
     return (str || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');

@@ -1702,3 +1702,45 @@ tr:hover { background: var(--bg); }
 .cf-row-clickable:hover {
   background: rgba(26,115,232,0.06);
 }
+
+/* Wide section (spans full grid) */
+.cf-modal-section-wide {
+  grid-column: 1 / -1;
+}
+
+/* Summary divider */
+.cf-summary-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border);
+}
+
+/* Warning summary item */
+.cf-summary-warning {
+  border-color: #e8710a;
+  background: #fff8f0;
+}
+.cf-summary-warning .cf-summary-value {
+  color: #e8710a;
+}
+
+/* Goal funding alerts */
+.cf-funding-alert {
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.cf-funding-alert-warning {
+  background: #fff3e0;
+  border: 1px solid #ffb74d;
+  color: #e65100;
+}
+
+.cf-funding-alert-ok {
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  color: #2e7d32;
+}
