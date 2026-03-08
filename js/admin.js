@@ -2002,29 +2002,50 @@ function quickAddCashflowMonth() {
   var expenseCategories = Object.keys(budgetByCategory).sort();
 
   var html = '<table class="admin-table" style="margin-top:8px"><thead><tr>' +
-    '<th>Type</th><th>Category</th><th>Planned</th><th>Actual Amount</th>' +
+    '<th>Type</th><th>Category</th><th>Planned</th><th>Subcategory (optional)</th><th>Actual Amount</th>' +
     '</tr></thead><tbody>';
+  var rowKey = 0;
 
   // Income rows
   var incomeDefaults = getCashflowCategoriesByType('income').map(function(c) { return c.name; });
   if (!incomeDefaults.length) incomeDefaults = ['Salary', 'Bonus', 'Other'];
   incomeDefaults.forEach(function(cat) {
+    rowKey++;
     html += '<tr style="background:#e6f4ea33">' +
       '<td style="color:#0d904f">income</td>' +
       '<td>' + escHtml(cat) + '</td>' +
       '<td style="color:var(--text-secondary)">-</td>' +
-      '<td><input type="number" step="any" class="cf-quick-amount" data-type="income" data-category="' + escHtml(cat) + '" placeholder="0" style="width:100px"></td>' +
+      '<td style="color:var(--text-secondary);font-size:12px">Not applicable</td>' +
+      '<td><input type="number" step="any" class="cf-quick-amount" data-rowkey="' + rowKey + '" data-type="income" data-category="' + escHtml(cat) + '" placeholder="0" style="width:100px"></td>' +
       '</tr>';
   });
 
   // Expense rows from budget
   expenseCategories.forEach(function(cat) {
+    rowKey++;
+    var subcategoryListId = 'cfQuickSubcats_' + cashflowSlugify(cat);
+    var expenseCategory = (typeof CashflowTaxonomyService !== 'undefined')
+      ? CashflowTaxonomyService.findCategoryByName('expense', cat, AdminState.cashflowCategories)
+      : null;
+    var knownSubcategories = expenseCategory
+      ? getCashflowSubcategories(expenseCategory.category_id).map(function(s) { return s.name; })
+      : [];
+
     html += '<tr>' +
       '<td>expense</td>' +
       '<td>' + escHtml(cat) + '</td>' +
       '<td style="color:var(--text-secondary)">' + budgetByCategory[cat].toFixed(0) + '</td>' +
-      '<td><input type="number" step="any" class="cf-quick-amount" data-type="expense" data-category="' + escHtml(cat) + '" placeholder="0" style="width:100px"></td>' +
+      '<td><input type="text" class="cf-quick-subcategory" data-rowkey="' + rowKey + '" data-type="expense" data-category="' + escHtml(cat) + '" list="' + subcategoryListId + '" placeholder="e.g. Cruz Roja" style="width:150px"></td>' +
+      '<td><input type="number" step="any" class="cf-quick-amount" data-rowkey="' + rowKey + '" data-type="expense" data-category="' + escHtml(cat) + '" placeholder="0" style="width:100px"></td>' +
       '</tr>';
+
+    if (knownSubcategories.length) {
+      html += '<datalist id="' + subcategoryListId + '">';
+      knownSubcategories.forEach(function(name) {
+        html += '<option value="' + escHtml(name) + '">';
+      });
+      html += '</datalist>';
+    }
   });
 
   html += '</tbody></table>' +
@@ -2045,7 +2066,17 @@ function saveQuickCashflow() {
     var type = input.dataset.type;
     var category = cashflowTitleCase(input.dataset.category);
     var categoryRow = ensureCashflowCategory(type, category);
-    var entryId = buildCashflowEntryId(month, type, categoryRow.category_id, null);
+    var subcategoryId = null;
+    var subcategoryName = '';
+    if (type === 'expense') {
+      var subInput = document.querySelector('.cf-quick-subcategory[data-rowkey="' + input.dataset.rowkey + '"]');
+      if (subInput && subInput.value.trim()) {
+        var sub = ensureCashflowSubcategory(categoryRow.category_id, subInput.value.trim());
+        subcategoryId = sub ? sub.subcategory_id : null;
+        subcategoryName = sub ? sub.name : '';
+      }
+    }
+    var entryId = buildCashflowEntryId(month, type, categoryRow.category_id, subcategoryId);
 
     // Check for duplicate entry_id
     var exists = AdminState.cashflowEntries.some(function(e) { return e.entry_id === entryId; });
@@ -2057,8 +2088,8 @@ function saveQuickCashflow() {
       type: type,
       category_id: categoryRow.category_id,
       category: categoryRow.name,
-      subcategory_id: null,
-      subcategory: '',
+      subcategory_id: subcategoryId,
+      subcategory: subcategoryName,
       amount: amt,
       notes: ''
     });
