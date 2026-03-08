@@ -1722,10 +1722,15 @@ function syncNewCashflowCategoryOptions() {
   var categoryEl = document.getElementById('cfNewCategoryId');
   if (!typeEl || !categoryEl) return;
   var type = typeEl.value;
+  var previousValue = categoryEl.value;
   var options = getCashflowCategoriesByType(type);
   categoryEl.innerHTML = options.map(function(c) {
     return '<option value="' + escHtml(c.category_id) + '">' + escHtml(c.name) + '</option>';
   }).join('');
+  if (previousValue && options.some(function(c) { return c.category_id === previousValue; })) {
+    categoryEl.value = previousValue;
+  }
+  if (!categoryEl.value && options.length) categoryEl.value = options[0].category_id;
   syncNewCashflowSubcategoryOptions();
 }
 
@@ -1744,8 +1749,24 @@ function syncNewCashflowSubcategoryOptions() {
   subEl.innerHTML = buildCashflowSubcategoryOptions(categoryEl.value, '');
 }
 
+function syncManageCashflowControls() {
+  var typeEl = document.getElementById('cfManageNewCategoryType');
+  var subCategoryEl = document.getElementById('cfManageSubcategoryCategoryId');
+  if (!typeEl || !subCategoryEl) return;
+  var options = getCashflowCategoriesByType('expense');
+  if (!options.length) {
+    subCategoryEl.innerHTML = '<option value="">Create an expense category first</option>';
+    subCategoryEl.disabled = true;
+    return;
+  }
+  subCategoryEl.disabled = false;
+  subCategoryEl.innerHTML = options.map(function(c) {
+    return '<option value="' + escHtml(c.category_id) + '">' + escHtml(c.name) + '</option>';
+  }).join('');
+}
+
 function addCashflowCategoryFromForm() {
-  var typeEl = document.getElementById('cfNewType');
+  var typeEl = document.getElementById('cfManageNewCategoryType');
   var nameEl = document.getElementById('cfNewCategoryName');
   if (!typeEl || !nameEl) return;
   var type = typeEl.value;
@@ -1758,6 +1779,7 @@ function addCashflowCategoryFromForm() {
   var category = ensureCashflowCategory(type, name);
   nameEl.value = '';
   syncNewCashflowCategoryOptions();
+  syncManageCashflowControls();
   var categoryEl = document.getElementById('cfNewCategoryId');
   if (categoryEl) categoryEl.value = category.category_id;
   syncNewCashflowSubcategoryOptions();
@@ -1765,11 +1787,11 @@ function addCashflowCategoryFromForm() {
 }
 
 function addCashflowSubcategoryFromForm() {
-  var typeEl = document.getElementById('cfNewType');
-  var categoryEl = document.getElementById('cfNewCategoryId');
+  var categoryEl = document.getElementById('cfManageSubcategoryCategoryId');
   var nameEl = document.getElementById('cfNewSubcategoryName');
-  if (!typeEl || !categoryEl || !nameEl) return;
-  if (typeEl.value !== 'expense') return;
+  if (!categoryEl || !nameEl) return;
+  var category = (AdminState.cashflowCategories || []).find(function(c) { return c.category_id === categoryEl.value; });
+  if (!category || category.type !== 'expense') return;
   var name = nameEl.value.trim();
   if (!name) {
     nameEl.classList.add('input-error');
@@ -1779,6 +1801,7 @@ function addCashflowSubcategoryFromForm() {
   var sub = ensureCashflowSubcategory(categoryEl.value, name);
   nameEl.value = '';
   syncNewCashflowSubcategoryOptions();
+  syncManageCashflowControls();
   var subEl = document.getElementById('cfNewSubcategoryId');
   if (subEl && sub) subEl.value = sub.subcategory_id;
   showToast('Subcategory created: ' + sub.name);
@@ -1826,8 +1849,10 @@ function renderCashflowAdmin() {
   html += '<div class="add-form-card">' +
     '<div class="add-form-title">Manage Categories</div>' +
     '<div class="add-form-row">' +
+    '<div class="add-form-field"><label>Type</label><select id="cfManageNewCategoryType" onchange="syncManageCashflowControls()"><option value="expense">Expense</option><option value="income">Income</option></select></div>' +
     '<div class="add-form-field"><label>New Category</label><input type="text" id="cfNewCategoryName" placeholder="Dividend / Donations" style="width:180px"></div>' +
     '<button class="btn-add" onclick="addCashflowCategoryFromForm()">Add Category</button>' +
+    '<div class="add-form-field"><label>Category</label><select id="cfManageSubcategoryCategoryId" style="width:180px"></select></div>' +
     '<div class="add-form-field"><label>New Subcategory</label><input type="text" id="cfNewSubcategoryName" placeholder="Cruz Roja / AECC" style="width:180px"></div>' +
     '<button class="btn-add" onclick="addCashflowSubcategoryFromForm()">Add Subcategory</button>' +
     '</div>' +
@@ -1869,8 +1894,11 @@ function renderCashflowAdmin() {
       '<td>' + escHtml(e.month) + '</td>' +
       '<td ' + typeClass + '>' + escHtml(e.type) + '</td>' +
       '<td><select data-idx="' + idx + '" class="cf-category-select" style="width:170px">' + buildCashflowCategoryOptions(e.type, e.category_id) + '</select>' +
-        '<div style="margin-top:4px"><select data-idx="' + idx + '" class="cf-subcategory-select" style="width:170px"' + (e.type !== 'expense' ? ' disabled' : '') + '>' +
-        buildCashflowSubcategoryOptions(e.category_id, e.subcategory_id) + '</select></div></td>' +
+        (e.type === 'expense'
+          ? '<div style="margin-top:4px"><select data-idx="' + idx + '" class="cf-subcategory-select" style="width:170px">' +
+              buildCashflowSubcategoryOptions(e.category_id, e.subcategory_id) + '</select></div>'
+          : '<div style="margin-top:4px;font-size:11px;color:var(--text-secondary)">No subcategory for income</div>') +
+        '</td>' +
       '<td><input type="number" step="any" value="' + e.amount + '" data-idx="' + idx + '" data-field="amount" class="cf-num" style="width:100px"></td>' +
       '<td><input type="text" value="' + escHtml(e.notes || '') + '" data-idx="' + idx + '" data-field="notes" class="cf-field" style="width:120px"></td>' +
       '<td style="width:60px"><button class="btn-delete" data-idx="' + idx + '" onclick="deleteCashflowEntry(this)">Delete</button></td>' +
@@ -1888,6 +1916,7 @@ function renderCashflowAdmin() {
 
   // Bind inline edit events
   syncNewCashflowCategoryOptions();
+  syncManageCashflowControls();
 
   container.querySelectorAll('.cf-category-select').forEach(function(el) {
     el.addEventListener('change', function() {
