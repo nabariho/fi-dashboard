@@ -120,18 +120,25 @@
       "sort_order": 17
     },
     {
+      "category_id": "expense_leisure",
+      "type": "expense",
+      "name": "Leisure",
+      "active": true,
+      "sort_order": 18
+    },
+    {
       "category_id": "expense_housing",
       "type": "expense",
       "name": "Housing",
       "active": true,
-      "sort_order": 18
+      "sort_order": 19
     },
     {
       "category_id": "expense_taxes",
       "type": "expense",
       "name": "Taxes",
       "active": true,
-      "sort_order": 19
+      "sort_order": 20
     },
     {
       "category_id": "expense_other",
@@ -155,11 +162,18 @@
       "sort_order": 2
     },
     {
+      "category_id": "income_bizum",
+      "type": "income",
+      "name": "Bizum",
+      "active": true,
+      "sort_order": 3
+    },
+    {
       "category_id": "income_other",
       "type": "income",
       "name": "Other",
       "active": true,
-      "sort_order": 3
+      "sort_order": 4
     }
   ],
   "cashflowSubcategories": [
@@ -283,6 +297,13 @@
       "sort_order": 2
     },
     {
+      "subcategory_id": "expense_leisure_shared-events",
+      "category_id": "expense_leisure",
+      "name": "Shared Events",
+      "active": true,
+      "sort_order": 1
+    },
+    {
       "subcategory_id": "expense_car_repair",
       "category_id": "expense_car",
       "name": "Repair",
@@ -376,12 +397,23 @@
       "subcategory": ""
     },
     {
+      "entry_id": "2025-12_expense_expense_leisure_expense_leisure_shared-events",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
+      "amount": 391.18,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
+    },
+    {
       "entry_id": "2025-12_expense_expense_other",
       "month": "2025-12",
       "type": "expense",
       "category": "Other",
       "category_id": "expense_other",
-      "amount": 396.93,
+      "amount": 5.75,
       "notes": "Imported from Bankinter 2025",
       "subcategory_id": null,
       "subcategory": ""
@@ -453,14 +485,25 @@
       "subcategory": "Uber Rides"
     },
     {
-      "entry_id": "2025-12_income_income_other",
+      "entry_id": "2025-12_income_income_bizum",
       "month": "2025-12",
       "type": "income",
-      "category": "Other",
-      "category_id": "income_other",
+      "category": "Bizum",
+      "category_id": "income_bizum",
       "subcategory_id": null,
       "subcategory": "",
-      "amount": 3783.01,
+      "amount": 198.45,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-12_income_income_salary",
+      "month": "2025-12",
+      "type": "income",
+      "category": "Salary",
+      "category_id": "income_salary",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3584.56,
       "notes": "Imported from Bankinter 2025"
     },
     {
@@ -541,15 +584,15 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-11_expense_expense_other",
+      "entry_id": "2025-11_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-11",
       "type": "expense",
-      "category": "Other",
-      "category_id": "expense_other",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
       "amount": 58.2,
       "notes": "Imported from Bankinter 2025",
-      "subcategory_id": null,
-      "subcategory": ""
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
     },
     {
       "entry_id": "2025-11_expense_expense_restaurants",
@@ -618,11 +661,11 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-11_income_income_other",
+      "entry_id": "2025-11_income_income_salary",
       "month": "2025-11",
       "type": "income",
-      "category": "Other",
-      "category_id": "income_other",
+      "category": "Salary",
+      "category_id": "income_salary",
       "subcategory_id": null,
       "subcategory": "",
       "amount": 3584.56,
@@ -695,15 +738,15 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-10_expense_expense_other",
+      "entry_id": "2025-10_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-10",
       "type": "expense",
-      "category": "Other",
-      "category_id": "expense_other",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
       "amount": 105.0,
       "notes": "Imported from Bankinter 2025",
-      "subcategory_id": null,
-      "subcategory": ""
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
     },
     {
       "entry_id": "2025-10_expense_expense_restaurants",
@@ -772,14 +815,25 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-10_income_income_other",
+      "entry_id": "2025-10_income_income_bizum",
       "month": "2025-10",
       "type": "income",
-      "category": "Other",
-      "category_id": "income_other",
+      "category": "Bizum",
+      "category_id": "income_bizum",
       "subcategory_id": null,
       "subcategory": "",
-      "amount": 3641.56,
+      "amount": 57.0,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-10_income_income_salary",
+      "month": "2025-10",
+      "type": "income",
+      "category": "Salary",
+      "category_id": "income_salary",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3584.56,
       "notes": "Imported from Bankinter 2025"
     },
     {
@@ -849,15 +903,15 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-09_expense_expense_other",
+      "entry_id": "2025-09_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-09",
       "type": "expense",
-      "category": "Other",
-      "category_id": "expense_other",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
       "amount": 71.1,
       "notes": "Imported from Bankinter 2025",
-      "subcategory_id": null,
-      "subcategory": ""
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
     },
     {
       "entry_id": "2025-09_expense_expense_restaurants",
@@ -911,7 +965,18 @@
       "category_id": "income_other",
       "subcategory_id": null,
       "subcategory": "",
-      "amount": 4167.56,
+      "amount": 583.0,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-09_income_income_salary",
+      "month": "2025-09",
+      "type": "income",
+      "category": "Salary",
+      "category_id": "income_salary",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3584.56,
       "notes": "Imported from Bankinter 2025"
     },
     {
@@ -970,15 +1035,15 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-08_expense_expense_other",
+      "entry_id": "2025-08_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-08",
       "type": "expense",
-      "category": "Other",
-      "category_id": "expense_other",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
       "amount": 6.0,
       "notes": "Imported from Bankinter 2025",
-      "subcategory_id": null,
-      "subcategory": ""
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
     },
     {
       "entry_id": "2025-08_expense_expense_restaurants",
@@ -1036,14 +1101,25 @@
       "subcategory": "Uber Rides"
     },
     {
-      "entry_id": "2025-08_income_income_other",
+      "entry_id": "2025-08_income_income_bizum",
       "month": "2025-08",
       "type": "income",
-      "category": "Other",
-      "category_id": "income_other",
+      "category": "Bizum",
+      "category_id": "income_bizum",
       "subcategory_id": null,
       "subcategory": "",
-      "amount": 3644.56,
+      "amount": 60.0,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-08_income_income_salary",
+      "month": "2025-08",
+      "type": "income",
+      "category": "Salary",
+      "category_id": "income_salary",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3584.56,
       "notes": "Imported from Bankinter 2025"
     },
     {
@@ -1102,15 +1178,15 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-07_expense_expense_other",
+      "entry_id": "2025-07_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-07",
       "type": "expense",
-      "category": "Other",
-      "category_id": "expense_other",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
       "amount": 88.0,
       "notes": "Imported from Bankinter 2025",
-      "subcategory_id": null,
-      "subcategory": ""
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
     },
     {
       "entry_id": "2025-07_expense_expense_restaurants",
@@ -1157,14 +1233,25 @@
       "subcategory": "Uber Rides"
     },
     {
-      "entry_id": "2025-07_income_income_other",
+      "entry_id": "2025-07_income_income_bizum",
       "month": "2025-07",
       "type": "income",
-      "category": "Other",
-      "category_id": "income_other",
+      "category": "Bizum",
+      "category_id": "income_bizum",
       "subcategory_id": null,
       "subcategory": "",
-      "amount": 6799.8,
+      "amount": 52.19,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-07_income_income_salary",
+      "month": "2025-07",
+      "type": "income",
+      "category": "Salary",
+      "category_id": "income_salary",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 6747.61,
       "notes": "Imported from Bankinter 2025"
     },
     {
@@ -1234,15 +1321,15 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-06_expense_expense_other",
+      "entry_id": "2025-06_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-06",
       "type": "expense",
-      "category": "Other",
-      "category_id": "expense_other",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
       "amount": 106.75,
       "notes": "Imported from Bankinter 2025",
-      "subcategory_id": null,
-      "subcategory": ""
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
     },
     {
       "entry_id": "2025-06_expense_expense_restaurants",
@@ -1322,6 +1409,17 @@
       "subcategory": "Uber Rides"
     },
     {
+      "entry_id": "2025-06_income_income_bizum",
+      "month": "2025-06",
+      "type": "income",
+      "category": "Bizum",
+      "category_id": "income_bizum",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 180.75,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
       "entry_id": "2025-06_income_income_other",
       "month": "2025-06",
       "type": "income",
@@ -1329,7 +1427,18 @@
       "category_id": "income_other",
       "subcategory_id": null,
       "subcategory": "",
-      "amount": 4969.68,
+      "amount": 217.99,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-06_income_income_salary",
+      "month": "2025-06",
+      "type": "income",
+      "category": "Salary",
+      "category_id": "income_salary",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 4570.94,
       "notes": "Imported from Bankinter 2025"
     },
     {
@@ -1410,15 +1519,15 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-05_expense_expense_other",
+      "entry_id": "2025-05_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-05",
       "type": "expense",
-      "category": "Other",
-      "category_id": "expense_other",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
       "amount": 20.0,
       "notes": "Imported from Bankinter 2025",
-      "subcategory_id": null,
-      "subcategory": ""
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
     },
     {
       "entry_id": "2025-05_expense_expense_restaurants",
@@ -1487,14 +1596,25 @@
       "subcategory": "Taxi"
     },
     {
-      "entry_id": "2025-05_income_income_other",
+      "entry_id": "2025-05_income_income_bizum",
       "month": "2025-05",
       "type": "income",
-      "category": "Other",
-      "category_id": "income_other",
+      "category": "Bizum",
+      "category_id": "income_bizum",
       "subcategory_id": null,
       "subcategory": "",
-      "amount": 3647.59,
+      "amount": 10.0,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-05_income_income_salary",
+      "month": "2025-05",
+      "type": "income",
+      "category": "Salary",
+      "category_id": "income_salary",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3637.59,
       "notes": "Imported from Bankinter 2025"
     },
     {
@@ -1575,15 +1695,15 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-04_expense_expense_other",
+      "entry_id": "2025-04_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-04",
       "type": "expense",
-      "category": "Other",
-      "category_id": "expense_other",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
       "amount": 30.0,
       "notes": "Imported from Bankinter 2025",
-      "subcategory_id": null,
-      "subcategory": ""
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
     },
     {
       "entry_id": "2025-04_expense_expense_restaurants",
@@ -1630,11 +1750,11 @@
       "subcategory": "Other"
     },
     {
-      "entry_id": "2025-04_income_income_other",
+      "entry_id": "2025-04_income_income_salary",
       "month": "2025-04",
       "type": "income",
-      "category": "Other",
-      "category_id": "income_other",
+      "category": "Salary",
+      "category_id": "income_salary",
       "subcategory_id": null,
       "subcategory": "",
       "amount": 3637.59,
@@ -1685,12 +1805,23 @@
       "subcategory": ""
     },
     {
+      "entry_id": "2025-03_expense_expense_leisure_expense_leisure_shared-events",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
+      "amount": 46.98,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
+    },
+    {
       "entry_id": "2025-03_expense_expense_other",
       "month": "2025-03",
       "type": "expense",
       "category": "Other",
       "category_id": "expense_other",
-      "amount": 60.43,
+      "amount": 13.45,
       "notes": "Imported from Bankinter 2025",
       "subcategory_id": null,
       "subcategory": ""
@@ -1751,14 +1882,25 @@
       "subcategory": "Parking"
     },
     {
-      "entry_id": "2025-03_income_income_other",
+      "entry_id": "2025-03_income_income_bizum",
       "month": "2025-03",
       "type": "income",
-      "category": "Other",
-      "category_id": "income_other",
+      "category": "Bizum",
+      "category_id": "income_bizum",
       "subcategory_id": null,
       "subcategory": "",
-      "amount": 3796.59,
+      "amount": 159.0,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-03_income_income_salary",
+      "month": "2025-03",
+      "type": "income",
+      "category": "Salary",
+      "category_id": "income_salary",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3637.59,
       "notes": "Imported from Bankinter 2025"
     },
     {
@@ -1861,15 +2003,15 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-02_expense_expense_other",
+      "entry_id": "2025-02_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-02",
       "type": "expense",
-      "category": "Other",
-      "category_id": "expense_other",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
       "amount": 102.2,
       "notes": "Imported from Bankinter 2025",
-      "subcategory_id": null,
-      "subcategory": ""
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
     },
     {
       "entry_id": "2025-02_expense_expense_restaurants",
@@ -1894,14 +2036,25 @@
       "subcategory": "Apple"
     },
     {
-      "entry_id": "2025-02_income_income_other",
+      "entry_id": "2025-02_income_income_bizum",
       "month": "2025-02",
       "type": "income",
-      "category": "Other",
-      "category_id": "income_other",
+      "category": "Bizum",
+      "category_id": "income_bizum",
       "subcategory_id": null,
       "subcategory": "",
-      "amount": 3787.59,
+      "amount": 150.0,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-02_income_income_salary",
+      "month": "2025-02",
+      "type": "income",
+      "category": "Salary",
+      "category_id": "income_salary",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3637.59,
       "notes": "Imported from Bankinter 2025"
     },
     {
@@ -2004,15 +2157,15 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-01_expense_expense_other",
+      "entry_id": "2025-01_expense_expense_leisure_expense_leisure_shared-events",
       "month": "2025-01",
       "type": "expense",
-      "category": "Other",
-      "category_id": "expense_other",
+      "category": "Leisure",
+      "category_id": "expense_leisure",
       "amount": 95.0,
       "notes": "Imported from Bankinter 2025",
-      "subcategory_id": null,
-      "subcategory": ""
+      "subcategory_id": "expense_leisure_shared-events",
+      "subcategory": "Shared Events"
     },
     {
       "entry_id": "2025-01_expense_expense_restaurants",
@@ -2092,14 +2245,25 @@
       "subcategory": ""
     },
     {
-      "entry_id": "2025-01_income_income_other",
+      "entry_id": "2025-01_income_income_bizum",
       "month": "2025-01",
       "type": "income",
-      "category": "Other",
-      "category_id": "income_other",
+      "category": "Bizum",
+      "category_id": "income_bizum",
       "subcategory_id": null,
       "subcategory": "",
-      "amount": 3654.59,
+      "amount": 17.0,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-01_income_income_salary",
+      "month": "2025-01",
+      "type": "income",
+      "category": "Salary",
+      "category_id": "income_salary",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3637.59,
       "notes": "Imported from Bankinter 2025"
     }
   ]

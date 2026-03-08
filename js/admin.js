@@ -2298,44 +2298,67 @@ function importCashflowJson(input) {
       return;
     }
 
-    // Merge categories (add missing ones)
-    var existingCatIds = {};
-    AdminState.cashflowCategories.forEach(function(c) { existingCatIds[c.category_id] = true; });
-    var catsAdded = 0;
-    newCategories.forEach(function(c) {
-      if (!existingCatIds[c.category_id]) {
-        AdminState.cashflowCategories.push(Object.assign({}, c));
-        existingCatIds[c.category_id] = true;
-        catsAdded++;
-      }
-    });
+    var mode = prompt(
+      'Import ' + newEntries.length + ' entries.\n\n' +
+      'Choose mode:\n' +
+      '  "merge" — add new entries, keep existing\n' +
+      '  "replace" — replace ALL cashflow data with this file\n\n' +
+      'Type merge or replace:', 'replace');
+    if (!mode) return;
+    mode = mode.trim().toLowerCase();
+    if (mode !== 'merge' && mode !== 'replace') {
+      alert('Invalid choice. Use "merge" or "replace".');
+      return;
+    }
 
-    // Merge subcategories (add missing ones)
-    var existingSubIds = {};
-    AdminState.cashflowSubcategories.forEach(function(s) { existingSubIds[s.subcategory_id] = true; });
-    var subsAdded = 0;
-    newSubcategories.forEach(function(s) {
-      if (!existingSubIds[s.subcategory_id]) {
-        AdminState.cashflowSubcategories.push(Object.assign({}, s));
-        existingSubIds[s.subcategory_id] = true;
-        subsAdded++;
-      }
-    });
-
-    // Merge entries (skip duplicates by entry_id)
-    var existingEntryIds = {};
-    AdminState.cashflowEntries.forEach(function(e) { existingEntryIds[e.entry_id] = true; });
     var entriesAdded = 0;
     var entriesSkipped = 0;
-    newEntries.forEach(function(entry) {
-      if (existingEntryIds[entry.entry_id]) {
-        entriesSkipped++;
-      } else {
-        AdminState.cashflowEntries.push(Object.assign({}, entry));
-        existingEntryIds[entry.entry_id] = true;
-        entriesAdded++;
-      }
-    });
+    var catsAdded = 0;
+    var subsAdded = 0;
+
+    if (mode === 'replace') {
+      AdminState.cashflowCategories = newCategories.map(function(c) { return Object.assign({}, c); });
+      AdminState.cashflowSubcategories = newSubcategories.map(function(s) { return Object.assign({}, s); });
+      AdminState.cashflowEntries = newEntries.map(function(e) { return Object.assign({}, e); });
+      entriesAdded = newEntries.length;
+      catsAdded = newCategories.length;
+      subsAdded = newSubcategories.length;
+    } else {
+      // Merge categories (add missing ones)
+      var existingCatIds = {};
+      AdminState.cashflowCategories.forEach(function(c) { existingCatIds[c.category_id] = true; });
+      newCategories.forEach(function(c) {
+        if (!existingCatIds[c.category_id]) {
+          AdminState.cashflowCategories.push(Object.assign({}, c));
+          existingCatIds[c.category_id] = true;
+          catsAdded++;
+        }
+      });
+
+      // Merge subcategories (add missing ones)
+      var existingSubIds = {};
+      AdminState.cashflowSubcategories.forEach(function(s) { existingSubIds[s.subcategory_id] = true; });
+      newSubcategories.forEach(function(s) {
+        if (!existingSubIds[s.subcategory_id]) {
+          AdminState.cashflowSubcategories.push(Object.assign({}, s));
+          existingSubIds[s.subcategory_id] = true;
+          subsAdded++;
+        }
+      });
+
+      // Merge entries (skip duplicates by entry_id)
+      var existingEntryIds = {};
+      AdminState.cashflowEntries.forEach(function(e) { existingEntryIds[e.entry_id] = true; });
+      newEntries.forEach(function(entry) {
+        if (existingEntryIds[entry.entry_id]) {
+          entriesSkipped++;
+        } else {
+          AdminState.cashflowEntries.push(Object.assign({}, entry));
+          existingEntryIds[entry.entry_id] = true;
+          entriesAdded++;
+        }
+      });
+    }
 
     // Re-normalize if service available
     if (typeof CashflowNormalizationService !== 'undefined') {
@@ -2352,9 +2375,9 @@ function importCashflowJson(input) {
     markDirty();
     renderCashflowAdmin();
 
-    var msg = 'Import complete:\n' +
+    var msg = (mode === 'replace' ? 'Replace' : 'Merge') + ' complete:\n' +
       '  Entries added: ' + entriesAdded + '\n' +
-      '  Entries skipped (duplicates): ' + entriesSkipped + '\n' +
+      (mode === 'merge' ? '  Entries skipped (duplicates): ' + entriesSkipped + '\n' : '') +
       '  Categories added: ' + catsAdded + '\n' +
       '  Subcategories added: ' + subsAdded + '\n\n' +
       'Remember to Save to persist changes.';

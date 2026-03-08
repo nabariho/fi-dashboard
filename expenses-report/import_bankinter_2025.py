@@ -52,15 +52,17 @@ EXPENSE_CATEGORIES = {
     'Gifts': {'id': 'expense_gifts', 'sort': 15},
     'Utilities': {'id': 'expense_utilities', 'sort': 16},
     'Bank Fees': {'id': 'expense_bank-fees', 'sort': 17},
-    'Housing': {'id': 'expense_housing', 'sort': 18},
-    'Taxes': {'id': 'expense_taxes', 'sort': 19},
+    'Leisure': {'id': 'expense_leisure', 'sort': 18},
+    'Housing': {'id': 'expense_housing', 'sort': 19},
+    'Taxes': {'id': 'expense_taxes', 'sort': 20},
     'Other': {'id': 'expense_other', 'sort': 99},
 }
 
 INCOME_CATEGORIES = {
     'Salary': {'id': 'income_salary', 'sort': 1},
     'Bonus': {'id': 'income_bonus', 'sort': 2},
-    'Other': {'id': 'income_other', 'sort': 3},
+    'Bizum': {'id': 'income_bizum', 'sort': 3},
+    'Other': {'id': 'income_other', 'sort': 4},
 }
 
 SUBCATEGORIES = {
@@ -95,6 +97,10 @@ SUBCATEGORIES = {
     'expense_health': {
         'Dental': {'id': 'expense_health_dental', 'sort': 1},
         'Pharmacy': {'id': 'expense_health_pharmacy', 'sort': 2},
+    },
+    # Leisure
+    'expense_leisure': {
+        'Shared Events': {'id': 'expense_leisure_shared-events', 'sort': 1},
     },
     # Car
     'expense_car': {
@@ -206,7 +212,8 @@ CARD_RULES = [
 
 # Patterns for XLSX "Descripción" field
 XLSX_INCOME_RULES = [
-    (r'NOMINA', 'Salary', None),
+    (r'NOMI.*AGILE MONKEY|THE AGILE MONKEY|NOMINA', 'Salary', None),
+    (r'BIZUM', 'Bizum', None),
 ]
 
 XLSX_EXPENSE_RULES = [
@@ -222,8 +229,8 @@ XLSX_EXPENSE_RULES = [
     (r'DONACION|CRUZ ROJA|UNICEF|MEDICOS SIN|SAVE THE|GREENPEACE|ACNUR|CARITAS|FUNDACION|AMNISTIA|ASOCIACION ESPANOLA CON', 'Donations', None),
     # Taxes
     (r'TRIBUTO|VALORA GESTION TRIBUTAR', 'Taxes', None),
-    # Bizum expenses — we'll categorize these broadly as "Other" since we don't know specifics
-    (r'BIZUM', 'Other', None),
+    # Bizum expenses — shared events / leisure
+    (r'BIZUM', 'Leisure', 'Shared Events'),
     # Bank fees
     (r'COMISION|COM\.', 'Bank Fees', None),
 ]
