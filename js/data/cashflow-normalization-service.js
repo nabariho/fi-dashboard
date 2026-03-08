@@ -46,6 +46,18 @@ var CashflowNormalizationService = (function() {
       return created;
     }
 
+    var usedEntryIds = {};
+    function ensureUniqueEntryId(baseId) {
+      var id = baseId;
+      var n = 2;
+      while (usedEntryIds[id]) {
+        id = baseId + '__' + n;
+        n++;
+      }
+      usedEntryIds[id] = true;
+      return id;
+    }
+
     var normalizedEntries = entries.map(function(entry) {
       var row = clone(entry);
       var type = row.type === 'income' ? 'income' : 'expense';
@@ -92,7 +104,8 @@ var CashflowNormalizationService = (function() {
         row.subcategory = '';
       }
 
-      var nextId = buildEntryId(row.month, row.type, row.category_id, row.subcategory_id);
+      var baseId = buildEntryId(row.month, row.type, row.category_id, row.subcategory_id);
+      var nextId = ensureUniqueEntryId(baseId);
       if (row.entry_id !== nextId) changed = true;
       row.entry_id = nextId;
       return row;

@@ -1701,6 +1701,22 @@ function buildCashflowEntryId(month, type, categoryId, subcategoryId) {
   return id;
 }
 
+function ensureUniqueCashflowEntryId(month, type, categoryId, subcategoryId, excludeIdx) {
+  var baseId = buildCashflowEntryId(month, type, categoryId, subcategoryId);
+  var id = baseId;
+  var n = 2;
+  var isTaken = function(candidate) {
+    return AdminState.cashflowEntries.some(function(e, idx) {
+      return idx !== excludeIdx && e.entry_id === candidate;
+    });
+  };
+  while (isTaken(id)) {
+    id = baseId + '__' + n;
+    n++;
+  }
+  return id;
+}
+
 function buildCashflowCategoryOptions(type, selectedCategoryId) {
   var options = getCashflowCategoriesByType(type);
   return options.map(function(c) {
@@ -1931,7 +1947,7 @@ function renderCashflowAdmin() {
         entry.subcategory_id = null;
         entry.subcategory = '';
       }
-      entry.entry_id = buildCashflowEntryId(entry.month, entry.type, entry.category_id, entry.subcategory_id);
+      entry.entry_id = ensureUniqueCashflowEntryId(entry.month, entry.type, entry.category_id, entry.subcategory_id, idx);
       markDirty();
       renderCashflowAdmin();
     });
@@ -1949,7 +1965,7 @@ function renderCashflowAdmin() {
       } else {
         entry.subcategory = '';
       }
-      entry.entry_id = buildCashflowEntryId(entry.month, entry.type, entry.category_id, entry.subcategory_id);
+      entry.entry_id = ensureUniqueCashflowEntryId(entry.month, entry.type, entry.category_id, entry.subcategory_id, idx);
       markDirty();
     });
   });
@@ -2072,9 +2088,78 @@ function quickAddCashflowMonth() {
   });
 
   html += '</tbody></table>' +
-    '<div style="margin-top:8px"><button class="btn-add" onclick="saveQuickCashflow()">Save Non-Zero Entries</button></div>';
+    '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+      '<button class="btn-add" onclick="saveQuickCashflow()">Save Non-Zero Entries</button>' +
+      '<span style="font-size:12px;color:var(--text-secondary)">Need something extra this month? Add a manual row below.</span>' +
+    '</div>' +
+    '<div class="add-form-row" style="margin-top:10px">' +
+      '<div class="add-form-field"><label>Type</label><select id="cfQuickManualType"><option value="expense">Expense</option><option value="income">Income</option></select></div>' +
+      '<div class="add-form-field"><label>Category</label><input type="text" id="cfQuickManualCategory" placeholder="Category" style="width:140px"></div>' +
+      '<div class="add-form-field"><label>Subcategory</label><input type="text" id="cfQuickManualSubcategory" placeholder="Optional" style="width:140px"></div>' +
+      '<div class="add-form-field"><label>Amount</label><input type="number" step="any" id="cfQuickManualAmount" placeholder="0" style="width:100px"></div>' +
+      '<div class="add-form-field"><label>Notes</label><input type="text" id="cfQuickManualNotes" placeholder="" style="width:140px"></div>' +
+      '<button class="btn-add" onclick="addQuickCashflowManualEntry()">Add Manual Entry</button>' +
+    '</div>';
 
   grid.innerHTML = html;
+}
+
+function addQuickCashflowManualEntry() {
+  var monthEl = document.getElementById('cfQuickMonth');
+  var typeEl = document.getElementById('cfQuickManualType');
+  var categoryEl = document.getElementById('cfQuickManualCategory');
+  var subcategoryEl = document.getElementById('cfQuickManualSubcategory');
+  var amountEl = document.getElementById('cfQuickManualAmount');
+  var notesEl = document.getElementById('cfQuickManualNotes');
+  if (!monthEl || !typeEl || !categoryEl || !amountEl) return;
+
+  var month = monthEl.value;
+  var type = typeEl.value;
+  var categoryName = categoryEl.value.trim();
+  var amount = parseFloat(amountEl.value);
+  var subcategoryName = subcategoryEl ? subcategoryEl.value.trim() : '';
+
+  monthEl.classList.remove('input-error');
+  categoryEl.classList.remove('input-error');
+  amountEl.classList.remove('input-error');
+
+  if (!/^\d{4}-\d{2}$/.test(month)) { monthEl.classList.add('input-error'); return; }
+  if (!categoryName) { categoryEl.classList.add('input-error'); return; }
+  if (isNaN(amount) || amount <= 0) { amountEl.classList.add('input-error'); return; }
+
+  var categoryRow = ensureCashflowCategory(type, categoryName);
+  var subcategoryId = null;
+  var subcategory = '';
+  if (type === 'expense' && subcategoryName) {
+    var sub = ensureCashflowSubcategory(categoryRow.category_id, subcategoryName);
+    subcategoryId = sub ? sub.subcategory_id : null;
+    subcategory = sub ? sub.name : '';
+  }
+
+  var entryId = ensureUniqueCashflowEntryId(month, type, categoryRow.category_id, subcategoryId, null);
+  AdminState.cashflowEntries.push({
+    entry_id: entryId,
+    month: month,
+    type: type,
+    category_id: categoryRow.category_id,
+    category: categoryRow.name,
+    subcategory_id: subcategoryId,
+    subcategory: subcategory,
+    amount: amount,
+    notes: notesEl ? notesEl.value.trim() : ''
+  });
+  AdminState.cashflowEntries.sort(function(a, b) {
+    if (a.month !== b.month) return a.month > b.month ? -1 : 1;
+    return (a.entry_id || '').localeCompare(b.entry_id || '');
+  });
+  markDirty();
+
+  categoryEl.value = '';
+  if (subcategoryEl) subcategoryEl.value = '';
+  amountEl.value = '';
+  if (notesEl) notesEl.value = '';
+  renderCashflowAdmin();
+  showToast('Manual entry added');
 }
 
 function saveQuickCashflow() {
@@ -2099,11 +2184,7 @@ function saveQuickCashflow() {
         subcategoryName = sub ? sub.name : '';
       }
     }
-    var entryId = buildCashflowEntryId(month, type, categoryRow.category_id, subcategoryId);
-
-    // Check for duplicate entry_id
-    var exists = AdminState.cashflowEntries.some(function(e) { return e.entry_id === entryId; });
-    if (exists) return;
+    var entryId = ensureUniqueCashflowEntryId(month, type, categoryRow.category_id, subcategoryId, null);
 
     AdminState.cashflowEntries.push({
       entry_id: entryId,
@@ -2159,13 +2240,7 @@ function addCashflowEntry() {
   var subcategory = subcategoryId
     ? ((AdminState.cashflowSubcategories.find(function(s) { return s.subcategory_id === subcategoryId; }) || {}).name || '')
     : '';
-  var entryId = buildCashflowEntryId(month, type, categoryId, subcategoryId);
-
-  // Check for duplicate
-  if (AdminState.cashflowEntries.some(function(e) { return e.entry_id === entryId; })) {
-    alert('Entry "' + entryId + '" already exists. Edit the existing row instead.');
-    return;
-  }
+  var entryId = ensureUniqueCashflowEntryId(month, type, categoryId, subcategoryId, null);
 
   AdminState.cashflowEntries.push({
     entry_id: entryId,

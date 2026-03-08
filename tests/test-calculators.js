@@ -535,4 +535,16 @@ describe('CashflowNormalizationService', function() {
     assert(incomeNames.indexOf('Bonus') >= 0, 'Missing Bonus');
     assert(incomeNames.indexOf('Other') >= 0, 'Missing Other');
   });
+
+  it('keeps duplicate category/subcategory entries as distinct IDs', function() {
+    var data = {
+      cashflowEntries: [
+        { entry_id: 'a', month: '2024-01', type: 'expense', category: 'Food', subcategory: 'Restaurant', amount: 35, notes: '' },
+        { entry_id: 'b', month: '2024-01', type: 'expense', category: 'Food', subcategory: 'Restaurant', amount: 22, notes: '' }
+      ]
+    };
+    var normalized = CashflowNormalizationService.normalizeDataset(data);
+    assertEqual(normalized.entries.length, 2);
+    assert(normalized.entries[0].entry_id !== normalized.entries[1].entry_id, 'Expected distinct entry IDs');
+  });
 });
