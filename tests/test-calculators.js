@@ -139,6 +139,27 @@ describe('FICalculator', function() {
     ];
     assertClose(FICalculator.avgMonthlySavings(data, 3), 1000, 0.01);
   });
+
+  it('fiDate returns concrete month for achievable target', function() {
+    var date = FICalculator.fiDate(0, 5000, 0.07, 300000);
+    assert(date !== null, 'Should return a date');
+    assert(/^\d{4}-\d{2}$/.test(date), 'Should be YYYY-MM format, got ' + date);
+  });
+
+  it('fiDate returns now when already at target', function() {
+    assertEqual(FICalculator.fiDate(1000000, 1000, 0.07, 1000000), 'now');
+  });
+
+  it('fiDate returns null for impossible case', function() {
+    assertEqual(FICalculator.fiDate(0, 0, 0, 1000000), null);
+  });
+
+  it('sensitivityAnalysis shows saving more reduces years', function() {
+    var result = FICalculator.sensitivityAnalysis(100000, 2000, 0.06, 500000, [500, 1000]);
+    assertEqual(result.length, 2);
+    assert(result[0].yearsSaved > 0, 'Saving 500 more should reduce years');
+    assert(result[1].yearsSaved > result[0].yearsSaved, 'Saving 1000 more should save more than 500');
+  });
 });
 
 // --- NetWorthCalculator ---

@@ -17,7 +17,7 @@ var PlannerRenderer = {
     return '';
   },
 
-  render: function(plan, milestoneStatuses, fundingHistory, actions) {
+  render: function(plan, milestoneStatuses, fundingHistory, actions, fiProjection) {
     var el = document.getElementById('goalsContent');
     if (!el) return;
 
@@ -177,6 +177,66 @@ var PlannerRenderer = {
 
         html += '</tbody></table></div></div>';
       }
+    }
+
+    // --- FI Timeline ---
+    if (fiProjection) {
+      html += '<div class="table-container"><div class="table-header-row"><h2>FI Timeline</h2></div>';
+      html += '<div class="fi-timeline-content">';
+
+      if (fiProjection.fiDate === 'now') {
+        html += '<div class="fi-timeline-headline positive">You have reached Financial Independence!</div>';
+      } else if (fiProjection.fiDate) {
+        var parts = fiProjection.fiDate.split('-');
+        var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var dateLabel = monthNames[parseInt(parts[1]) - 1] + ' ' + parts[0];
+        html += '<div class="fi-timeline-headline">At current pace, FI by <strong>' + dateLabel + '</strong>' +
+          ' (' + fiProjection.yearsToFI.toFixed(1) + ' years)</div>';
+      } else {
+        html += '<div class="fi-timeline-headline negative">FI target not reachable at current savings rate.</div>';
+      }
+
+      // Per-goal completion dates
+      if (plan && plan.goals && plan.goals.length) {
+        var activeGoals = plan.goals.filter(function(g) { return g.status !== 'funded'; });
+        if (activeGoals.length) {
+          html += '<div class="fi-timeline-goals">';
+          activeGoals.forEach(function(g) {
+            var label = g.projected_completion || 'N/A';
+            var delayed = g.projected_completion && g.target_date && g.projected_completion > g.target_date;
+            html += '<span class="fi-timeline-goal">' + g.name + ': ' +
+              '<strong class="' + (delayed ? 'negative' : '') + '">' + label + '</strong></span>';
+          });
+          html += '</div>';
+        }
+      }
+
+      // Sensitivity table
+      if (fiProjection.sensitivity && fiProjection.sensitivity.length) {
+        html += '<div class="fi-sensitivity"><table class="returns-table"><thead><tr>' +
+          '<th style="text-align:right">Save Extra/mo</th><th>FI Date</th>' +
+          '<th style="text-align:right">Years Saved</th>' +
+          '</tr></thead><tbody>';
+
+        fiProjection.sensitivity.forEach(function(s) {
+          var dateLabel = s.fiDate || 'N/A';
+          if (s.fiDate && s.fiDate !== 'now') {
+            var p = s.fiDate.split('-');
+            var mn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            dateLabel = mn[parseInt(p[1]) - 1] + ' ' + p[0];
+          }
+          var saved = s.yearsSaved === Infinity ? '-' : s.yearsSaved.toFixed(1) + ' years';
+          html += '<tr>' +
+            '<td style="text-align:right">+' + Fmt.currency(s.extraSavings) + '</td>' +
+            '<td>' + dateLabel + '</td>' +
+            '<td style="text-align:right" class="positive">' + saved + '</td>' +
+          '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+      }
+
+      html += '</div></div>';
     }
 
     // --- Milestones ---

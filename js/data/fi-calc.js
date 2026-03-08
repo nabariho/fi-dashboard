@@ -55,6 +55,40 @@ var FICalculator = {
     return totalContrib / recent.length;
   },
 
+  // Compute FI date as concrete month/year string.
+  // Returns 'YYYY-MM' or null if not reachable.
+  fiDate: function(currentNW, monthlySavings, annualReturn, fiTarget) {
+    var years = this.yearsToFI(currentNW, monthlySavings, annualReturn, fiTarget);
+    if (years === Infinity || years === 0) return years === 0 ? 'now' : null;
+    var now = new Date();
+    var totalMonths = Math.ceil(years * 12);
+    var targetMonth = now.getMonth() + totalMonths;
+    var targetYear = now.getFullYear() + Math.floor(targetMonth / 12);
+    var m = (targetMonth % 12) + 1;
+    return targetYear + '-' + (m < 10 ? '0' : '') + m;
+  },
+
+  // Sensitivity analysis: how does FI date change with extra savings?
+  // Returns array of { extraSavings, yearsToFI, fiDate, yearsSaved }
+  sensitivityAnalysis: function(currentNW, monthlySavings, annualReturn, fiTarget, increments) {
+    increments = increments || [100, 200, 500];
+    var baseline = this.yearsToFI(currentNW, monthlySavings, annualReturn, fiTarget);
+    var results = [];
+
+    increments.forEach(function(extra) {
+      var years = FICalculator.yearsToFI(currentNW, monthlySavings + extra, annualReturn, fiTarget);
+      var fiDate = FICalculator.fiDate(currentNW, monthlySavings + extra, annualReturn, fiTarget);
+      results.push({
+        extraSavings: extra,
+        yearsToFI: years,
+        fiDate: fiDate,
+        yearsSaved: baseline === Infinity ? Infinity : Math.max(0, baseline - years)
+      });
+    });
+
+    return results;
+  },
+
   // Build projection data points for charting
   // Returns array of { month: 'YYYY-MM', projected: value }
   projectFuture: function(startValue, monthlySavings, annualReturn, fiTarget, maxYears) {

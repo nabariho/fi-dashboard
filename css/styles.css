@@ -1391,6 +1391,24 @@ tr:hover { background: var(--bg); }
   flex-direction: column;
   gap: 8px;
 }
+.fi-timeline-content {
+  padding: 16px 24px;
+}
+.fi-timeline-headline {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+.fi-timeline-goals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #555;
+}
+.fi-sensitivity {
+  margin-top: 12px;
+}
 
 /* === MORTGAGE === */
 .mortgage-summary {

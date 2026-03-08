@@ -238,11 +238,11 @@ Admin > Planning → before saving a goal:
 
 Steps are ordered by dependency and impact:
 
-1. **Step 1** (Unify goals) — foundational, everything else builds on it
-2. **Step 2** (Connect cashflow) — uses unified goal system
-3. **Step 5** (Data integrity) — can be done in parallel with Steps 3-4
-4. **Step 3** (Actionable insights) — requires unified goals + cashflow connection
-5. **Step 4** (Projections) — requires all the above for accurate forecasting
+1. ~~**Step 1** (Unify goals)~~ — **DONE** (commit 71bb60a)
+2. ~~**Step 2** (Connect cashflow)~~ — **DONE** (commit 142fd8f: actual vs planned in Planning tab)
+3. ~~**Step 3** (Actionable insights)~~ — **DONE** (commit 722b7e3: ActionsCalculator)
+4. **Step 4** (Projections) — TODO
+5. ~~**Step 5** (Data integrity)~~ — **PARTIALLY DONE** (5a: already handled by ensureUniqueEntryId, 5b: negative NW, 5c: achievability warning). Remaining: 5d first-month returns flag.
 
 Within each step, sub-items (a, b, c) are ordered by dependency.
 

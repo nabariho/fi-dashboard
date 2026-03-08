@@ -372,7 +372,32 @@ function refreshGoalsTab() {
     actions = ActionsCalculator.computeActions(_cachedGoalPlan, fundingHistory, cashflowMonths);
   }
 
-  PlannerRenderer.render(_cachedGoalPlan, milestoneStatuses, fundingHistory, actions);
+  // Compute FI timeline projection
+  var fiProjection = null;
+  if (typeof FICalculator !== 'undefined') {
+    var accountIds2 = AccountService.getNetworthAccountIds();
+    var nwData2 = NetWorthCalculator.compute(allData, accountIds2, mortgageData);
+    if (nwData2.length) {
+      var currentNW = nwData2[nwData2.length - 1].total || 0;
+      var fiTarget = appConfig.fi_target || 1000000;
+      var expectedReturn = appConfig.expected_return || 0.05;
+      var perfData = DataService.filterByAccount(allData, AccountService.isPerformance);
+      var perfMonthly = DataService.aggregateByMonth(perfData);
+      var avgSavings = FICalculator.avgMonthlySavings(perfMonthly, 12);
+
+      var yearsToFI = FICalculator.yearsToFI(currentNW, avgSavings, expectedReturn, fiTarget);
+      var fiDate = FICalculator.fiDate(currentNW, avgSavings, expectedReturn, fiTarget);
+      var sensitivity = FICalculator.sensitivityAnalysis(currentNW, avgSavings, expectedReturn, fiTarget, [200, 500, 1000]);
+
+      fiProjection = {
+        yearsToFI: yearsToFI,
+        fiDate: fiDate,
+        sensitivity: sensitivity
+      };
+    }
+  }
+
+  PlannerRenderer.render(_cachedGoalPlan, milestoneStatuses, fundingHistory, actions, fiProjection);
 }
 
 // --- Investments Tab ---
