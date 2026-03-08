@@ -23,7 +23,16 @@ var GoalAllocationService = {
   buildNeed: function(goal, asOfMonth) {
     var remaining = Math.max(0, (goal.target_amount || 0) - (goal.current_amount || 0));
     var monthsLeft = Math.max(0, GoalAllocationService.monthsBetween(asOfMonth, goal.target_date));
-    var requiredMonthly = remaining > 0 ? (monthsLeft > 0 ? remaining / monthsLeft : remaining) : 0;
+    var requiredMonthly;
+    if (remaining <= 0) {
+      requiredMonthly = 0;
+    } else if (monthsLeft > 0) {
+      requiredMonthly = remaining / monthsLeft;
+    } else {
+      // Past deadline: spread over 12 months to avoid starving other goals.
+      // Status will still show 'at_risk' since months_left = 0.
+      requiredMonthly = remaining / 12;
+    }
     return {
       remaining: remaining,
       months_left: monthsLeft,

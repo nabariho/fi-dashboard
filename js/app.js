@@ -206,6 +206,22 @@ function refreshMortgage() {
   });
 }
 
+// --- Shared Helpers ---
+
+// Build latest account balances from MonthEnd data (uses latest available month per account)
+function _buildLatestAccounts(data) {
+  var latestByAccount = {};
+  var latestMonthByAccount = {};
+  (data || []).forEach(function(r) {
+    if (!r.account_id || !r.month) return;
+    if (!latestMonthByAccount[r.account_id] || r.month > latestMonthByAccount[r.account_id]) {
+      latestMonthByAccount[r.account_id] = r.month;
+      latestByAccount[r.account_id] = r.end_value || 0;
+    }
+  });
+  return latestByAccount;
+}
+
 // --- Cash Flow Tab ---
 
 var _cashflowTrailingMonths = 6;
@@ -242,12 +258,16 @@ function refreshCashFlow() {
   // Goal plan for allocation overlay
   var goalPlan = null;
   if (typeof GoalPlannerCalculator !== 'undefined' && plannerGoalsData && plannerGoalsData.length) {
+    // Use actual cashflow avg expenses when available, budget estimate as fallback
+    var actualMonthlyData = monthlyData.filter(function(r) { return r.dataSource === 'actual'; });
     var monthlyExpenses = budgetTotal;
+    if (actualMonthlyData.length > 0) {
+      var n = Math.min(actualMonthlyData.length, _cashflowTrailingMonths || 6);
+      var recentActual = actualMonthlyData.slice(-n);
+      monthlyExpenses = recentActual.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / n;
+    }
+    var latestAccounts = _buildLatestAccounts(allData);
     var asOfMonth = monthlyData[monthlyData.length - 1].month;
-    var latestAccounts = {};
-    allData.forEach(function(r) {
-      if (r.month === asOfMonth) latestAccounts[r.account_id] = r.end_value || 0;
-    });
     goalPlan = GoalPlannerCalculator.plan(plannerGoalsData, {
       monthlyIncome: monthlyIncome,
       monthlyExpenses: monthlyExpenses,
@@ -278,19 +298,33 @@ function refreshGoalsTab() {
   if (typeof GoalPlannerCalculator === 'undefined' || typeof PlannerRenderer === 'undefined') return;
 
   var monthlyIncome = appConfig.monthly_income || 0;
+
+  // Use actual cashflow avg expenses when available, budget estimate as fallback
   var monthlyExpenses = 0;
   if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
     monthlyExpenses = BudgetCalculator.computeMonthlyBudget(budgetItems).total || 0;
   }
+  if (typeof SavingsCapacityCalculator !== 'undefined' && typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
+    var hybridData = SavingsCapacityCalculator.computeMonthlyHybrid(
+      allData, cashflowEntries, {
+        monthlyIncome: monthlyIncome,
+        categories: cashflowCategories,
+        subcategories: cashflowSubcategories
+      }
+    );
+    var actualOnly = hybridData.filter(function(r) { return r.dataSource === 'actual'; });
+    if (actualOnly.length > 0) {
+      var n = Math.min(actualOnly.length, 6);
+      var recent = actualOnly.slice(-n);
+      monthlyExpenses = recent.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / n;
+    }
+  }
 
+  var latestAccounts = _buildLatestAccounts(allData);
   var asOfMonth = '2025-01';
-  var latestAccounts = {};
   if (allData.length) {
     var months = allData.map(function(r) { return r.month; }).sort();
     asOfMonth = months[months.length - 1];
-    allData.forEach(function(r) {
-      if (r.month === asOfMonth) latestAccounts[r.account_id] = r.end_value || 0;
-    });
   }
 
   var plan = GoalPlannerCalculator.plan(plannerGoalsData || [], {

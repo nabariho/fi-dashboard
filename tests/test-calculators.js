@@ -281,14 +281,15 @@ describe('GoalAccountingService', function() {
     assertEqual(latest.B, 50);
   });
 
-  it('analyzeFunding splits shared account balance across tracked goals', function() {
+  it('analyzeFunding splits shared account balance weighted by target_amount', function() {
     var goals = [
-      { goal_id: 'g1', name: 'Goal 1', active: true, track_current_from_accounts: true, funding_accounts: ['BBVA'] },
-      { goal_id: 'g2', name: 'Goal 2', active: true, track_current_from_accounts: true, funding_accounts: ['BBVA'] }
+      { goal_id: 'g1', name: 'Goal 1', active: true, track_current_from_accounts: true, target_amount: 80000, funding_accounts: ['BBVA'] },
+      { goal_id: 'g2', name: 'Goal 2', active: true, track_current_from_accounts: true, target_amount: 20000, funding_accounts: ['BBVA'] }
     ];
     var analysis = GoalAccountingService.analyzeFunding(goals, { BBVA: 1000 });
-    assertClose(analysis.goalCurrentFromAccounts.g1, 500, 0.01);
-    assertClose(analysis.goalCurrentFromAccounts.g2, 500, 0.01);
+    // 80k / 100k = 80%, 20k / 100k = 20%
+    assertClose(analysis.goalCurrentFromAccounts.g1, 800, 0.01);
+    assertClose(analysis.goalCurrentFromAccounts.g2, 200, 0.01);
     assertEqual(analysis.issues.length, 0);
   });
 
@@ -315,6 +316,23 @@ describe('GoalAllocationService', function() {
     var b = result.rows.find(function(r) { return r.goal_id === 'b'; });
     assertClose(a.allocated_monthly, 200, 0.01);
     assertClose(b.allocated_monthly, 100, 0.01);
+  });
+
+  it('buildNeed caps past-deadline goals at remaining/12', function() {
+    var goal = { target_amount: 12000, current_amount: 0, target_date: '2024-06' };
+    var need = GoalAllocationService.buildNeed(goal, '2025-01');
+    // Past deadline: remaining 12000 / 12 = 1000
+    assertClose(need.required_monthly, 1000, 0.01);
+    assertEqual(need.months_left, 0);
+    assertEqual(need.remaining, 12000);
+  });
+
+  it('buildNeed calculates monthly for future deadline', function() {
+    var goal = { target_amount: 6000, current_amount: 0, target_date: '2025-07' };
+    var need = GoalAllocationService.buildNeed(goal, '2025-01');
+    // 6 months left, 6000 remaining → 1000/month
+    assertClose(need.required_monthly, 1000, 0.01);
+    assertEqual(need.months_left, 6);
   });
 
   it('allocateByPriorityProportional funds higher priority first', function() {

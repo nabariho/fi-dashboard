@@ -56,11 +56,19 @@ var GoalAccountingService = {
         });
       }
 
-      if (!g.track_current_from_accounts && g.funding_accounts.length !== 1) {
+      if (!g.track_current_from_accounts && g.funding_accounts.length === 0) {
         issues.push({
           type: 'invalid_source',
           goal_id: g.goal_id,
-          message: g.name + ': manual current tracking requires exactly one funding account.'
+          message: g.name + ': no funding account selected. Manual tracking requires at least one.'
+        });
+      }
+
+      if (!g.track_current_from_accounts && g.funding_accounts.length > 1) {
+        issues.push({
+          type: 'invalid_source',
+          goal_id: g.goal_id,
+          message: g.name + ': manual tracking with multiple accounts — consider enabling auto-tracking.'
         });
       }
 
@@ -106,8 +114,12 @@ var GoalAccountingService = {
 
       var remainingForTracked = Math.max(0, balance - manualClaims);
       if (trackedGoals.length > 0) {
-        var share = remainingForTracked / trackedGoals.length;
+        // Weight by target_amount so larger goals claim proportional share
+        var totalTarget = trackedGoals.reduce(function(sum, g) { return sum + (g.target_amount || 0); }, 0);
         trackedGoals.forEach(function(g) {
+          var share = totalTarget > 0
+            ? remainingForTracked * ((g.target_amount || 0) / totalTarget)
+            : remainingForTracked / trackedGoals.length;
           if (!goalCurrentFromAccounts[g.goal_id]) goalCurrentFromAccounts[g.goal_id] = 0;
           goalCurrentFromAccounts[g.goal_id] += share;
         });
