@@ -1988,22 +1988,44 @@ function quickAddCashflowMonth() {
   // Build grid: income rows + expense rows from budget categories
   var grid = document.getElementById('cfQuickGrid');
 
-  // Get unique budget categories with planned amounts
-  var budgetByCategory = {};
+  // Build expense template rows from active budget items (line-item granularity).
+  // This supports detailed expense lists and keeps Quick Add flexible.
+  var expenseRows = [];
+  var categorySeen = {};
   (AdminState.budgetItems || []).forEach(function(b) {
     if (!b.active) return;
-    var cat = b.category || 'Other';
-    var monthly = b.amount;
-    if (b.frequency === 'yearly') monthly = b.amount / 12;
-    else if (b.frequency === 'quarterly') monthly = b.amount / 4;
-    if (!budgetByCategory[cat]) budgetByCategory[cat] = 0;
-    budgetByCategory[cat] += monthly;
+    var cat = cashflowTitleCase(b.category || 'Other');
+    var monthly = (typeof BudgetCalculator !== 'undefined')
+      ? BudgetCalculator.toMonthly(b.amount, b.frequency)
+      : (b.amount || 0);
+    var suggestedSubcategory = cashflowTitleCase(b.name || '');
+    if (suggestedSubcategory === cat) suggestedSubcategory = '';
+    expenseRows.push({
+      category: cat,
+      planned: monthly,
+      suggestedSubcategory: suggestedSubcategory
+    });
+    categorySeen[cat] = true;
   });
-  var expenseCategories = Object.keys(budgetByCategory).sort();
+
+  // Include configured expense categories not currently in budget as blank rows.
+  getCashflowCategoriesByType('expense').forEach(function(c) {
+    if (categorySeen[c.name]) return;
+    expenseRows.push({
+      category: c.name,
+      planned: null,
+      suggestedSubcategory: ''
+    });
+  });
+
+  expenseRows.sort(function(a, b) {
+    if (a.category !== b.category) return a.category.localeCompare(b.category);
+    return (a.suggestedSubcategory || '').localeCompare(b.suggestedSubcategory || '');
+  });
 
   var html = '<table class="admin-table" style="margin-top:8px"><thead><tr>' +
     '<th>Type</th><th>Category</th><th>Planned</th><th>Subcategory (optional)</th><th>Actual Amount</th>' +
-    '</tr></thead><tbody>';
+  '</tr></thead><tbody>';
   var rowKey = 0;
 
   // Income rows
@@ -2020,10 +2042,11 @@ function quickAddCashflowMonth() {
       '</tr>';
   });
 
-  // Expense rows from budget
-  expenseCategories.forEach(function(cat) {
+  // Expense rows from budget template + configured categories
+  expenseRows.forEach(function(row) {
     rowKey++;
-    var subcategoryListId = 'cfQuickSubcats_' + cashflowSlugify(cat);
+    var cat = row.category;
+    var subcategoryListId = 'cfQuickSubcats_' + cashflowSlugify(cat) + '_' + rowKey;
     var expenseCategory = (typeof CashflowTaxonomyService !== 'undefined')
       ? CashflowTaxonomyService.findCategoryByName('expense', cat, AdminState.cashflowCategories)
       : null;
@@ -2034,8 +2057,8 @@ function quickAddCashflowMonth() {
     html += '<tr>' +
       '<td>expense</td>' +
       '<td>' + escHtml(cat) + '</td>' +
-      '<td style="color:var(--text-secondary)">' + budgetByCategory[cat].toFixed(0) + '</td>' +
-      '<td><input type="text" class="cf-quick-subcategory" data-rowkey="' + rowKey + '" data-type="expense" data-category="' + escHtml(cat) + '" list="' + subcategoryListId + '" placeholder="e.g. Cruz Roja" style="width:150px"></td>' +
+      '<td style="color:var(--text-secondary)">' + (row.planned == null ? '-' : row.planned.toFixed(2)) + '</td>' +
+      '<td><input type="text" class="cf-quick-subcategory" data-rowkey="' + rowKey + '" data-type="expense" data-category="' + escHtml(cat) + '" list="' + subcategoryListId + '" value="' + escHtml(row.suggestedSubcategory || '') + '" placeholder="e.g. Cruz Roja" style="width:150px"></td>' +
       '<td><input type="number" step="any" class="cf-quick-amount" data-rowkey="' + rowKey + '" data-type="expense" data-category="' + escHtml(cat) + '" placeholder="0" style="width:100px"></td>' +
       '</tr>';
 
