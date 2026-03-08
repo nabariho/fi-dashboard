@@ -168,32 +168,42 @@ describe('NetWorthCalculator', function() {
   });
 });
 
-// --- GoalsCalculator ---
+// --- GoalsCalculator (reads from planner output) ---
 
 describe('GoalsCalculator', function() {
-  it('emergency fund green when TR alone covers target', function() {
-    var result = GoalsCalculator.computeEmergencyFund({ TRADE_REPUBLIC: 45000, BBVA: 5000 }, 40000);
-    assertEqual(result.status, 'green');
-    assertClose(result.pct, 100, 0.1);
+  var mockPlan = {
+    goals: [
+      { goal_id: 'emergency_fund', name: 'Emergency Fund', target_amount: 40000, current_amount: 35000, remaining: 5000, status: 'on_track', required_monthly: 500, projected_completion: '2026-06', funding_accounts: ['TR'], priority: 1 },
+      { goal_id: 'house_downpayment', name: 'House Down Payment', target_amount: 80000, current_amount: 85000, remaining: 0, status: 'funded', required_monthly: 0, projected_completion: '2026-01', funding_accounts: ['BANK'], priority: 2 },
+      { goal_id: 'retirement', name: 'Retirement', target_amount: 500000, current_amount: 100000, remaining: 400000, status: 'at_risk', required_monthly: 2000, projected_completion: '2040-01', funding_accounts: ['BROKER'], priority: 3 }
+    ],
+    budget_deficit: 200,
+    budget_surplus: 0
+  };
+
+  it('fromPlannerOutput extracts all goals with correct colors', function() {
+    var goals = GoalsCalculator.fromPlannerOutput(mockPlan);
+    assertEqual(goals.length, 3);
+    assertEqual(goals[0].color, 'blue');   // on_track
+    assertEqual(goals[1].color, 'green');  // funded
+    assertEqual(goals[2].color, 'yellow'); // at_risk
+    assertClose(goals[0].pct, 87.5, 0.1);
+    assertClose(goals[1].pct, 100, 0.1);
   });
 
-  it('emergency fund yellow when TR+BBVA covers target', function() {
-    var result = GoalsCalculator.computeEmergencyFund({ TRADE_REPUBLIC: 25000, BBVA: 20000 }, 40000);
-    assertEqual(result.status, 'yellow');
+  it('forSummary finds emergency and house goals by ID pattern', function() {
+    var summary = GoalsCalculator.forSummary(mockPlan);
+    assert(summary.emergency !== null, 'Should find emergency goal');
+    assert(summary.house !== null, 'Should find house goal');
+    assertEqual(summary.emergency.status, 'blue');
+    assertClose(summary.emergency.available, 35000, 0.01);
+    assertClose(summary.house.current, 85000, 0.01);
+    assertClose(summary.house.surplus, 5000, 0.01);
   });
 
-  it('emergency fund red when below target', function() {
-    var result = GoalsCalculator.computeEmergencyFund({ TRADE_REPUBLIC: 15000, BBVA: 5000 }, 40000);
-    assertEqual(result.status, 'red');
-  });
-
-  it('house down payment computes surplus', function() {
-    var result = GoalsCalculator.computeHouseDownPayment({ ARRAS: 40000, BANKINTER: 50000 }, 80000, 2000);
-    // bankinterEffective = 50000 - 2000 = 48000
-    // current = 40000 + 48000 = 88000
-    // surplus = 88000 - 80000 = 8000
-    assertEqual(result.surplus, 8000);
-    assertClose(result.pct, 100, 0.1);
+  it('fromPlannerOutput returns empty array when no plan', function() {
+    var goals = GoalsCalculator.fromPlannerOutput(null);
+    assertEqual(goals.length, 0);
   });
 });
 

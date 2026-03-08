@@ -1,70 +1,73 @@
 // === UI: GOALS PANEL ===
 // Renders the always-visible financial goals summary panel (above tabs).
-// Emergency fund + house down payment quick status. No data processing.
+// Shows all active planner goals with progress bars. No data processing.
 
 var GoalsRenderer = {
-  _goalBar: function(pct, statusClass) {
+  _goalBar: function(pct, colorClass) {
     return '<div class="goal-bar-container">' +
-      '<div class="goal-bar status-' + statusClass + '" style="width:' + Math.max(pct, 2).toFixed(1) + '%"></div>' +
+      '<div class="goal-bar status-' + colorClass + '" style="width:' + Math.max(pct, 2).toFixed(1) + '%"></div>' +
       '<div class="goal-bar-label">' + pct.toFixed(1) + '%</div>' +
     '</div>';
   },
 
-  renderGoalsPanel: function(emergency, house) {
+  // goals: array from GoalsCalculator.fromPlannerOutput()
+  // budgetHealth: { deficit, surplus } from plan output (optional)
+  renderGoalsPanel: function(goals, budgetHealth) {
     var el = document.getElementById('goalsPanel');
     if (!el) return;
 
+    if (!goals || !goals.length) {
+      el.innerHTML =
+        '<div class="goal-item" style="opacity:0.6">' +
+        '<div class="goal-header"><div class="goal-name">No goals configured</div></div>' +
+        '<div class="goal-note">Add goals in Admin &rarr; Planning to track progress.</div>' +
+        '</div>';
+      return;
+    }
+
     var html = '';
 
-    // Emergency Fund
-    var efValue = emergency.status === 'green' ? emergency.dedicated : emergency.available;
-    html += '<div class="goal-item">' +
-      '<div class="goal-header">' +
-        '<div class="goal-name">' +
-          '<span class="status-dot status-' + emergency.status + '"></span>' +
-          'Emergency Fund' +
+    // Sort by priority (lower = more important)
+    var sorted = goals.slice().sort(function(a, b) {
+      return (a.priority || 99) - (b.priority || 99);
+    });
+
+    sorted.forEach(function(g) {
+      html += '<div class="goal-item">' +
+        '<div class="goal-header">' +
+          '<div class="goal-name">' +
+            '<span class="status-dot status-' + g.color + '"></span>' +
+            g.name +
+          '</div>' +
+          '<div class="goal-values">' + Fmt.currencyShort(g.current) +
+            ' / ' + Fmt.currencyShort(g.target) + '</div>' +
         '</div>' +
-        '<div class="goal-values">' + Fmt.currencyShort(efValue) +
-          ' / ' + Fmt.currencyShort(emergency.target) + '</div>' +
-      '</div>' +
-      this._goalBar(emergency.pct, emergency.status);
+        GoalsRenderer._goalBar(g.pct, g.color);
 
-    var trName = AccountService.getName('TRADE_REPUBLIC');
-    var bbvaName = AccountService.getName('BBVA');
+      // Status detail line
+      if (g.status === 'funded') {
+        html += '<div class="goal-note">Target reached</div>';
+      } else if (g.remaining > 0) {
+        var detail = Fmt.currencyShort(g.remaining) + ' remaining';
+        if (g.required_monthly > 0) {
+          detail += ' &middot; ' + Fmt.currencyShort(g.required_monthly) + '/mo needed';
+        }
+        if (g.projected_completion) {
+          detail += ' &middot; ETA ' + g.projected_completion;
+        }
+        var detailClass = g.color === 'yellow' || g.color === 'red' ? 'goal-alert goal-alert-' + g.color : 'goal-note';
+        html += '<div class="' + detailClass + '">' + detail + '</div>';
+      }
 
-    if (emergency.status === 'green') {
-      html += '<div class="goal-note">Fully covered by ' + trName + ' (' + Fmt.currencyShort(emergency.dedicated) + ')</div>';
-    } else if (emergency.status === 'yellow') {
-      html += '<div class="goal-alert goal-alert-yellow">' + trName + ': ' + Fmt.currencyShort(emergency.dedicated) +
-        ' + ' + bbvaName + ': ' + Fmt.currencyShort(emergency.available - emergency.dedicated) + '</div>';
-    } else {
-      html += '<div class="goal-alert goal-alert-red">Shortfall: ' + Fmt.currencyShort(emergency.target - emergency.available) +
-        ' below target (' + trName + ': ' + Fmt.currencyShort(emergency.dedicated) + ')</div>';
+      html += '</div>';
+    });
+
+    // Budget health banner
+    if (budgetHealth && budgetHealth.deficit > 0.01) {
+      html += '<div class="goal-alert goal-alert-red" style="margin-top:8px">' +
+        'Budget deficit: ' + Fmt.currency(budgetHealth.deficit) + '/mo needed to fund all goals on time.' +
+        '</div>';
     }
-
-    html += '</div>';
-
-    // House Down Payment
-    html += '<div class="goal-item">' +
-      '<div class="goal-header">' +
-        '<div class="goal-name">' +
-          '<span class="status-dot status-' + (house.surplus > 0 ? 'green' : 'blue') + '"></span>' +
-          'House Down Payment' +
-        '</div>' +
-        '<div class="goal-values">' + Fmt.currencyShort(house.current) +
-          ' / ' + Fmt.currencyShort(house.target) + '</div>' +
-      '</div>' +
-      this._goalBar(house.pct, house.surplus > 0 ? 'green' : 'blue');
-
-    if (house.surplus > 0) {
-      var efWithSurplus = emergency.available + house.surplus;
-      var efPctWithSurplus = Math.min((efWithSurplus / emergency.target) * 100, 100);
-      html += '<div class="goal-alert goal-alert-surplus">Surplus: ' + Fmt.currencyShort(house.surplus) +
-        ' above target. Moving it to emergency fund would bring it to ' +
-        Fmt.currencyShort(efWithSurplus) + ' (' + efPctWithSurplus.toFixed(1) + '% of target)</div>';
-    }
-
-    html += '</div>';
 
     el.innerHTML = html;
   }

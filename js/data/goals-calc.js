@@ -1,58 +1,80 @@
 // === GOALS CALCULATOR ===
-// Computes emergency fund and house down payment goal status. Pure math, no DOM access.
-//
-// House accounts (ARRAS + BANKINTER) are fully earmarked for the house and excluded
-// from the emergency fund pool. Emergency fund = TRADE_REPUBLIC + BBVA only.
+// Extracts goal status from the unified planner output.
+// Pure functions, no DOM access, no hardcoded account IDs.
 
 var GoalsCalculator = {
-  // Compute emergency fund status
-  // accounts: { TRADE_REPUBLIC, BBVA, ... } (values from latest NW data)
-  // emergencyTarget: target amount (e.g. 40000)
-  computeEmergencyFund: function(accounts, emergencyTarget) {
-    var dedicated = accounts.TRADE_REPUBLIC || 0;
-    var available = dedicated + (accounts.BBVA || 0);
+  // Extract goal status summaries from planner output for the Goals panel.
+  // Returns an array of { goal_id, name, current, target, pct, status, remaining,
+  //   required_monthly, projected_completion, funding_accounts } objects.
+  fromPlannerOutput: function(plan) {
+    if (!plan || !plan.goals || !plan.goals.length) return [];
 
-    var status;
-    if (dedicated >= emergencyTarget) {
-      status = 'green';
-    } else if (available >= emergencyTarget) {
-      status = 'yellow';
-    } else {
-      status = 'red';
-    }
+    return plan.goals.map(function(g) {
+      var current = g.current_amount || 0;
+      var target = g.target_amount || 0;
+      var pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
 
-    var effective = status === 'green' ? dedicated : available;
-    var pct = emergencyTarget > 0 ? Math.min((effective / emergencyTarget) * 100, 100) : 0;
+      // Map planner status to traffic-light color for the panel
+      var color;
+      if (g.status === 'funded') {
+        color = 'green';
+      } else if (g.status === 'on_track') {
+        color = 'blue';
+      } else if (g.status === 'at_risk') {
+        color = 'yellow';
+      } else {
+        color = 'red';
+      }
 
-    return {
-      dedicated: dedicated,
-      available: available,
-      target: emergencyTarget,
-      pct: pct,
-      status: status
-    };
+      return {
+        goal_id: g.goal_id,
+        name: g.name,
+        current: current,
+        target: target,
+        pct: pct,
+        remaining: g.remaining || 0,
+        color: color,
+        status: g.status,
+        required_monthly: g.required_monthly || 0,
+        projected_completion: g.projected_completion || null,
+        funding_accounts: g.funding_accounts || [],
+        priority: g.priority || 99
+      };
+    });
   },
 
-  // Compute house down payment progress
-  // accounts: { ARRAS, BANKINTER } (values from latest NW data)
-  // houseTarget: target amount (e.g. 80000)
-  // operatingReserve: monthly budget to deduct from Bankinter (default 0)
-  computeHouseDownPayment: function(accounts, houseTarget, operatingReserve) {
-    var bankinterTotal = accounts.BANKINTER || 0;
-    var reserve = operatingReserve || 0;
-    var bankinterEffective = Math.max(0, bankinterTotal - reserve);
-    var current = (accounts.ARRAS || 0) + bankinterEffective;
-    var surplus = Math.max(0, current - houseTarget);
-    var pct = houseTarget > 0 ? Math.min((current / houseTarget) * 100, 100) : 0;
+  // Build the goals summary shape expected by SummaryCalculator.
+  // Returns { emergency: {status, pct}, house: {pct}, all: [...] }
+  // Looks up goals by goal_id pattern matching (contains 'emergency' or 'house').
+  forSummary: function(plan) {
+    var goals = GoalsCalculator.fromPlannerOutput(plan);
+    var emergency = null;
+    var house = null;
+
+    goals.forEach(function(g) {
+      var id = (g.goal_id || '').toLowerCase();
+      if (!emergency && id.indexOf('emergency') !== -1) {
+        emergency = g;
+      }
+      if (!house && (id.indexOf('house') !== -1 || id.indexOf('downpayment') !== -1 || id.indexOf('down_payment') !== -1)) {
+        house = g;
+      }
+    });
 
     return {
-      current: current,
-      target: houseTarget,
-      surplus: surplus,
-      pct: pct,
-      bankinterTotal: bankinterTotal,
-      bankinterEffective: bankinterEffective,
-      operatingReserve: reserve
+      emergency: emergency ? {
+        status: emergency.color,
+        pct: emergency.pct,
+        available: emergency.current,
+        target: emergency.target
+      } : null,
+      house: house ? {
+        pct: house.pct,
+        current: house.current,
+        target: house.target,
+        surplus: Math.max(0, house.current - house.target)
+      } : null,
+      all: goals
     };
   }
 };

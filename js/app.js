@@ -7,6 +7,7 @@ var plannerGoalsData = [];
 var cashflowEntries = [];
 var cashflowCategories = [];
 var cashflowSubcategories = [];
+var _cachedGoalPlan = null; // Shared planner output for Goals panel, Summary, and Goals tab
 
 // --- Monthly Summary (always visible) ---
 
@@ -18,32 +19,17 @@ function refreshSummary() {
     var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
     if (nwData.length < 2) { SummaryRenderer.renderEmptyState(); return; }
 
-    // Compute goals for summary context
-    var goals = null;
-    if (typeof GoalsCalculator !== 'undefined') {
-      var emergencyTarget = appConfig.emergency_fund_target || 40000;
-      var houseTarget = appConfig.house_downpayment_target || 80000;
-      var operatingReserve = 0;
-      if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
-        operatingReserve = BudgetCalculator.computeOperatingReserve(budgetItems);
-      }
-      var latest = nwData[nwData.length - 1].accounts;
-      goals = {
-        emergency: GoalsCalculator.computeEmergencyFund(latest, emergencyTarget),
-        house: GoalsCalculator.computeHouseDownPayment(latest, houseTarget, operatingReserve)
-      };
-    }
+    // Compute goals for summary context from unified planner
+    var goals = _cachedGoalPlan ? GoalsCalculator.forSummary(_cachedGoalPlan) : null;
 
-    // Compute milestones for summary context
+    // Compute milestones for summary context using planner goal values
     var milestoneStatuses = [];
     if (typeof MilestoneCalculator !== 'undefined' && milestonesData && milestonesData.length) {
       var latestRow = nwData[nwData.length - 1];
-      var emergency = goals ? goals.emergency : { available: 0 };
-      var house = goals ? goals.house : { current: 0 };
       var currentValues = {
         total: latestRow.total || 0,
-        emergency_fund: emergency.available,
-        house_downpayment: house.current,
+        emergency_fund: goals && goals.emergency ? goals.emergency.available : 0,
+        house_downpayment: goals && goals.house ? goals.house.current : 0,
         fi_networth: latestRow.total || 0
       };
       milestoneStatuses = MilestoneCalculator.computeAll(milestonesData, currentValues, nwData[0].month, latestRow.month);
@@ -113,22 +99,62 @@ function getOperatingReserve() {
   return BudgetCalculator.computeOperatingReserve(budgetItems);
 }
 
+// Compute the unified goal plan (shared by Goals panel, Summary, Goals tab).
+// Caches result in _cachedGoalPlan. Call this before refreshGoals/refreshSummary/refreshGoalsTab.
+function _computeGoalPlan() {
+  if (typeof GoalPlannerCalculator === 'undefined') { _cachedGoalPlan = null; return; }
+
+  var monthlyIncome = appConfig.monthly_income || 0;
+
+  // Use actual cashflow trailing avg for both income and expenses when available
+  var monthlyExpenses = 0;
+  if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+    monthlyExpenses = BudgetCalculator.computeMonthlyBudget(budgetItems).total || 0;
+  }
+  if (typeof SavingsCapacityCalculator !== 'undefined' && typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
+    var hybridData = SavingsCapacityCalculator.computeMonthlyHybrid(
+      allData, cashflowEntries, {
+        monthlyIncome: monthlyIncome,
+        categories: cashflowCategories,
+        subcategories: cashflowSubcategories
+      }
+    );
+    var actualOnly = hybridData.filter(function(r) { return r.dataSource === 'actual'; });
+    if (actualOnly.length > 0) {
+      var n = Math.min(actualOnly.length, 6);
+      var recent = actualOnly.slice(-n);
+      monthlyExpenses = recent.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / n;
+      // Use actual trailing income too
+      var incomeSum = recent.reduce(function(s, r) { return s + (r.income || 0); }, 0);
+      if (incomeSum > 0) monthlyIncome = incomeSum / n;
+    }
+  }
+
+  var latestAccounts = _buildLatestAccounts(allData);
+  var asOfMonth = '2025-01';
+  if (allData.length) {
+    var months = allData.map(function(r) { return r.month; }).sort();
+    asOfMonth = months[months.length - 1];
+  }
+
+  _cachedGoalPlan = GoalPlannerCalculator.plan(plannerGoalsData || [], {
+    monthlyIncome: monthlyIncome,
+    monthlyExpenses: monthlyExpenses,
+    asOfMonth: asOfMonth,
+    latestAccounts: latestAccounts
+  });
+}
+
 function refreshGoals() {
-  var emergencyTarget = appConfig.emergency_fund_target || 40000;
-  var houseTarget = appConfig.house_downpayment_target || 80000;
-  var operatingReserve = getOperatingReserve();
+  if (!_cachedGoalPlan) return;
 
-  // Get latest month's account values from NW data
-  var accountIds = AccountService.getNetworthAccountIds();
-  var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
-  if (!nwData.length) return;
+  var goals = GoalsCalculator.fromPlannerOutput(_cachedGoalPlan);
+  var budgetHealth = {
+    deficit: _cachedGoalPlan.budget_deficit || 0,
+    surplus: _cachedGoalPlan.budget_surplus || 0
+  };
 
-  var latest = nwData[nwData.length - 1].accounts;
-
-  var emergency = GoalsCalculator.computeEmergencyFund(latest, emergencyTarget);
-  var house = GoalsCalculator.computeHouseDownPayment(latest, houseTarget, operatingReserve);
-
-  GoalsRenderer.renderGoalsPanel(emergency, house);
+  GoalsRenderer.renderGoalsPanel(goals, budgetHealth);
 }
 
 // --- Emergency Fund Tab ---
@@ -295,68 +321,28 @@ function refreshCashFlow() {
 // --- Goals Tab (unified: funding plan + milestones) ---
 
 function refreshGoalsTab() {
-  if (typeof GoalPlannerCalculator === 'undefined' || typeof PlannerRenderer === 'undefined') return;
+  if (typeof PlannerRenderer === 'undefined') return;
+  if (!_cachedGoalPlan) return;
 
-  var monthlyIncome = appConfig.monthly_income || 0;
-
-  // Use actual cashflow avg expenses when available, budget estimate as fallback
-  var monthlyExpenses = 0;
-  if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
-    monthlyExpenses = BudgetCalculator.computeMonthlyBudget(budgetItems).total || 0;
-  }
-  if (typeof SavingsCapacityCalculator !== 'undefined' && typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
-    var hybridData = SavingsCapacityCalculator.computeMonthlyHybrid(
-      allData, cashflowEntries, {
-        monthlyIncome: monthlyIncome,
-        categories: cashflowCategories,
-        subcategories: cashflowSubcategories
-      }
-    );
-    var actualOnly = hybridData.filter(function(r) { return r.dataSource === 'actual'; });
-    if (actualOnly.length > 0) {
-      var n = Math.min(actualOnly.length, 6);
-      var recent = actualOnly.slice(-n);
-      monthlyExpenses = recent.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / n;
-    }
-  }
-
-  var latestAccounts = _buildLatestAccounts(allData);
-  var asOfMonth = '2025-01';
-  if (allData.length) {
-    var months = allData.map(function(r) { return r.month; }).sort();
-    asOfMonth = months[months.length - 1];
-  }
-
-  var plan = GoalPlannerCalculator.plan(plannerGoalsData || [], {
-    monthlyIncome: monthlyIncome,
-    monthlyExpenses: monthlyExpenses,
-    asOfMonth: asOfMonth,
-    latestAccounts: latestAccounts
-  });
-
-  // Compute milestones
+  // Compute milestones using planner goal values
   var milestoneStatuses = [];
   if (typeof MilestoneCalculator !== 'undefined' && milestonesData && milestonesData.length) {
     var accountIds = AccountService.getNetworthAccountIds();
     var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
     if (nwData.length) {
       var latestRow = nwData[nwData.length - 1];
-      var emergencyTarget = appConfig.emergency_fund_target || 40000;
-      var houseTarget = appConfig.house_downpayment_target || 80000;
-      var operatingReserve = getOperatingReserve();
-      var emergency = GoalsCalculator.computeEmergencyFund(latestRow.accounts, emergencyTarget);
-      var house = GoalsCalculator.computeHouseDownPayment(latestRow.accounts, houseTarget, operatingReserve);
+      var goalsSummary = GoalsCalculator.forSummary(_cachedGoalPlan);
       var currentValues = {
         total: latestRow.total || 0,
-        emergency_fund: emergency.available,
-        house_downpayment: house.current,
+        emergency_fund: goalsSummary.emergency ? goalsSummary.emergency.available : 0,
+        house_downpayment: goalsSummary.house ? goalsSummary.house.current : 0,
         fi_networth: latestRow.total || 0
       };
       milestoneStatuses = MilestoneCalculator.computeAll(milestonesData, currentValues, nwData[0].month, latestRow.month);
     }
   }
 
-  PlannerRenderer.render(plan, milestoneStatuses);
+  PlannerRenderer.render(_cachedGoalPlan, milestoneStatuses);
 }
 
 // --- Investments Tab ---
@@ -516,6 +502,7 @@ function showDashboard() {
   // Toggle cloud/file menu items
   if (typeof updateDbModeUI === 'function') updateDbModeUI();
 
+  _computeGoalPlan();
   refreshFIProgress();
   refreshGoals();
   refreshSummary();
@@ -570,6 +557,7 @@ function refreshAll() {
   // Destroy existing charts to avoid canvas reuse errors
   Chart.helpers.each(Chart.instances, function(instance) { instance.destroy(); });
 
+  _computeGoalPlan();
   refreshFIProgress();
   refreshGoals();
   refreshSummary();
