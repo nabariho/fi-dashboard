@@ -156,7 +156,7 @@ Living document tracking planned features, priorities, and progress.
 
 ## Phase 9: Unified Goal System & FI Journey
 
-**Status:** In Progress
+**Status:** Done
 **Priority:** Highest — fixes conflicting goal status, accounting gaps, and missing narrative
 
 **Goal:** Unify three competing goal systems into one source of truth, connect cash flow to goal progress, add actionable insights, and forward-looking projections. Full plan in `docs/phase9-unified-goal-system.md`.

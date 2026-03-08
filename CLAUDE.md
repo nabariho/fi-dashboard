@@ -60,7 +60,7 @@
 | `returns-calc.js` | Modified Dietz returns, YTD chaining, per-account comparison |
 | `networth-calc.js` | Net worth aggregation with mortgage debt/equity |
 | `fi-calc.js` | FI progress, years to FI, passive income, savings rate |
-| `goals-calc.js` | Emergency fund & house down payment status |
+| `goals-calc.js` | Goal status adapter: reads from unified planner output |
 | `emergency-calc.js` | Emergency fund history, flows, coverage metrics |
 | `budget-calc.js` | Monthly budget breakdown, operating reserve |
 | `cashflow-calc.js` | Actual income/expense analysis, planned-vs-actual, category trends |
@@ -73,6 +73,7 @@
 | `goal-rules-service.js` | Goal normalization, validation, funding evaluation |
 | `goal-accounting-service.js` | Source-of-funds integrity, oversubscription detection |
 | `goal-allocation-service.js` | Priority-based funding allocation |
+| `actions-calc.js` | Recommended actions engine (rebalance, expense alerts, surplus) |
 
 ## UI layer modules
 | Module | Renders |
@@ -80,13 +81,13 @@
 | `ui-metrics.js` | FI progress bar, investment/NW metric cards |
 | `ui-charts.js` | Portfolio, net worth, FI projection charts |
 | `ui-tables.js` | Returns grid, NW breakdown, account comparison |
-| `ui-goals.js` | Goals panel + detail view + milestones |
+| `ui-goals.js` | Goals panel (all planner goals, generic, no hardcoded IDs) |
 | `ui-budget.js` | Budget overview |
 | `ui-mortgage.js` | Mortgage dashboard (cards, chart, amort table, equity) |
 | `ui-emergency.js` | Emergency fund tab (status cards, chart, flow table) |
 | `ui-summary.js` | Monthly summary (narrative, cards, anomaly alerts) |
 | `ui-cashflow.js` | Cash flow tab (waterfall, trends, planned-vs-actual, category trends) |
-| `ui-planner.js` | Goal funding plan table + account ledger |
+| `ui-planner.js` | Goal funding plan, actual vs planned, actions, FI timeline, milestones |
 
 ## Admin page tabs (in order)
 - **Config** -- key-value editor (fi_target, withdrawal_rate, etc.)

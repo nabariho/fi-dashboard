@@ -1,6 +1,6 @@
 # Phase 9: Unified Goal System & FI Journey
 
-**Status:** In Progress
+**Status:** Done (Steps 1-5 implemented)
 **Priority:** Highest — fixes conflicting goal status, accounting gaps, and missing forward-looking narrative
 
 **Goal:** Make the dashboard a single coherent financial independence journey: one source of truth for goals, cash flow connected to goal progress, actionable insights, and forward-looking projections.
@@ -241,8 +241,8 @@ Steps are ordered by dependency and impact:
 1. ~~**Step 1** (Unify goals)~~ — **DONE** (commit 71bb60a)
 2. ~~**Step 2** (Connect cashflow)~~ — **DONE** (commit 142fd8f: actual vs planned in Planning tab)
 3. ~~**Step 3** (Actionable insights)~~ — **DONE** (commit 722b7e3: ActionsCalculator)
-4. **Step 4** (Projections) — TODO
-5. ~~**Step 5** (Data integrity)~~ — **PARTIALLY DONE** (5a: already handled by ensureUniqueEntryId, 5b: negative NW, 5c: achievability warning). Remaining: 5d first-month returns flag.
+4. ~~**Step 4** (Projections)~~ — **DONE** (commit 840939c: FI Timeline + sensitivity)
+5. ~~**Step 5** (Data integrity)~~ — **DONE** (5a: already handled by ensureUniqueEntryId, 5b: negative NW, 5c: achievability warning). Remaining: 5d first-month returns flag (deferred, low impact).
 
 Within each step, sub-items (a, b, c) are ordered by dependency.
 
