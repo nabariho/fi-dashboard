@@ -116,9 +116,11 @@ Actual income and expense entries. Only present when cashflow data exists. One r
 
 Sorted by month ascending, then entry_id alphabetically.
 
-### Sheet 7: Milestones
+### Sheet 7: Milestones (legacy)
 
-Milestone targets with sub-targets. Flattened — one row per sub-target, with milestone fields repeated.
+Legacy milestone targets. Milestones have been merged into planner goals (Phase 9) — glide paths are now computed from each goal's `target_date` and `target_amount`. This sheet is preserved for backward compatibility with old files.
+
+Flattened — one row per sub-target, with milestone fields repeated.
 
 | Column | Type | Description |
 |--------|------|-------------|

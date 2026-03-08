@@ -52,13 +52,9 @@ Resolved by persisting a directory handle in IDB. On Chrome, users pick a save f
 
 ---
 
-## ~~6. Unify Goals with Milestones Framework~~ Being resolved in Phase 9
+## ~~6. Unify Goals with Milestones Framework~~ Resolved (Phase 9)
 
-**Original problem:** Emergency Fund and House Down Payment goals were hardcoded with specific account IDs in `goals-calc.js`.
-
-**Partial resolution:** Emergency fund account roles are now configurable via `emergency_fund_role` field on each account. The Planning tab provides generic goal tracking with priority-based allocation.
-
-**Full resolution (Phase 9a):** Removing `goals-calc.js` entirely. Goals Panel, Emergency Fund tab, and milestones all read from the unified planner output. See `docs/phase9-unified-goal-system.md`.
+Fully resolved in Phase 9. `goals-calc.js` is now a thin adapter that reads from the unified planner output (`_cachedGoalPlan`). Emergency Fund tab reconciles with planner via optional `plannerGoal` parameter. Milestones merged into planner goals — glide paths computed from `target_date`/`target_amount`. Admin Milestones tab removed. Per-goal confidence heuristic added.
 
 ---
 

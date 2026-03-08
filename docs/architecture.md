@@ -85,12 +85,13 @@
 | `account-service.js` | Account lookups (name, type, color), emergency fund role queries |
 | `data-service.js` | Filtering, aggregation, time range |
 | `returns-calc.js` | Modified Dietz returns, YTD chaining, per-account comparison |
-| `networth-calc.js` | Net worth aggregation, MoM/YTD changes, mortgage debt integration |
+| `networth-calc.js` | Net worth decomposition: liquid (accounts), assets (liquid + house), liabilities (mortgage), total (assets - liabilities), MoM/YTD changes |
 | `fi-calc.js` | FI progress, years to FI, passive income, savings rate |
-| `goals-calc.js` | Emergency fund & house down payment status (hardcoded account IDs) |
-| `emergency-calc.js` | Emergency fund history, flows, coverage (configurable via account roles) |
+| `goals-calc.js` | Goal status adapter: reads from unified planner output (no hardcoded IDs) |
+| `emergency-calc.js` | Emergency fund history, flows, coverage (configurable via account roles, reconciles with planner) |
 | `budget-calc.js` | Monthly budget breakdown, operating reserve |
-| `milestone-calc.js` | Milestone progress, glide path, sub-targets, status |
+| `milestone-calc.js` | Glide path computation from planner goals (legacy milestone compat preserved) |
+| `actions-calc.js` | Recommended actions engine (rebalance, expense alerts, surplus allocation) |
 | `mortgage-calc.js` | Amortization schedule, equity, actual vs planned |
 | `summary-calc.js` | Monthly summary: NW change, attribution, narrative |
 | `anomaly-calc.js` | Anomaly detection: unusual changes, zero balances |
@@ -107,28 +108,29 @@
 | `ui-metrics.js` | FI progress bar, metric cards (investments, NW, last updated) |
 | `ui-charts.js` | Portfolio, net worth, FI projection, account comparison charts |
 | `ui-tables.js` | Returns grid, NW breakdown table, account comparison table |
-| `ui-goals.js` | Goals panel & detail view, milestone cards |
+| `ui-goals.js` | Goals panel & detail view (reads from unified planner output) |
 | `ui-emergency.js` | Emergency fund tab: status cards, funding history chart, flow table |
 | `ui-budget.js` | Budget overview: summary cards + category-grouped table |
 | `ui-mortgage.js` | Mortgage dashboard: summary cards, balance chart, amort table, equity |
 | `ui-summary.js` | Monthly summary panel: narrative, cards, anomaly alerts |
 | `ui-cashflow.js` | Cash flow tab: waterfall, trends, planned-vs-actual, category trends |
-| `ui-planner.js` | Goal funding plan table + account ledger integrity |
+| `ui-planner.js` | Goal funding plan (with confidence), account ledger, actions, FI timeline, milestones glide paths |
 
 ### Orchestration (`js/app.js`)
 - Unlock screen: File API + Crypto --> populate globals --> show dashboard
 - Auth screen: Cloud sign-in --> StorageManager.load() --> populate globals
 - `refresh*()` functions wire calculators to renderers:
   - `refreshFIProgress()` -- FI bar, passive income, years to FI
-  - `refreshGoals()` -- Emergency fund & house goals panel
+  - `refreshGoals()` -- Goals panel (reads from cached planner output)
   - `refreshSummary()` -- Monthly narrative + anomalies
   - `refreshInvestments()` -- Portfolio chart, returns grid, per-account comparison
-  - `refreshNetWorth()` -- NW chart, breakdown table
-  - `refreshEmergency()` -- Emergency fund history + flows
-  - `refreshGoalsDetail()` -- Full goal breakdown + milestones
+  - `refreshNetWorth()` -- NW chart (with house/NW overlay), breakdown table (assets/liabilities)
+  - `refreshEmergency()` -- Emergency fund history + flows (reconciled with planner)
+  - `refreshGoalsTab()` -- Unified goal detail + glide paths (from planner goals)
   - `refreshBudget()` -- Budget overview
   - `refreshMortgage()` -- Full mortgage dashboard
-  - `refreshPlanning()` -- Goal funding plan + ledger integrity
+  - `refreshCashFlow()` -- Hybrid actual/derived cash flow + planned-vs-actual
+  - `refreshPlanning()` -- Goal funding plan, actions, FI timeline, milestones
 - Event binding for tabs, filters, time ranges, view toggles
 
 ### Encryption -- File Mode (`js/crypto.js` + `cli/crypto.mjs`)
@@ -178,7 +180,7 @@
 
 ### Data Export (`js/data-export.js`)
 - XLSX export via SheetJS (CDN)
-- Sheets: Config, Accounts (with emergency_fund_role), MonthEnd, Budget, Planner, Milestones, Mortgage
+- Sheets: Config, Accounts (with emergency_fund_role), MonthEnd, Budget, CashFlow, Planner, Milestones (legacy), Mortgage
 - Plaintext for portability -- no encryption on export
 
 ### Service Worker (`sw.js`)

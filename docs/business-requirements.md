@@ -157,8 +157,8 @@ Priority-based funding goals with target dates and account assignments.
 | `track_current_from_accounts` | boolean | Auto-track from funding accounts |
 | `funding_accounts` | string[] | `["BANKINTER", "BBVA"]` |
 
-#### Milestones
-Time-bound targets with sub-goals for tracking progress against a glide path.
+#### Milestones (legacy — merged into Planner Goals)
+Standalone milestones have been merged into the planner goal system. Glide paths are now computed from each planner goal's `target_date` and `target_amount` via `MilestoneCalculator.computeGoalGlidePath()`. The milestones data structure is preserved for backward compatibility with old files.
 
 | Field | Type |
 |-------|------|
@@ -241,12 +241,30 @@ Both produce identical data shapes. `loadData()` is the shared entry point.
 **Key calculation:** Modified Dietz method for monthly returns, chained for YTD (reset each January).
 
 ### 4.3 Net Worth Tab
-**Purpose:** Track total wealth over time.
+**Purpose:** Track total wealth over time, separating assets from liabilities.
 
-- Stacked area chart: each account as a layer, mortgage debt shown as negative
-- Monthly breakdown table: per-account values with MoM deltas (absolute + %)
+**Net Worth Decomposition:**
+- `liquid` = sum of all financial accounts (investments + bank)
+- `assets` = liquid + house market value (when mortgage exists)
+- `liabilities` = mortgage balance (when mortgage exists)
+- `total` (Net Worth) = assets - liabilities
+
+**Metric cards (conditional on mortgage):**
+- With mortgage: Net Worth, Total Assets, Total Liabilities, Liquid Net Worth, YTD Change
+- Without mortgage: Net Worth, Investments, Bank Accounts, YTD Change
+
+**Stacked area chart:**
+- Each account as a stacked layer (stack group: `assets`)
+- House Value as an additional stacked asset (when mortgage exists)
+- Net Worth as dashed overlay line (separate stack group, not stacked)
+- Tooltip footer shows Total Assets, Mortgage Debt, Net Worth
+
+**Monthly breakdown table:**
+- Per-account values with MoM deltas
+- When mortgage exists: LIQUID NET WORTH row, Property section (House Market Value), TOTAL ASSETS, Liabilities section (Mortgage Balance), House Equity
+- NET WORTH grand total row
+
 - Time range filter: 6mo, 1yr, 3yr, all
-- Includes house equity and mortgage balance when mortgage data exists
 
 ### 4.4 Emergency Fund Tab
 **Purpose:** Dedicated emergency fund health monitoring.
@@ -257,11 +275,12 @@ Both produce identical data shapes. `loadData()` is the shared entry point.
 - Monthly flows table: starting balance → contributions → withdrawals → market change → ending → vs target
 
 ### 4.5 Goals Tab
-**Purpose:** Unified view of goal funding + milestones.
+**Purpose:** Unified view of goal funding, confidence, and progress.
 
-- **Funding Plan:** priority-ordered table with: funding accounts, source balance, required/mo, allocated/mo, shortfall, projected completion
+- **Funding Plan:** priority-ordered table with: funding accounts, source balance, required/mo, allocated/mo, shortfall, confidence, projected completion
+- **Confidence heuristic:** Based on budget allocation (data layer) and enriched with actual funding history (orchestration layer). Values: high/medium/low with color-coded badges.
 - **Account Ledger:** per-account integrity check — balance, manual claims, tracked claims, total claimed, unassigned
-- **Milestones:** progress cards with glide path (linear interpolation to target date), status (Ahead/On Track/Behind)
+- **Goal Progress & Glide Paths:** computed from planner goals with `target_date` (not standalone milestones). Linear interpolation to target date, status: Ahead/On Track/Behind
 
 ### 4.6 Budget Tab
 **Purpose:** Monthly expense breakdown for reference.
@@ -313,12 +332,11 @@ For months with actual cashflow entries, the actual data overrides derived data.
 #### Admin Tabs (in order)
 1. **Config** — key-value parameter editor
 2. **Accounts** — account CRUD with all role fields
-3. **Budget** — budget item CRUD (type, amount, frequency, category, active)
-4. **Cash Flow** — income/expense entry management
-5. **Planning** — planner goal CRUD (priority, target_date, funding_accounts)
-6. **Milestones** — milestone CRUD with sub-targets
-7. **MonthEnd** — Quick Add Month grid + historical data table
-8. **Mortgage** — mortgage parameters, extra payments, actual payments, valuations
+3. **Budget** — budget item CRUD (type, amount, frequency, category with cashflow taxonomy datalist, active)
+4. **Cash Flow** — income/expense entry management (Quick Add Month, single entry, inline edit)
+5. **Planning** — planner goal CRUD (priority, target_date, funding_accounts). Glide paths computed from planner goals (milestones merged)
+6. **MonthEnd** — Quick Add Month grid + historical data table
+7. **Mortgage** — mortgage parameters, extra payments, actual payments, valuations
 
 #### Cash Flow Admin (detailed)
 
@@ -371,13 +389,23 @@ years_to_fi = compound growth projection(current, avg_monthly_savings, expected_
 savings_rate = last_12mo_contributions / (12 * monthly_income)
 ```
 
-### 5.4 Savings Capacity (Derived)
+### 5.4 Net Worth Decomposition
+```
+liquid = sum(all financial account balances)       -- investments + bank
+assets = liquid + house_market_value               -- (house_value = 0 if no mortgage)
+liabilities = mortgage_balance                     -- (0 if no mortgage)
+total = assets - liabilities                       -- net worth
+house_equity = house_market_value - mortgage_balance
+```
+When no mortgage data exists, `liquid == assets == total` and `liabilities == 0`.
+
+### 5.5 Savings Capacity (Derived)
 ```
 implied_expenses = monthly_income - sum(all_net_contributions)
 savings_rate = sum(all_net_contributions) / monthly_income
 ```
 
-### 5.5 Savings Capacity (Actual — from Cashflow Entries)
+### 5.6 Savings Capacity (Actual — from Cashflow Entries)
 ```
 total_income = sum(income entries for month)
 total_expenses = sum(expense entries for month)
@@ -385,7 +413,7 @@ net_savings = total_income - total_expenses
 savings_rate = net_savings / total_income
 ```
 
-### 5.6 Hybrid Override
+### 5.7 Hybrid Override
 When actual cashflow entries exist for a month, the hybrid calculator:
 - Replaces `income` with actual total income
 - Replaces `impliedExpenses` with actual total expenses
@@ -394,7 +422,7 @@ When actual cashflow entries exist for a month, the hybrid calculator:
 - Sets `dataSource = 'actual'` (vs `'derived'` for months without entries)
 - Preserves `savingsContributions` and `transactionalContributions` from derived data (account-level detail not available from cashflow entries)
 
-### 5.7 Planned vs Actual
+### 5.8 Planned vs Actual
 ```
 For each budget category:
   planned = sum(active budget items in category, prorated to monthly)
@@ -402,7 +430,7 @@ For each budget category:
   delta = actual - planned  (positive = overspent)
 ```
 
-### 5.8 Goal Funding Allocation
+### 5.9 Goal Funding Allocation
 Priority-based proportional allocation:
 1. Sort goals by priority (P1 first)
 2. Available budget = monthly_income - monthly_expenses
