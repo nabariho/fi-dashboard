@@ -527,6 +527,28 @@ describe('CashflowCalculator', function() {
     assertEqual(result.transfersByCategory['Investing'], 1200);
     assert(!result.expensesByCategory['Investing'], 'Investing should not be in expensesByCategory');
   });
+
+  it('computeMonthDetail returns itemized breakdown', function() {
+    var entries = [
+      { entry_id: 'd1', month: '2024-03', type: 'income', category: 'Salary', category_id: 'income_salary', amount: 3000, notes: '' },
+      { entry_id: 'd2', month: '2024-03', type: 'expense', category: 'Housing', category_id: 'expense_housing', subcategory: 'Rent', amount: 575, notes: '' },
+      { entry_id: 'd3', month: '2024-03', type: 'expense', category: 'Housing', category_id: 'expense_housing', subcategory: 'Electricity', amount: 50, notes: '' },
+      { entry_id: 'd4', month: '2024-03', type: 'expense', category: 'Investing', category_id: 'expense_investing', subcategory: 'IBKR', amount: 1000, notes: '' }
+    ];
+    var cats = [
+      { category_id: 'expense_housing', type: 'expense', name: 'Housing', classification: 'spending' },
+      { category_id: 'expense_investing', type: 'expense', name: 'Investing', classification: 'transfer' }
+    ];
+    var detail = CashflowCalculator.computeMonthDetail(entries, '2024-03', cats);
+    assertEqual(detail.income.total, 3000);
+    assertEqual(detail.income.items.length, 1);
+    assertEqual(detail.expenses.total, 625);
+    assertEqual(detail.expenses.items.length, 2);
+    assertEqual(detail.expenses.items[0].subcategory, 'Rent'); // sorted by amount desc
+    assertEqual(detail.transfers.total, 1000);
+    assertEqual(detail.transfers.items.length, 1);
+    assertClose(detail.netSavings, 2375, 0.01, 'net savings');
+  });
 });
 
 // --- CashflowNormalizationService ---

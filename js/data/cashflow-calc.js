@@ -195,6 +195,53 @@ var CashflowCalculator = {
     return months;
   },
 
+  // Full detail for a single month: itemized income, expenses, transfers with subcategories.
+  // Returns: { month, income: { total, items: [{category, subcategory, amount}] },
+  //            expenses: { total, items: [...] }, transfers: { total, items: [...] } }
+  computeMonthDetail: function(entries, month, categories, subcategories) {
+    var monthEntries = (entries || []).filter(function(e) { return e.month === month; });
+    var income = { total: 0, items: [] };
+    var expenses = { total: 0, items: [] };
+    var transfers = { total: 0, items: [] };
+
+    for (var i = 0; i < monthEntries.length; i++) {
+      var e = monthEntries[i];
+      var amt = e.amount || 0;
+      var cat = this._resolveCategoryName(e, categories);
+      var subcat = this._resolveSubcategoryName(e, subcategories);
+      var item = { category: cat, subcategory: subcat, amount: amt, notes: e.notes || '' };
+
+      if (e.type === 'income') {
+        income.total += amt;
+        income.items.push(item);
+      } else {
+        var classification = this._resolveClassification(e, categories);
+        if (classification === 'transfer') {
+          transfers.total += amt;
+          transfers.items.push(item);
+        } else {
+          expenses.total += amt;
+          expenses.items.push(item);
+        }
+      }
+    }
+
+    // Sort items by amount descending within each group
+    var byAmountDesc = function(a, b) { return b.amount - a.amount; };
+    income.items.sort(byAmountDesc);
+    expenses.items.sort(byAmountDesc);
+    transfers.items.sort(byAmountDesc);
+
+    return {
+      month: month,
+      income: income,
+      expenses: expenses,
+      transfers: transfers,
+      netSavings: income.total - expenses.total,
+      savingsRate: income.total > 0 ? (income.total - expenses.total) / income.total : 0
+    };
+  },
+
   // Generate a slug from a category name (lowercase, spaces to hyphens).
   slugify: function(str) {
     return (str || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');

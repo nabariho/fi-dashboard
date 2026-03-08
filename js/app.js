@@ -259,35 +259,15 @@ function refreshCashFlow() {
   var waterfall = SavingsCapacityCalculator.computeWaterfall(monthlyData, budgetTotal, goalPlan, _cashflowTrailingMonths);
   var achievability = SavingsCapacityCalculator.computeAchievability(goalPlan, waterfall.actualSavings);
 
-  // Planned vs actual data
-  var plannedVsActual = null;
-  if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length && budgetItems.length) {
-    var latestActualMonth = null;
-    if (actualMonths && actualMonths.size > 0) {
-      actualMonths.forEach(function(m) {
-        if (!latestActualMonth || m > latestActualMonth) latestActualMonth = m;
-      });
-    }
-    if (latestActualMonth) {
-      plannedVsActual = CashflowCalculator.computePlannedVsActual(
-        cashflowEntries, budgetItems, latestActualMonth, cashflowCategories
-      );
-      plannedVsActual.month = latestActualMonth;
-    }
-  }
-
-  // Category trends
-  var categoryTrends = null;
-  var subcategoryTrends = null;
-  if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
-    categoryTrends = CashflowCalculator.computeCategoryTrends(cashflowEntries, 12, cashflowCategories);
-    subcategoryTrends = CashflowCalculator.computeSubcategoryTrends(
-      cashflowEntries, 12, cashflowCategories, cashflowSubcategories
-    );
-  }
+  // Provide modal drill-down data
+  CashFlowRenderer.setModalData({
+    cashflowEntries: cashflowEntries,
+    categories: cashflowCategories,
+    subcategories: cashflowSubcategories
+  });
 
   CashFlowRenderer.render(
-    waterfall, monthlyData, achievability, _cashflowTrailingMonths, plannedVsActual, categoryTrends, subcategoryTrends
+    waterfall, monthlyData, achievability, _cashflowTrailingMonths, goalPlan
   );
 }
 
