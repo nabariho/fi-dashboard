@@ -52,13 +52,13 @@ Resolved by persisting a directory handle in IDB. On Chrome, users pick a save f
 
 ---
 
-## ~~6. Unify Goals with Milestones Framework~~ Partially resolved
+## ~~6. Unify Goals with Milestones Framework~~ Being resolved in Phase 9
 
 **Original problem:** Emergency Fund and House Down Payment goals were hardcoded with specific account IDs in `goals-calc.js`.
 
-**Resolution:** Emergency fund account roles are now configurable via `emergency_fund_role` field on each account (set in Admin > Accounts). The Emergency Fund tab (`emergency-calc.js`) uses `AccountService.getEmergencyFundRoles()` instead of hardcoded IDs. The Planning tab provides generic goal tracking with priority-based allocation.
+**Partial resolution:** Emergency fund account roles are now configurable via `emergency_fund_role` field on each account. The Planning tab provides generic goal tracking with priority-based allocation.
 
-**Remaining gap:** `goals-calc.js` still hardcodes account IDs for the always-visible Goals panel and Goals detail tab. These should eventually read from account config or planner goals data.
+**Full resolution (Phase 9a):** Removing `goals-calc.js` entirely. Goals Panel, Emergency Fund tab, and milestones all read from the unified planner output. See `docs/phase9-unified-goal-system.md`.
 
 ---
 

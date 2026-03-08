@@ -61,8 +61,6 @@ var GoalRulesService = {
         g.status = 'invalid_source';
       } else if (oversubscribedGoalIds[g.goal_id]) {
         g.status = 'account_mismatch';
-      } else if (g.allocated_monthly <= 0) {
-        g.status = 'unfundable';
       } else if (g.shortfall > 0.01) {
         g.status = 'at_risk';
       } else {
@@ -81,7 +79,7 @@ var GoalRulesService = {
 
     var conflicts = sourceIssues.slice();
     rows.filter(function(g) {
-      return g.status === 'at_risk' || g.status === 'unfundable' || g.status === 'account_mismatch' || g.status === 'invalid_source';
+      return g.status === 'account_mismatch' || g.status === 'invalid_source';
     }).forEach(function(g) {
       conflicts.push({
         type: g.status,
@@ -90,14 +88,29 @@ var GoalRulesService = {
       });
     });
 
+    var requiredTotal = rows.reduce(function(sum, g) { return sum + g.required_monthly; }, 0);
+    var budgetDeficit = Math.max(0, requiredTotal - available);
+    var budgetSurplus = Math.max(0, available - requiredTotal);
+
+    if (budgetDeficit > 0.01) {
+      conflicts.unshift({
+        type: 'budget_deficit',
+        required: requiredTotal,
+        available: available,
+        deficit: budgetDeficit
+      });
+    }
+
     return {
       as_of_month: asOfMonth,
       monthly_income: monthlyIncome,
       monthly_expenses: monthlyExpenses,
       available_for_goals: available,
-      required_total: rows.reduce(function(sum, g) { return sum + g.required_monthly; }, 0),
+      required_total: requiredTotal,
       allocated_total: rows.reduce(function(sum, g) { return sum + g.allocated_monthly; }, 0),
       shortfall_total: rows.reduce(function(sum, g) { return sum + g.shortfall; }, 0),
+      budget_deficit: budgetDeficit,
+      budget_surplus: budgetSurplus,
       unallocated_surplus: allocation.unallocated_surplus,
       goals: rows,
       conflicts: conflicts,

@@ -6,7 +6,6 @@ var PlannerRenderer = {
     if (status === 'funded') return 'Funded';
     if (status === 'on_track') return 'On Track';
     if (status === 'at_risk') return 'At Risk';
-    if (status === 'unfundable') return 'Unfundable';
     if (status === 'account_mismatch') return 'Account Mismatch';
     if (status === 'invalid_source') return 'Invalid Source';
     return 'Pending';
@@ -14,7 +13,7 @@ var PlannerRenderer = {
 
   _statusClass: function(status) {
     if (status === 'funded' || status === 'on_track') return 'positive';
-    if (status === 'at_risk' || status === 'unfundable' || status === 'account_mismatch' || status === 'invalid_source') return 'negative';
+    if (status === 'at_risk' || status === 'account_mismatch' || status === 'invalid_source') return 'negative';
     return '';
   },
 
@@ -34,18 +33,29 @@ var PlannerRenderer = {
 
     // --- Funding plan ---
     if (plan && plan.goals && plan.goals.length) {
+      var hasDeficit = plan.budget_deficit > 0.01;
+      var healthLabel = hasDeficit ? 'Budget Deficit' : 'Budget Surplus';
+      var healthValue = hasDeficit ? plan.budget_deficit : plan.budget_surplus;
+      var healthClass = hasDeficit ? 'negative' : 'positive';
+
       html += '<div class="metrics">' +
-        '<div class="metric-card"><div class="label">Available for Goals</div><div class="value">' + Fmt.currency(plan.available_for_goals) + '</div></div>' +
-        '<div class="metric-card"><div class="label">Required per Month</div><div class="value">' + Fmt.currency(plan.required_total) + '</div></div>' +
-        '<div class="metric-card"><div class="label">Funding Gap</div><div class="value ' + (plan.shortfall_total > 0 ? 'negative' : 'positive') + '">' + Fmt.currency(plan.shortfall_total) + '</div></div>' +
-        '<div class="metric-card"><div class="label">Unallocated Surplus</div><div class="value">' + Fmt.currency(plan.unallocated_surplus) + '</div></div>' +
+        '<div class="metric-card"><div class="label">Monthly Savings</div><div class="value">' + Fmt.currency(plan.available_for_goals) + '</div></div>' +
+        '<div class="metric-card"><div class="label">Required for Goals</div><div class="value">' + Fmt.currency(plan.required_total) + '</div></div>' +
+        '<div class="metric-card"><div class="label">' + healthLabel + '</div><div class="value ' + healthClass + '">' + Fmt.currency(healthValue) + '</div></div>' +
       '</div>';
 
       if (plan.conflicts && plan.conflicts.length) {
         html += '<div class="summary-alerts">';
-        plan.conflicts.forEach(function(g) {
-          html += '<div class="summary-alert summary-alert-warning">' +
-            '&#9888; ' + g.message +
+        plan.conflicts.forEach(function(c) {
+          var alertClass = c.type === 'budget_deficit' ? 'summary-alert-error' : 'summary-alert-warning';
+          var msg = c.message;
+          if (c.type === 'budget_deficit') {
+            msg = 'Your goals require ' + Fmt.currency(c.required) + '/mo but you only save ' +
+              Fmt.currency(c.available) + '/mo. Reduce expenses by ' + Fmt.currency(c.deficit) +
+              '/mo or extend target dates to fund all goals on time.';
+          }
+          html += '<div class="summary-alert ' + alertClass + '">' +
+            '&#9888; ' + msg +
             '</div>';
         });
         html += '</div>';
@@ -53,26 +63,30 @@ var PlannerRenderer = {
 
       html += '<div class="table-container"><div class="table-header-row"><h2>Goal Funding Plan</h2></div>' +
         '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-        '<th>Goal</th><th>Priority</th><th>Funding Accounts</th><th style="text-align:right">Source Balance</th><th>Target Date</th><th style="text-align:right">Remaining</th>' +
-        '<th style="text-align:right">Required/mo</th><th style="text-align:right">Allocated/mo</th>' +
-        '<th style="text-align:right">Shortfall</th><th>Status</th><th>Projected Completion</th>' +
+        '<th>Goal</th><th>Priority</th><th>Funding Accounts</th><th style="text-align:right">Current</th>' +
+        '<th style="text-align:right">Target</th><th style="text-align:right">Remaining</th>' +
+        '<th style="text-align:right">Required/mo</th><th>Target Date</th>' +
+        '<th>Status</th><th>Projected Completion</th>' +
         '</tr></thead><tbody>';
 
       plan.goals.forEach(function(g) {
         var cls = PlannerRenderer._statusClass(g.status);
         var sources = (g.funding_accounts || []).length ? g.funding_accounts.map(function(id) { return AccountService.getName(id); }).join(', ') : '-';
+        var projLabel = g.projected_completion || 'N/A';
+        // Show delay if projected completion is after target date
+        var delayed = g.projected_completion && g.target_date && g.projected_completion > g.target_date;
+        var projClass = delayed ? 'negative' : '';
         html += '<tr>' +
           '<td>' + g.name + '</td>' +
           '<td>P' + g.priority + '</td>' +
           '<td>' + sources + '</td>' +
-          '<td style="text-align:right">' + Fmt.currency(g.source_balance || 0) + '</td>' +
-          '<td>' + (g.target_date || '-') + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(g.current_amount || 0) + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(g.target_amount || 0) + '</td>' +
           '<td style="text-align:right">' + Fmt.currency(g.remaining) + '</td>' +
           '<td style="text-align:right">' + Fmt.currency(g.required_monthly) + '</td>' +
-          '<td style="text-align:right">' + Fmt.currency(g.allocated_monthly) + '</td>' +
-          '<td style="text-align:right" class="' + (g.shortfall > 0 ? 'negative' : 'positive') + '">' + Fmt.currency(g.shortfall) + '</td>' +
+          '<td>' + (g.target_date || '-') + '</td>' +
           '<td class="' + cls + '">' + PlannerRenderer._statusLabel(g.status) + '</td>' +
-          '<td>' + (g.projected_completion || 'N/A') + '</td>' +
+          '<td class="' + projClass + '">' + projLabel + '</td>' +
         '</tr>';
       });
 

@@ -1365,6 +1365,12 @@ tr:hover { background: var(--bg); }
   color: #8a6d00;
 }
 
+.summary-alert-error {
+  background: #fce8e6;
+  color: #c5221f;
+  font-weight: 600;
+}
+
 .summary-alert-info {
   background: #e8f0fe;
   color: #1a73e8;

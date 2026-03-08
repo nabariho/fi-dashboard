@@ -154,6 +154,43 @@ Living document tracking planned features, priorities, and progress.
 
 ---
 
+## Phase 9: Unified Goal System & FI Journey
+
+**Status:** In Progress
+**Priority:** Highest — fixes conflicting goal status, accounting gaps, and missing narrative
+
+**Goal:** Unify three competing goal systems into one source of truth, connect cash flow to goal progress, add actionable insights, and forward-looking projections. Full plan in `docs/phase9-unified-goal-system.md`.
+
+### Scope
+
+#### 9a. Unify Goal System — Single Source of Truth
+- Kill `goals-calc.js` hardcoded calculations, make planner the single source
+- Goals Panel reads from planner output
+- Merge milestones into planner goals (glide paths become a goal property)
+- Reconcile Emergency Fund tab with planner
+
+#### 9b. Connect Cash Flow to Goal Progress
+- Use actual trailing income from cashflow entries (not static config)
+- Show actual vs planned goal funding in Planning tab
+- Strict category alignment between budget and cashflow
+
+#### 9c. Actionable Insights
+- Next Actions engine: rebalance, expense alerts, budget deficit, surplus allocation
+- Surface in Planning tab with color-coded urgency
+
+#### 9d. Forward-Looking Projections
+- Per-goal projection with confidence
+- FI projection timeline with sensitivity analysis
+- Planning tab "FI Timeline" section
+
+#### 9e. Data Integrity Cleanup
+- Fix cashflow entry ID collisions
+- Handle negative net worth
+- Goal config validation on save
+- Modified Dietz first-month edge case
+
+---
+
 ## Design Principles (applies to all phases)
 
 - **Data/UI separation**: calculators are pure functions, renderers handle DOM only

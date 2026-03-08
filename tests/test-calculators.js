@@ -381,6 +381,40 @@ describe('GoalRulesService', function() {
     });
     assert(plan.shortfall_total > 0, 'Expected positive shortfall');
   });
+
+  it('raises budget_deficit conflict when savings insufficient for all goals', function() {
+    var goals = [
+      { goal_id: 'g1', name: 'Goal A', target_amount: 12000, current_amount: 0, target_date: '2026-01', priority: 1, active: true, track_current_from_accounts: false, funding_accounts: ['BBVA'] }
+    ];
+    // Need 12000 / 12 months = 1000/mo, but only 500 available
+    var plan = GoalRulesService.evaluate(goals, {
+      monthlyIncome: 2000,
+      monthlyExpenses: 1500,
+      asOfMonth: '2025-01',
+      latestAccounts: { BBVA: 0 }
+    });
+    assertClose(plan.budget_deficit, 500, 1);
+    assertClose(plan.budget_surplus, 0, 0.01);
+    assert(plan.conflicts.some(function(c) { return c.type === 'budget_deficit'; }), 'Expected budget_deficit conflict');
+    assertEqual(plan.goals[0].status, 'at_risk');
+  });
+
+  it('no budget_deficit when savings cover all goals', function() {
+    var goals = [
+      { goal_id: 'g1', name: 'Goal A', target_amount: 6000, current_amount: 0, target_date: '2026-01', priority: 1, active: true, track_current_from_accounts: false, funding_accounts: ['BBVA'] }
+    ];
+    // Need 6000 / 12 = 500/mo, have 1000 available
+    var plan = GoalRulesService.evaluate(goals, {
+      monthlyIncome: 2000,
+      monthlyExpenses: 1000,
+      asOfMonth: '2025-01',
+      latestAccounts: { BBVA: 0 }
+    });
+    assertClose(plan.budget_deficit, 0, 0.01);
+    assertClose(plan.budget_surplus, 500, 1);
+    assert(!plan.conflicts.some(function(c) { return c.type === 'budget_deficit'; }), 'Should not have budget deficit');
+    assertEqual(plan.goals[0].status, 'on_track');
+  });
 });
 
 // --- SavingsCapacityCalculator ---
@@ -427,7 +461,7 @@ describe('SavingsCapacityCalculator', function() {
     var goalPlan = {
       goals: [
         { goal_id: 'g1', name: 'Goal 1', target_amount: 10000, current_amount: 5000, remaining: 5000, required_monthly: 500, allocated_monthly: 500, target_date: '2025-01', months_left: 10, priority: 1, status: 'on_track' },
-        { goal_id: 'g2', name: 'Goal 2', target_amount: 50000, current_amount: 0, remaining: 50000, required_monthly: 5000, allocated_monthly: 0, target_date: '2025-12', months_left: 10, priority: 2, status: 'unfundable' }
+        { goal_id: 'g2', name: 'Goal 2', target_amount: 50000, current_amount: 0, remaining: 50000, required_monthly: 5000, allocated_monthly: 0, target_date: '2025-12', months_left: 10, priority: 2, status: 'at_risk' }
       ]
     };
     var result = SavingsCapacityCalculator.computeAchievability(goalPlan, 3000);
