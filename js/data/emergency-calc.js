@@ -76,7 +76,9 @@ var EmergencyCalculator = {
   },
 
   // Compute current status using AccountService roles.
-  computeStatus: function(latestAccounts, config) {
+  // Optional plannerGoal: if provided, use planner's current_amount for consistency
+  // with the unified goal system. Falls back to own calculation if not provided.
+  computeStatus: function(latestAccounts, config, plannerGoal) {
     var target = config.emergency_fund_target || 40000;
     var roles = this.getAccountRoles();
     var accountIds = this.getAccountIds();
@@ -95,6 +97,25 @@ var EmergencyCalculator = {
     }
 
     var available = dedicated + backup;
+
+    // If planner goal is provided, use its current_amount as the canonical total.
+    // Redistribute the difference proportionally between dedicated/backup.
+    if (plannerGoal && typeof plannerGoal.current_amount === 'number') {
+      var plannerTotal = plannerGoal.current_amount;
+      if (available > 0 && Math.abs(plannerTotal - available) > 0.01) {
+        var ratio = plannerTotal / available;
+        dedicated = dedicated * ratio;
+        backup = backup * ratio;
+        available = plannerTotal;
+      } else if (available === 0) {
+        available = plannerTotal;
+      }
+      // Also use planner's target if available
+      if (plannerGoal.target_amount > 0) {
+        target = plannerGoal.target_amount;
+      }
+    }
+
     var status;
     if (dedicated >= target) {
       status = 'green';

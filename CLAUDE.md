@@ -65,7 +65,7 @@
 | `budget-calc.js` | Monthly budget breakdown, operating reserve |
 | `cashflow-calc.js` | Actual income/expense analysis, planned-vs-actual, category trends |
 | `savings-capacity-calc.js` | Derived savings capacity, hybrid actual/derived, waterfall, achievability |
-| `milestone-calc.js` | Milestone progress, glide path, sub-targets |
+| `milestone-calc.js` | Glide path computation from planner goals (legacy milestone compat) |
 | `mortgage-calc.js` | Amortization schedule, equity, actual vs planned |
 | `summary-calc.js` | Monthly summary narrative, attribution |
 | `anomaly-calc.js` | Anomaly detection (unusual changes, zero balances) |
@@ -92,10 +92,9 @@
 ## Admin page tabs (in order)
 - **Config** -- key-value editor (fi_target, withdrawal_rate, etc.)
 - **Accounts** -- account CRUD with emergency_fund_role and cashflow_role
-- **Budget** -- budget item CRUD (fixed/variable, frequency, category)
+- **Budget** -- budget item CRUD (fixed/variable, frequency, category with cashflow taxonomy datalist)
 - **Cash Flow** -- Quick Add Month (from budget categories), single entry add, inline edit, month filter
-- **Planning** -- goal funding CRUD (priority, target_date, funding_accounts)
-- **Milestones** -- milestone CRUD with sub-targets
+- **Planning** -- goal funding CRUD (priority, target_date, funding_accounts). Glide paths computed from planner goals (milestones merged)
 - **MonthEnd** -- Quick Add grid + monthly data table
 - **Mortgage** -- mortgage parameters, extra payments, actual payments, valuations
 

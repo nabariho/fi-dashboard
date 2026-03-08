@@ -22,17 +22,12 @@ function refreshSummary() {
     // Compute goals for summary context from unified planner
     var goals = _cachedGoalPlan ? GoalsCalculator.forSummary(_cachedGoalPlan) : null;
 
-    // Compute milestones for summary context using planner goal values
+    // Compute glide paths from planner goals
     var milestoneStatuses = [];
-    if (typeof MilestoneCalculator !== 'undefined' && milestonesData && milestonesData.length) {
-      var latestRow = nwData[nwData.length - 1];
-      var currentValues = {
-        total: latestRow.total || 0,
-        emergency_fund: goals && goals.emergency ? goals.emergency.available : 0,
-        house_downpayment: goals && goals.house ? goals.house.current : 0,
-        fi_networth: latestRow.total || 0
-      };
-      milestoneStatuses = MilestoneCalculator.computeAll(milestonesData, currentValues, nwData[0].month, latestRow.month);
+    if (typeof MilestoneCalculator !== 'undefined' && _cachedGoalPlan && _cachedGoalPlan.goals) {
+      milestoneStatuses = MilestoneCalculator.computeAllFromGoals(
+        _cachedGoalPlan.goals, nwData[0].month, nwData[nwData.length - 1].month
+      );
     }
 
     // Compute mortgage summary
@@ -176,7 +171,20 @@ function refreshEmergency() {
     }
 
     var latestAccounts = nwData[nwData.length - 1].accounts;
-    var status = EmergencyCalculator.computeStatus(latestAccounts, appConfig);
+
+    // Pass EF planner goal for consistency with unified goal system
+    var efPlannerGoal = null;
+    if (_cachedGoalPlan && _cachedGoalPlan.goals) {
+      for (var g = 0; g < _cachedGoalPlan.goals.length; g++) {
+        var gid = (_cachedGoalPlan.goals[g].goal_id || '').toLowerCase();
+        if (gid.indexOf('emergency') !== -1) {
+          efPlannerGoal = _cachedGoalPlan.goals[g];
+          break;
+        }
+      }
+    }
+
+    var status = EmergencyCalculator.computeStatus(latestAccounts, appConfig, efPlannerGoal);
 
     // History
     var history = EmergencyCalculator.computeHistory(allData, accountIds, target);
@@ -324,21 +332,15 @@ function refreshGoalsTab() {
   if (typeof PlannerRenderer === 'undefined') return;
   if (!_cachedGoalPlan) return;
 
-  // Compute milestones using planner goal values
+  // Compute glide paths from planner goals
   var milestoneStatuses = [];
-  if (typeof MilestoneCalculator !== 'undefined' && milestonesData && milestonesData.length) {
+  if (typeof MilestoneCalculator !== 'undefined' && _cachedGoalPlan && _cachedGoalPlan.goals) {
     var accountIds = AccountService.getNetworthAccountIds();
     var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
     if (nwData.length) {
-      var latestRow = nwData[nwData.length - 1];
-      var goalsSummary = GoalsCalculator.forSummary(_cachedGoalPlan);
-      var currentValues = {
-        total: latestRow.total || 0,
-        emergency_fund: goalsSummary.emergency ? goalsSummary.emergency.available : 0,
-        house_downpayment: goalsSummary.house ? goalsSummary.house.current : 0,
-        fi_networth: latestRow.total || 0
-      };
-      milestoneStatuses = MilestoneCalculator.computeAll(milestonesData, currentValues, nwData[0].month, latestRow.month);
+      milestoneStatuses = MilestoneCalculator.computeAllFromGoals(
+        _cachedGoalPlan.goals, nwData[0].month, nwData[nwData.length - 1].month
+      );
     }
   }
 
@@ -354,6 +356,25 @@ function refreshGoalsTab() {
         cashflowCategories, cashflowSubcategories
       );
     }
+  }
+
+  // Enrich goal confidence with actual funding data
+  if (fundingHistory && fundingHistory.goals && _cachedGoalPlan && _cachedGoalPlan.goals) {
+    var fundingByGoal = {};
+    fundingHistory.goals.forEach(function(fg) { fundingByGoal[fg.goal_id] = fg; });
+    _cachedGoalPlan.goals.forEach(function(g) {
+      var fh = fundingByGoal[g.goal_id];
+      if (!fh) return;
+      // Override confidence based on trailing actual funding vs required
+      if (g.status === 'funded') return; // already high
+      if (fh.avgActual >= g.required_monthly * 0.95) {
+        g.confidence = 'high';
+      } else if (fh.avgActual >= g.required_monthly * 0.5) {
+        g.confidence = 'medium';
+      } else {
+        g.confidence = 'low';
+      }
+    });
   }
 
   // Compute recommended actions

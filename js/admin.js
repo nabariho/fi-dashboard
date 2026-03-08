@@ -53,7 +53,6 @@ function updateTabBadges() {
   var b3 = document.getElementById('badge-budget');
   var bPlanning = document.getElementById('badge-planning');
   var b4 = document.getElementById('badge-monthend');
-  var b5 = document.getElementById('badge-milestones');
   var b6 = document.getElementById('badge-mortgage');
   var bCashflow = document.getElementById('badge-cashflow');
   if (b1) b1.textContent = Object.keys(AdminState.config).length;
@@ -61,7 +60,6 @@ function updateTabBadges() {
   if (b3) b3.textContent = AdminState.budgetItems.length;
   if (bCashflow) bCashflow.textContent = AdminState.cashflowEntries.length;
   if (bPlanning) bPlanning.textContent = AdminState.plannerGoals.length;
-  if (b5) b5.textContent = AdminState.milestones.length;
   if (b4) b4.textContent = AdminState.data.length;
   if (b6) b6.textContent = AdminState.mortgage ? '1' : '0';
 }
@@ -256,7 +254,6 @@ function renderActiveTab() {
   else if (tab === 'budget') renderBudget();
   else if (tab === 'cashflow') renderCashflowAdmin();
   else if (tab === 'planning') renderPlanning();
-  else if (tab === 'milestones') renderMilestones();
   else if (tab === 'monthend') renderMonthEnd();
   else if (tab === 'mortgage') renderMortgageAdmin();
 }
@@ -474,7 +471,18 @@ function renderBudget() {
     '<p class="section-desc">Monthly budget items used for savings rate and operating reserve calculations. Yearly/quarterly amounts are automatically prorated to monthly.</p>' +
     '</div>';
 
+  // Build datalist of cashflow expense category names for budget category alignment
+  var cashflowExpenseCatNames = [];
+  if (typeof CashflowTaxonomyService !== 'undefined' && AdminState.cashflowCategories) {
+    cashflowExpenseCatNames = CashflowTaxonomyService.getCategoriesForType(AdminState.cashflowCategories, 'expense')
+      .map(function(c) { return c.name; });
+  }
+  var catDatalistHtml = '<datalist id="budgetCategoryList">' +
+    cashflowExpenseCatNames.map(function(n) { return '<option value="' + escHtml(n) + '">'; }).join('') +
+    '</datalist>';
+
   // Add form at top
+  html += catDatalistHtml;
   html += '<div class="add-form-card">' +
     '<div class="add-form-title">Add Budget Item</div>' +
     '<div class="add-form-row">' +
@@ -483,7 +491,7 @@ function renderBudget() {
     '<div class="add-form-field"><label>Type</label><select id="newBudgetType"><option value="fixed">fixed</option><option value="variable">variable</option></select></div>' +
     '<div class="add-form-field"><label>Amount</label><input type="number" step="any" id="newBudgetAmount" placeholder="0" style="width:100px"></div>' +
     '<div class="add-form-field"><label>Frequency</label><select id="newBudgetFreq"><option value="monthly">monthly</option><option value="quarterly">quarterly</option><option value="yearly">yearly</option></select></div>' +
-    '<div class="add-form-field"><label>Category</label><input type="text" id="newBudgetCategory" placeholder="Category" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Category</label><input type="text" id="newBudgetCategory" placeholder="Category" list="budgetCategoryList" style="width:120px"></div>' +
     '<div class="add-form-field"><label>Active</label><input type="checkbox" id="newBudgetActive" checked></div>' +
     '<button class="btn-add" onclick="addBudget()">Add Item</button>' +
     '</div></div>';
@@ -510,7 +518,7 @@ function renderBudget() {
         '<option value="quarterly"' + (b.frequency === 'quarterly' ? ' selected' : '') + '>quarterly</option>' +
         '<option value="yearly"' + (b.frequency === 'yearly' ? ' selected' : '') + '>yearly</option>' +
       '</select></td>' +
-      '<td><input type="text" value="' + escHtml(b.category) + '" data-idx="' + i + '" data-field="category" class="budget-field" style="width:120px"></td>' +
+      '<td><input type="text" value="' + escHtml(b.category) + '" data-idx="' + i + '" data-field="category" class="budget-field" list="budgetCategoryList" style="width:120px"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (b.active ? ' checked' : '') + ' data-idx="' + i + '" class="budget-active"></td>' +
       '<td style="width:60px"><button class="btn-delete" data-idx="' + i + '" onclick="deleteBudget(this)">Delete</button></td>' +
       '</tr>';
@@ -779,164 +787,8 @@ function deletePlanningGoal(btn) {
   renderPlanning();
 }
 
-// --- Milestones Tab ---
-
-var GOAL_LABELS = {
-  emergency_fund: 'Emergency Fund',
-  house_downpayment: 'House Down Payment',
-  fi_networth: 'FI Net Worth'
-};
-
-function renderMilestones() {
-  var container = document.getElementById('milestonesTable');
-  var milestones = AdminState.milestones;
-
-  var html = '<div class="section-header">' +
-    '<h2>Milestones</h2>' +
-    '<p class="section-desc">Time-bound financial targets. Each milestone has an overall target and optional per-goal sub-targets.</p>' +
-    '</div>';
-
-  // Add form
-  html += '<div class="add-form-card">' +
-    '<div class="add-form-title">Add Milestone</div>' +
-    '<div class="add-form-row">' +
-    '<div class="add-form-field"><label>ID</label><input type="text" id="newMsId" placeholder="end_2026" style="width:120px"></div>' +
-    '<div class="add-form-field"><label>Name</label><input type="text" id="newMsName" placeholder="End of 2026" style="width:160px"></div>' +
-    '<div class="add-form-field"><label>Target Date</label><input type="text" id="newMsDate" placeholder="YYYY-MM" style="width:100px"></div>' +
-    '<div class="add-form-field"><label>Total Target</label><input type="number" step="any" id="newMsTotal" placeholder="220000" style="width:130px"></div>' +
-    '<button class="btn-add" onclick="addMilestone()">Add Milestone</button>' +
-    '</div></div>';
-
-  // Milestones list
-  if (!milestones.length) {
-    html += '<div class="empty-state" style="padding:24px; text-align:center; color:var(--text-secondary)">No milestones yet. Add one above.</div>';
-  }
-
-  milestones.forEach(function(m, i) {
-    html += '<div class="add-form-card" style="margin-bottom:12px" data-ms-idx="' + i + '">' +
-      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">' +
-        '<div class="add-form-title" style="margin-bottom:0">' + escHtml(m.name) + ' (' + escHtml(m.milestone_id) + ')</div>' +
-        '<button class="btn-delete" onclick="deleteMilestone(' + i + ')">Delete</button>' +
-      '</div>' +
-      '<div class="add-form-row" style="margin-bottom:12px">' +
-        '<div class="add-form-field"><label>Name</label><input type="text" value="' + escHtml(m.name) + '" data-ms="' + i + '" data-field="name" class="ms-field" style="width:160px"></div>' +
-        '<div class="add-form-field"><label>Target Date</label><input type="text" value="' + escHtml(m.target_date) + '" data-ms="' + i + '" data-field="target_date" class="ms-field" style="width:100px"></div>' +
-        '<div class="add-form-field"><label>Total Target</label><input type="number" step="any" value="' + m.total_target + '" data-ms="' + i + '" data-field="total_target" class="ms-num" style="width:130px"></div>' +
-      '</div>';
-
-    // Sub-targets table
-    html += '<div style="margin-left:12px">' +
-      '<div style="font-size:12px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px">Sub-Targets</div>' +
-      '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
-      '<th>Goal</th><th style="text-align:right">Amount</th><th></th>' +
-      '</tr></thead><tbody>';
-
-    (m.sub_targets || []).forEach(function(st, j) {
-      html += '<tr>' +
-        '<td><select data-ms="' + i + '" data-st="' + j + '" data-field="goal" class="st-field">' +
-        Object.keys(GOAL_LABELS).map(function(g) {
-          return '<option value="' + g + '"' + (st.goal === g ? ' selected' : '') + '>' + GOAL_LABELS[g] + '</option>';
-        }).join('') +
-        '</select></td>' +
-        '<td style="text-align:right"><input type="number" step="any" value="' + st.amount + '" data-ms="' + i + '" data-st="' + j + '" data-field="amount" class="st-num" style="width:120px; text-align:right"></td>' +
-        '<td style="width:60px"><button class="btn-delete" onclick="deleteSubTarget(' + i + ',' + j + ')">Delete</button></td>' +
-        '</tr>';
-    });
-
-    html += '</tbody></table></div>' +
-      '<button class="btn-add" style="margin-top:8px; font-size:12px; padding:4px 12px" onclick="addSubTarget(' + i + ')">+ Sub-Target</button>' +
-      '</div></div>';
-  });
-
-  container.innerHTML = html;
-
-  // Bind milestone field events
-  container.querySelectorAll('.ms-field').forEach(function(el) {
-    el.addEventListener('change', function() {
-      AdminState.milestones[parseInt(this.dataset.ms)][this.dataset.field] = this.value;
-      markDirty();
-    });
-  });
-  container.querySelectorAll('.ms-num').forEach(function(el) {
-    el.addEventListener('change', function() {
-      var val = parseFloat(this.value);
-      if (!isNaN(val)) {
-        AdminState.milestones[parseInt(this.dataset.ms)][this.dataset.field] = val;
-        markDirty();
-      }
-    });
-  });
-  container.querySelectorAll('.st-field').forEach(function(el) {
-    el.addEventListener('change', function() {
-      AdminState.milestones[parseInt(this.dataset.ms)].sub_targets[parseInt(this.dataset.st)][this.dataset.field] = this.value;
-      markDirty();
-    });
-  });
-  container.querySelectorAll('.st-num').forEach(function(el) {
-    el.addEventListener('change', function() {
-      var val = parseFloat(this.value);
-      if (!isNaN(val)) {
-        AdminState.milestones[parseInt(this.dataset.ms)].sub_targets[parseInt(this.dataset.st)][this.dataset.field] = val;
-        markDirty();
-      }
-    });
-  });
-}
-
-function addMilestone() {
-  var idEl = document.getElementById('newMsId');
-  var nameEl = document.getElementById('newMsName');
-  var dateEl = document.getElementById('newMsDate');
-  var totalEl = document.getElementById('newMsTotal');
-  var id = idEl.value.trim().toLowerCase().replace(/\s+/g, '_');
-  var name = nameEl.value.trim();
-  var date = dateEl.value.trim();
-  var total = parseFloat(totalEl.value);
-
-  idEl.classList.remove('input-error');
-  nameEl.classList.remove('input-error');
-  dateEl.classList.remove('input-error');
-  totalEl.classList.remove('input-error');
-
-  if (!id) { idEl.classList.add('input-error'); return; }
-  if (!name) { nameEl.classList.add('input-error'); return; }
-  if (!/^\d{4}-\d{2}$/.test(date)) { dateEl.classList.add('input-error'); return; }
-  if (isNaN(total) || total <= 0) { totalEl.classList.add('input-error'); return; }
-  if (AdminState.milestones.some(function(m) { return m.milestone_id === id; })) {
-    alert('Milestone "' + id + '" already exists.');
-    return;
-  }
-
-  AdminState.milestones.push({
-    milestone_id: id,
-    name: name,
-    target_date: date,
-    total_target: total,
-    sub_targets: []
-  });
-  markDirty();
-  renderMilestones();
-  showToast('Milestone added');
-}
-
-function deleteMilestone(idx) {
-  if (!confirm('Delete milestone "' + AdminState.milestones[idx].name + '"?')) return;
-  AdminState.milestones.splice(idx, 1);
-  markDirty();
-  renderMilestones();
-}
-
-function addSubTarget(msIdx) {
-  AdminState.milestones[msIdx].sub_targets.push({ goal: 'fi_networth', amount: 0 });
-  markDirty();
-  renderMilestones();
-}
-
-function deleteSubTarget(msIdx, stIdx) {
-  AdminState.milestones[msIdx].sub_targets.splice(stIdx, 1);
-  markDirty();
-  renderMilestones();
-}
+// Milestones tab removed — glide paths are now computed from planner goals.
+// Legacy milestone data is preserved in save/load for backward compatibility.
 
 // --- Mortgage Tab ---
 
@@ -2521,6 +2373,23 @@ function validate() {
     if (cfIds[e.entry_id]) errors.push('Cash Flow: duplicate entry_id "' + e.entry_id + '".');
     cfIds[e.entry_id] = true;
   });
+
+  // Warn about budget categories that don't match any cashflow expense category
+  if (typeof CashflowTaxonomyService !== 'undefined' && AdminState.cashflowCategories && AdminState.cashflowCategories.length) {
+    var cashflowExpenseNames = {};
+    CashflowTaxonomyService.getCategoriesForType(AdminState.cashflowCategories, 'expense').forEach(function(c) {
+      cashflowExpenseNames[CashflowTaxonomyService.titleCase(c.name)] = true;
+    });
+    var warnedCats = {};
+    AdminState.budgetItems.forEach(function(b) {
+      if (!b.active || !b.category) return;
+      var normalized = CashflowTaxonomyService.titleCase(b.category);
+      if (!cashflowExpenseNames[normalized] && !warnedCats[normalized]) {
+        warnedCats[normalized] = true;
+        warnings.push('Budget: category "' + b.category + '" does not match any cashflow expense category. Planned-vs-actual comparison may not align.');
+      }
+    });
+  }
 
   return { errors: errors, warnings: warnings };
 }

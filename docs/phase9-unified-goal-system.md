@@ -238,10 +238,10 @@ Admin > Planning → before saving a goal:
 
 Steps are ordered by dependency and impact:
 
-1. ~~**Step 1** (Unify goals)~~ — **DONE** (commit 71bb60a)
-2. ~~**Step 2** (Connect cashflow)~~ — **DONE** (commit 142fd8f: actual vs planned in Planning tab)
+1. ~~**Step 1** (Unify goals)~~ — **DONE** (1a: commit 71bb60a, 1b: EF tab reconciliation with planner, 1c: milestones merged into planner goals)
+2. ~~**Step 2** (Connect cashflow)~~ — **DONE** (commit 142fd8f: actual vs planned, 2c: budget/cashflow category alignment)
 3. ~~**Step 3** (Actionable insights)~~ — **DONE** (commit 722b7e3: ActionsCalculator)
-4. ~~**Step 4** (Projections)~~ — **DONE** (commit 840939c: FI Timeline + sensitivity)
+4. ~~**Step 4** (Projections)~~ — **DONE** (commit 840939c: FI Timeline + sensitivity, 4a: per-goal confidence)
 5. ~~**Step 5** (Data integrity)~~ — **DONE** (5a: already handled by ensureUniqueEntryId, 5b: negative NW, 5c: achievability warning). Remaining: 5d first-month returns flag (deferred, low impact).
 
 Within each step, sub-items (a, b, c) are ordered by dependency.

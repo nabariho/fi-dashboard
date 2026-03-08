@@ -773,3 +773,112 @@ describe('CashflowNormalizationService', function() {
     assert(normalized.entries[0].entry_id !== normalized.entries[1].entry_id, 'Expected distinct entry IDs');
   });
 });
+
+// --- EmergencyCalculator ---
+// These tests temporarily override accountsConfig to set up EF account roles.
+
+describe('EmergencyCalculator', function() {
+  it('computeStatus without planner goal uses own calculation', function() {
+    var saved = accountsConfig;
+    accountsConfig = [
+      { account_id: 'EF_MAIN', account_name: 'EF Main', type: 'Cash', currency: 'EUR', include_networth: true, emergency_fund_role: 'dedicated' },
+      { account_id: 'EF_BACKUP', account_name: 'EF Backup', type: 'Cash', currency: 'EUR', include_networth: true, emergency_fund_role: 'backup' }
+    ];
+    try {
+      var latestAccounts = { EF_MAIN: 8000, EF_BACKUP: 4000 };
+      var config = { emergency_fund_target: 10000 };
+      var status = EmergencyCalculator.computeStatus(latestAccounts, config);
+      assertEqual(status.dedicated, 8000);
+      assertEqual(status.backup, 4000);
+      assertEqual(status.available, 12000);
+      assertEqual(status.target, 10000);
+      assertEqual(status.status, 'yellow'); // dedicated < target, but available >= target
+    } finally { accountsConfig = saved; }
+  });
+
+  it('computeStatus with planner goal uses planner current_amount', function() {
+    var saved = accountsConfig;
+    accountsConfig = [
+      { account_id: 'EF_MAIN', account_name: 'EF Main', type: 'Cash', currency: 'EUR', include_networth: true, emergency_fund_role: 'dedicated' },
+      { account_id: 'EF_BACKUP', account_name: 'EF Backup', type: 'Cash', currency: 'EUR', include_networth: true, emergency_fund_role: 'backup' }
+    ];
+    try {
+      var latestAccounts = { EF_MAIN: 8000, EF_BACKUP: 4000 };
+      var config = { emergency_fund_target: 10000 };
+      var plannerGoal = { current_amount: 15000, target_amount: 20000 };
+      var status = EmergencyCalculator.computeStatus(latestAccounts, config, plannerGoal);
+      assertEqual(status.available, 15000);
+      assertEqual(status.target, 20000);
+      assert(Math.abs(status.dedicated - 10000) < 1, 'dedicated scaled: ' + status.dedicated);
+      assert(Math.abs(status.backup - 5000) < 1, 'backup scaled: ' + status.backup);
+    } finally { accountsConfig = saved; }
+  });
+
+  it('computeStatus planner goal does not override when amounts match', function() {
+    var saved = accountsConfig;
+    accountsConfig = [
+      { account_id: 'EF_MAIN', account_name: 'EF Main', type: 'Cash', currency: 'EUR', include_networth: true, emergency_fund_role: 'dedicated' },
+      { account_id: 'EF_BACKUP', account_name: 'EF Backup', type: 'Cash', currency: 'EUR', include_networth: true, emergency_fund_role: 'backup' }
+    ];
+    try {
+      var latestAccounts = { EF_MAIN: 8000, EF_BACKUP: 4000 };
+      var config = { emergency_fund_target: 10000 };
+      var plannerGoal = { current_amount: 12000, target_amount: 10000 };
+      var status = EmergencyCalculator.computeStatus(latestAccounts, config, plannerGoal);
+      assertEqual(status.available, 12000);
+      assertEqual(status.dedicated, 8000);
+      assertEqual(status.target, 10000);
+    } finally { accountsConfig = saved; }
+  });
+});
+
+// --- MilestoneCalculator (glide paths from planner goals) ---
+
+describe('MilestoneCalculator', function() {
+  it('computeGoalGlidePath computes progress and status', function() {
+    var goal = { goal_id: 'ef', name: 'Emergency Fund', target_date: '2027-01', target_amount: 40000, current_amount: 25000 };
+    var result = MilestoneCalculator.computeGoalGlidePath(goal, '2025-01', '2026-01');
+    assertEqual(result.goal_id, 'ef');
+    assertEqual(result.totalTarget, 40000);
+    assertEqual(result.currentTotal, 25000);
+    assertClose(result.progressPct, 62.5, 0.1);
+    assertEqual(result.monthsLeft, 12);
+    assertClose(result.monthlyNeeded, 1250, 1);
+    // 12 of 24 months elapsed = 50% expected = 20000, we have 25000 > 20000*1.05 = 21000 → ahead
+    assertEqual(result.status, 'ahead');
+  });
+
+  it('computeGoalGlidePath returns achieved when funded', function() {
+    var goal = { goal_id: 'ef', name: 'EF', target_date: '2027-01', target_amount: 40000, current_amount: 45000 };
+    var result = MilestoneCalculator.computeGoalGlidePath(goal, '2025-01', '2026-01');
+    assertEqual(result.status, 'achieved');
+    assertEqual(result.remaining, 0);
+  });
+
+  it('computeGoalGlidePath returns null for goals without target_date', function() {
+    var goal = { goal_id: 'x', name: 'No Date', target_amount: 10000, current_amount: 5000 };
+    var result = MilestoneCalculator.computeGoalGlidePath(goal, '2025-01', '2026-01');
+    assertEqual(result, null);
+  });
+
+  it('computeAllFromGoals filters goals with target_date', function() {
+    var goals = [
+      { goal_id: 'a', name: 'A', target_date: '2027-01', target_amount: 10000, current_amount: 5000 },
+      { goal_id: 'b', name: 'B', target_amount: 20000, current_amount: 10000 },
+      { goal_id: 'c', name: 'C', target_date: '2028-06', target_amount: 30000, current_amount: 0 }
+    ];
+    var results = MilestoneCalculator.computeAllFromGoals(goals, '2025-01', '2026-01');
+    assertEqual(results.length, 2);
+    assertEqual(results[0].goal_id, 'a');
+    assertEqual(results[1].goal_id, 'c');
+  });
+
+  it('legacy computeAll still works for backward compat', function() {
+    var milestones = [{ milestone_id: 'ms1', name: 'End 2026', target_date: '2026-12', total_target: 100000, sub_targets: [] }];
+    var values = { total: 60000 };
+    var results = MilestoneCalculator.computeAll(milestones, values, '2025-01', '2026-01');
+    assertEqual(results.length, 1);
+    assertEqual(results[0].goal_id, 'ms1');
+    assertClose(results[0].progressPct, 60, 0.1);
+  });
+});

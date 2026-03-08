@@ -17,6 +17,20 @@ var PlannerRenderer = {
     return '';
   },
 
+  _confidenceLabel: function(confidence) {
+    if (confidence === 'high') return 'High';
+    if (confidence === 'medium') return 'Medium';
+    if (confidence === 'low') return 'Low';
+    return '-';
+  },
+
+  _confidenceClass: function(confidence) {
+    if (confidence === 'high') return 'positive';
+    if (confidence === 'medium') return '';
+    if (confidence === 'low') return 'negative';
+    return '';
+  },
+
   render: function(plan, milestoneStatuses, fundingHistory, actions, fiProjection) {
     var el = document.getElementById('goalsContent');
     if (!el) return;
@@ -88,7 +102,7 @@ var PlannerRenderer = {
         '<th>Goal</th><th>Priority</th><th>Funding Accounts</th><th style="text-align:right">Current</th>' +
         '<th style="text-align:right">Target</th><th style="text-align:right">Remaining</th>' +
         '<th style="text-align:right">Required/mo</th><th>Target Date</th>' +
-        '<th>Status</th><th>Projected Completion</th>' +
+        '<th>Status</th><th>Confidence</th><th>Projected Completion</th>' +
         '</tr></thead><tbody>';
 
       plan.goals.forEach(function(g) {
@@ -108,6 +122,7 @@ var PlannerRenderer = {
           '<td style="text-align:right">' + Fmt.currency(g.required_monthly) + '</td>' +
           '<td>' + (g.target_date || '-') + '</td>' +
           '<td class="' + cls + '">' + PlannerRenderer._statusLabel(g.status) + '</td>' +
+          '<td class="' + PlannerRenderer._confidenceClass(g.confidence) + '">' + PlannerRenderer._confidenceLabel(g.confidence) + '</td>' +
           '<td class="' + projClass + '">' + projLabel + '</td>' +
         '</tr>';
       });
@@ -250,7 +265,7 @@ var PlannerRenderer = {
   _renderMilestones: function(milestoneStatuses) {
     var self = this;
     var html = '<div class="table-container">' +
-      '<div class="table-header-row"><h2>Milestones</h2></div>' +
+      '<div class="table-header-row"><h2>Goal Progress &amp; Glide Paths</h2></div>' +
       '<div class="milestones-list">';
 
     milestoneStatuses.forEach(function(ms) {
@@ -308,10 +323,9 @@ var PlannerRenderer = {
 
     if (ms.subProgress && ms.subProgress.length) {
       html += '<div class="milestone-subs">';
-      var goalLabels = { emergency_fund: 'Emergency Fund', house_downpayment: 'House Down Payment', fi_networth: 'FI Net Worth' };
 
       ms.subProgress.forEach(function(sub) {
-        var subLabel = goalLabels[sub.goal] || sub.goal;
+        var subLabel = sub.goal.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
         var subColor = sub.pct >= 100 ? 'green' : (sub.pct >= 50 ? 'blue' : 'yellow');
         html += '<div class="milestone-sub">' +
           '<div class="milestone-sub-header">' +

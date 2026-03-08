@@ -75,6 +75,17 @@ var GoalRulesService = {
       } else {
         g.projected_completion = null;
       }
+
+      // Confidence heuristic based on budget allocation
+      if (g.status === 'funded') {
+        g.confidence = 'high';
+      } else if (g.status === 'on_track') {
+        g.confidence = 'high';
+      } else if (g.status === 'at_risk' && g.allocated_monthly > 0) {
+        g.confidence = 'medium';
+      } else {
+        g.confidence = 'low';
+      }
     });
 
     var conflicts = sourceIssues.slice();

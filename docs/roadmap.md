@@ -223,3 +223,4 @@ Living document tracking planned features, priorities, and progress.
 - [x] Monthly summary with auto-generated narrative
 - [x] Anomaly detection for data validation
 - [x] Monthly income & expense tracking with planned-vs-actual (Phase 8)
+- [x] Unified Goal System & FI Journey (Phase 9: 9a-9e complete)
