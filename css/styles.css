@@ -2000,6 +2000,74 @@ tr:hover { background: var(--bg); }
   .home-key-numbers { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* === EXPANDABLE GOAL CARDS === */
+.goal-cards-grid {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 0 16px 16px;
+}
+.goal-expand-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+.goal-expand-card.expanded { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.goal-expand-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 16px; cursor: pointer; user-select: none;
+}
+.goal-expand-header:hover { background: #f8f9fa; }
+.goal-expand-left { flex: 1; min-width: 0; }
+.goal-expand-title {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 600; font-size: 15px; margin-bottom: 6px;
+}
+.goal-priority-tag {
+  font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  background: var(--bg, #f5f5f5); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 6px;
+}
+.goal-expand-progress { max-width: 300px; margin-bottom: 4px; }
+.goal-expand-amounts { font-size: 13px; color: var(--text-secondary); }
+.goal-expand-right {
+  display: flex; align-items: center; gap: 12px; margin-left: 16px;
+}
+.goal-expand-meta {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  font-size: 12px; color: var(--text-secondary);
+}
+.goal-expand-chevron {
+  font-size: 18px; color: var(--text-secondary);
+  transition: transform 0.2s ease; line-height: 1;
+}
+.goal-expand-card.expanded .goal-expand-chevron { transform: rotate(180deg); }
+.goal-expand-body {
+  display: none; border-top: 1px solid var(--border);
+  padding: 16px; background: #fafbfc;
+}
+.goal-expand-card.expanded .goal-expand-body { display: block; }
+.goal-detail-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.goal-detail-item .label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--text-secondary); margin-bottom: 2px;
+}
+.goal-detail-item .value { font-size: 14px; font-weight: 500; }
+.goal-funding-actual {
+  padding: 12px; background: var(--surface); border-radius: 8px;
+  margin-bottom: 16px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;
+}
+.goal-glide-section { margin-top: 12px; }
+.goal-ef-detail { margin-top: 16px; }
+
+@media (max-width: 600px) {
+  .goal-expand-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .goal-expand-right { margin-left: 0; }
+  .goal-expand-progress { max-width: 100%; }
+  .goal-detail-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* === FI JOURNEY TIMELINE === */
 .journey-timeline {
   padding: 16px 20px 24px;

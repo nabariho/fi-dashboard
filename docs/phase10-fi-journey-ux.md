@@ -1,6 +1,6 @@
 # Phase 10: FI Journey UX & Accounting Accuracy
 
-**Status:** Complete (Step 4b/4d deferred — EF merge into Goals + expandable cards)
+**Status:** Complete
 **Priority:** Highest — transforms the dashboard from a data viewer into an FI journey companion
 
 **Goal:** Reorganize the dashboard around the user's FI journey, fix critical accounting gaps (inflation, taxes), and add the missing features that turn data into actionable guidance.
@@ -148,7 +148,7 @@ New file `js/ui/ui-home.js`:
 
 ---
 
-## Step 4: Unified Goals Tab
+## Step 4: Unified Goals Tab ✅ DONE
 
 **Impact:** High — eliminates fragmentation across 3+ tabs.
 **Effort:** Medium
@@ -400,7 +400,7 @@ Steps are ordered by dependency and impact:
 1. ~~**Step 1** (Inflation + taxes)~~ — **DONE**. Added `inflation_rate`, `tax_rate_withdrawals` config params. FI calc: `realReturn`, `yearsToFIReal`, `passiveIncomeNet`, `derivedFITarget`, `fiTargetNominal`. UI: inflation-adjusted years, after-tax passive income, derived target warning, nominal future target display. 5 new tests.
 2. ~~**Step 2** (Savings rate trend)~~ — **DONE**. Added `savingsRateTrend()` to FICalculator. Sparkline in FI Progress panel (green if trending up, red if down). 2 new tests.
 3. ~~**Step 3** (This Month home)~~ — **DONE**. New "This Month" tab (default, first tab). Shows NW change headline, attribution (savings vs market), goal progress bars, recommended actions (top 3), key numbers (FI impact, progress, savings, market returns, savings rate). New `ui-home.js` renderer + CSS. `computeFIImpact()` in SummaryCalculator. 3 new tests.
-4. ~~**Step 4** (Unified Goals)~~ — **PARTIAL**. Added FI Journey Timeline visualization to Goals tab (visual bar with goal completion markers + FI date). EF merge into Goals (4b) and expandable goal cards (4d) deferred for separate iteration.
+4. ~~**Step 4** (Unified Goals)~~ — **DONE**. FI Journey Timeline (4a/4c). EF merged into Goals as expandable card with full detail (4b). All goals are expandable cards showing glide path, funding accounts, actual-vs-planned (4d). Standalone EF tab removed.
 5. ~~**Step 5** (Merge Budget into Cash Flow)~~ — **DONE**. Budget summary + budget-vs-actual table rendered inline in Cash Flow tab. Budget staleness alert (>15% deviation). Standalone Budget tab removed. `expensesByCategory` passed through hybrid monthly data.
 6. ~~**Step 6** (Coast FI)~~ — **DONE**. `coastFI()` and `coastFIAnalysis()` in fi-calc.js. Coast FI stat in FI Progress panel (reached badge or progress %). 3 new tests.
 7. ~~**Step 7** (What-if scenarios)~~ — **DONE**. New `ui-whatif.js` modal with 4 sliders (savings, return, inflation, income). Real-time comparison table (current vs what-if) with FI date, savings rate, Coast FI. Insight text summarizes impact.

@@ -263,27 +263,22 @@ function refreshGoals() {
   GoalsRenderer.renderGoalsPanel(goals, budgetHealth);
 }
 
-// --- Emergency Fund Tab ---
+// --- Emergency Fund data (embedded in Goals tab) ---
 
-function refreshEmergency() {
-  if (typeof EmergencyCalculator === 'undefined' || typeof EmergencyRenderer === 'undefined') return;
+function _computeEFData() {
+  if (typeof EmergencyCalculator === 'undefined') return null;
 
   try {
     var accountIds = EmergencyCalculator.getAccountIds();
     var roles = EmergencyCalculator.getAccountRoles();
     var target = appConfig.emergency_fund_target || 40000;
 
-    // Current status from latest NW data
     var nwAccountIds = AccountService.getNetworthAccountIds();
     var nwData = NetWorthCalculator.compute(allData, nwAccountIds, mortgageData);
-    if (!nwData.length) {
-      EmergencyRenderer.render(null, [], null, roles);
-      return;
-    }
+    if (!nwData.length) return null;
 
     var latestAccounts = nwData[nwData.length - 1].accounts;
 
-    // Pass EF planner goal for consistency with unified goal system
     var efPlannerGoal = null;
     if (_cachedGoalPlan && _cachedGoalPlan.goals) {
       for (var g = 0; g < _cachedGoalPlan.goals.length; g++) {
@@ -296,21 +291,18 @@ function refreshEmergency() {
     }
 
     var status = EmergencyCalculator.computeStatus(latestAccounts, appConfig, efPlannerGoal);
-
-    // History
     var history = EmergencyCalculator.computeHistory(allData, accountIds, target);
 
-    // Coverage from budget
     var monthlyExpenses = 0;
     if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
-      var budget = BudgetCalculator.computeMonthlyBudget(budgetItems);
-      monthlyExpenses = budget.total || 0;
+      monthlyExpenses = BudgetCalculator.computeMonthlyBudget(budgetItems).total || 0;
     }
     var coverage = EmergencyCalculator.computeCoverage(status.available, monthlyExpenses);
 
-    EmergencyRenderer.render(status, history, coverage, roles);
+    return { status: status, history: history, coverage: coverage, roles: roles };
   } catch (e) {
-    console.error('[Emergency] Error:', e);
+    console.error('[EF Data] Error:', e);
+    return null;
   }
 }
 
@@ -548,7 +540,10 @@ function refreshGoalsTab() {
     }
   }
 
-  PlannerRenderer.render(_cachedGoalPlan, milestoneStatuses, fundingHistory, actions, fiProjection);
+  // Compute EF data for embedded display in goal card
+  var efData = _computeEFData();
+
+  PlannerRenderer.render(_cachedGoalPlan, milestoneStatuses, fundingHistory, actions, fiProjection, efData);
 }
 
 // --- Investments Tab ---
@@ -651,7 +646,6 @@ function bindEvents() {
       if (this.dataset.tab === 'home') refreshHome();
       else if (this.dataset.tab === 'investments') refreshInvestments();
       else if (this.dataset.tab === 'networth') refreshNetWorth();
-      else if (this.dataset.tab === 'emergency') refreshEmergency();
       else if (this.dataset.tab === 'mortgage') refreshMortgage();
       else if (this.dataset.tab === 'goals') refreshGoalsTab();
       else if (this.dataset.tab === 'cashflow') refreshCashFlow();

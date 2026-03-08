@@ -38,14 +38,13 @@
 - `js/config.js` -- Supabase URL + anon key
 - `cli/*.mjs` -- Node.js CLI tools (ESM, zero external deps)
 
-## Dashboard tabs (7)
+## Dashboard tabs (6)
 1. **This Month** -- home view: NW change, attribution, goal progress, actions, FI impact, year-over-year review
 2. **Investments** -- portfolio chart, returns table (% or EUR), per-account comparison
 3. **Net Worth** -- stacked chart, monthly breakdown table with MoM deltas
-4. **Goals** -- unified goal cards, FI journey timeline, funding plan, milestones
+4. **Goals** -- expandable goal cards (EF detail embedded), FI journey timeline, funding summary, account ledger
 5. **Cash Flow** -- hybrid actual/derived, budget summary + budget-vs-actual, category trends, goal achievability
-6. **Emergency Fund** -- status cards, funding history chart, monthly flows table
-7. **Mortgage** -- amortization schedule, equity, actual vs planned payments
+6. **Mortgage** -- amortization schedule, equity, actual vs planned payments
 
 ## Always-visible panels (collapsible, above tabs)
 - **FI Progress** -- progress bar, passive income (net of tax), years to FI (real), savings rate, Coast FI, What-If button

@@ -97,7 +97,28 @@ var EmergencyRenderer = {
   },
 
   _renderChart: function(history) {
-    var canvas = document.getElementById('efChart');
+    this._renderChartOnCanvas('efChart', history);
+  },
+
+  // Render EF detail embedded inside a goal card (different canvas ID to avoid conflicts)
+  renderEmbedded: function(container, status, history, coverage, roles) {
+    if (!container || !history || !history.length) return;
+
+    var html = this._renderStatusCards(status, coverage, roles);
+    html += '<div class="chart-container" style="margin-top:12px">' +
+      '<div class="chart-header"><h2>Funding History</h2></div>' +
+      '<canvas id="efChartGoal"></canvas>' +
+    '</div>';
+    html += this._renderFlowTable(history, roles);
+
+    container.innerHTML = html;
+
+    // Render chart on the embedded canvas
+    this._renderChartOnCanvas('efChartGoal', history);
+  },
+
+  _renderChartOnCanvas: function(canvasId, history) {
+    var canvas = document.getElementById(canvasId);
     if (!canvas) return;
     var ctx = canvas.getContext('2d');
     if (_efChart) _efChart.destroy();
@@ -117,53 +138,30 @@ var EmergencyRenderer = {
             data: balances,
             borderColor: '#1a73e8',
             backgroundColor: 'rgba(26,115,232,0.08)',
-            fill: true,
-            tension: 0.3,
-            pointRadius: 0,
-            pointHoverRadius: 5,
-            borderWidth: 2
+            fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2
           },
           {
             label: 'Target',
             data: targetLine,
-            borderColor: '#ea4335',
-            borderDash: [6, 4],
-            borderWidth: 1.5,
-            pointRadius: 0,
-            pointHoverRadius: 0,
-            fill: false
+            borderColor: '#ea4335', borderDash: [6, 4], borderWidth: 1.5,
+            pointRadius: 0, pointHoverRadius: 0, fill: false
           }
         ]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: true, position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 12 } } },
           tooltip: {
             backgroundColor: 'white', titleColor: '#202124', bodyColor: '#5f6368',
             borderColor: '#e0e0e0', borderWidth: 1, cornerRadius: 8, padding: 12,
-            callbacks: {
-              label: function(ctx) {
-                return ctx.dataset.label + ': ' + Fmt.currency(ctx.parsed.y);
-              }
-            }
+            callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + Fmt.currency(ctx.parsed.y); } }
           }
         },
         scales: {
-          x: {
-            grid: { display: false },
-            ticks: { font: { size: 11 }, color: '#5f6368', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
-          },
-          y: {
-            beginAtZero: true,
-            ticks: {
-              font: { size: 11 }, color: '#5f6368',
-              callback: function(val) { return Fmt.currencyShort(val); }
-            },
-            grid: { color: '#f0f0f0' }
-          }
+          x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#5f6368', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+          y: { beginAtZero: true, ticks: { font: { size: 11 }, color: '#5f6368', callback: function(val) { return Fmt.currencyShort(val); } }, grid: { color: '#f0f0f0' } }
         }
       }
     });

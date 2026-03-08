@@ -193,7 +193,7 @@ Living document tracking planned features, priorities, and progress.
 
 ## Phase 10: FI Journey UX & Accounting Accuracy
 
-**Status:** Complete (Step 4b/4d deferred — EF merge + expandable goal cards)
+**Status:** Complete
 **Priority:** Highest — transforms the dashboard from data viewer to FI journey companion
 
 **Goal:** Reorganize around the user's FI journey, fix critical accounting gaps (inflation, taxes), add missing features (savings rate trend, Coast FI, what-if scenarios), and restructure tabs around the journey.
