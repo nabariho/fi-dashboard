@@ -64,10 +64,12 @@ var SavingsCapacityCalculator = {
     }
 
     var actualMonths = CashflowCalculator.getMonthsWithActuals(cashflowEntries);
+    var categories = options && options.categories;
+    var subcategories = options && options.subcategories;
 
     return derived.map(function(row) {
       if (actualMonths.has(row.month)) {
-        var actual = CashflowCalculator.computeMonth(cashflowEntries, row.month);
+        var actual = CashflowCalculator.computeMonth(cashflowEntries, row.month, categories, subcategories);
         row.income = actual.totalIncome;
         row.impliedExpenses = actual.totalExpenses;
         row.totalContributions = actual.netSavings;

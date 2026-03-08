@@ -5,6 +5,8 @@ var mortgageData = null;
 var milestonesData = [];
 var plannerGoalsData = [];
 var cashflowEntries = [];
+var cashflowCategories = [];
+var cashflowSubcategories = [];
 
 // --- Monthly Summary (always visible) ---
 
@@ -223,7 +225,11 @@ function refreshCashFlow() {
   if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
     actualMonths = CashflowCalculator.getMonthsWithActuals(cashflowEntries);
     monthlyData = SavingsCapacityCalculator.computeMonthlyHybrid(
-      allData, cashflowEntries, { monthlyIncome: monthlyIncome }
+      allData, cashflowEntries, {
+        monthlyIncome: monthlyIncome,
+        categories: cashflowCategories,
+        subcategories: cashflowSubcategories
+      }
     );
   }
 
@@ -263,18 +269,26 @@ function refreshCashFlow() {
       });
     }
     if (latestActualMonth) {
-      plannedVsActual = CashflowCalculator.computePlannedVsActual(cashflowEntries, budgetItems, latestActualMonth);
+      plannedVsActual = CashflowCalculator.computePlannedVsActual(
+        cashflowEntries, budgetItems, latestActualMonth, cashflowCategories
+      );
       plannedVsActual.month = latestActualMonth;
     }
   }
 
   // Category trends
   var categoryTrends = null;
+  var subcategoryTrends = null;
   if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
-    categoryTrends = CashflowCalculator.computeCategoryTrends(cashflowEntries, 12);
+    categoryTrends = CashflowCalculator.computeCategoryTrends(cashflowEntries, 12, cashflowCategories);
+    subcategoryTrends = CashflowCalculator.computeSubcategoryTrends(
+      cashflowEntries, 12, cashflowCategories, cashflowSubcategories
+    );
   }
 
-  CashFlowRenderer.render(waterfall, monthlyData, achievability, _cashflowTrailingMonths, plannedVsActual, categoryTrends);
+  CashFlowRenderer.render(
+    waterfall, monthlyData, achievability, _cashflowTrailingMonths, plannedVsActual, categoryTrends, subcategoryTrends
+  );
 }
 
 // --- Goals Tab (unified: funding plan + milestones) ---
@@ -507,7 +521,16 @@ function loadData(data) {
     if (typeof clone.track_current_from_accounts === 'undefined') clone.track_current_from_accounts = true;
     return clone;
   });
-  cashflowEntries = data.cashflowEntries || [];
+  if (typeof CashflowNormalizationService !== 'undefined') {
+    var normalizedCashflow = CashflowNormalizationService.normalizeDataset(data);
+    cashflowCategories = normalizedCashflow.categories;
+    cashflowSubcategories = normalizedCashflow.subcategories;
+    cashflowEntries = normalizedCashflow.entries;
+  } else {
+    cashflowCategories = data.cashflowCategories || [];
+    cashflowSubcategories = data.cashflowSubcategories || [];
+    cashflowEntries = data.cashflowEntries || [];
+  }
 }
 
 // --- Cache Status + Refresh ---
@@ -866,6 +889,8 @@ function updateDbModeUI() {
         milestones: milestonesData,
         mortgage: mortgageData,
         plannerGoals: plannerGoalsData,
+        cashflowCategories: cashflowCategories,
+        cashflowSubcategories: cashflowSubcategories,
         cashflowEntries: cashflowEntries
       };
       DataExport.exportXLSX(data);

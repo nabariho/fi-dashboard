@@ -6,8 +6,9 @@ var CashFlowRenderer = {
   _trendChart: null,
   _pvaChart: null,
   _categoryTrendChart: null,
+  _subcategoryTrendChart: null,
 
-  render: function(waterfall, monthlyData, achievability, trailingMonths, plannedVsActual, categoryTrends) {
+  render: function(waterfall, monthlyData, achievability, trailingMonths, plannedVsActual, categoryTrends, subcategoryTrends) {
     var el = document.getElementById('cashflowContent');
     if (!el) return;
 
@@ -126,6 +127,13 @@ var CashFlowRenderer = {
       '</div>';
     }
 
+    if (subcategoryTrends && subcategoryTrends.months.length > 1) {
+      html += '<div class="chart-container">' +
+        '<div class="chart-header"><h2>Expense Subcategory Trends</h2></div>' +
+        '<canvas id="subcategoryTrendChart"></canvas>' +
+      '</div>';
+    }
+
     // --- Monthly breakdown table ---
     html += '<div class="table-container"><div class="table-header-row"><h2>Monthly Cash Flow</h2></div>' +
       '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
@@ -165,6 +173,9 @@ var CashFlowRenderer = {
     }
     if (categoryTrends && categoryTrends.months.length > 1) {
       this._renderCategoryTrendChart(categoryTrends);
+    }
+    if (subcategoryTrends && subcategoryTrends.months.length > 1) {
+      this._renderSubcategoryTrendChart(subcategoryTrends);
     }
   },
 
@@ -353,6 +364,39 @@ var CashFlowRenderer = {
         scales: {
           x: { grid: { display: false } },
           y: { ticks: { callback: function(v) { return Fmt.currency(v); } } }
+        }
+      }
+    });
+  },
+
+  _renderSubcategoryTrendChart: function(trends) {
+    var canvas = document.getElementById('subcategoryTrendChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (this._subcategoryTrendChart) this._subcategoryTrendChart.destroy();
+
+    var labels = trends.months;
+    var palette = ['#1a73e8', '#e8710a', '#0d904f', '#d93025', '#9334e6', '#0097a7', '#8d6e63', '#5f6368'];
+    var cats = trends.categories.slice(0, 8);
+    var datasets = cats.map(function(cat, i) {
+      return {
+        label: cat,
+        data: trends.series[cat],
+        borderColor: palette[i % palette.length],
+        backgroundColor: 'transparent',
+        pointRadius: 2,
+        tension: 0.25
+      };
+    });
+
+    this._subcategoryTrendChart = new Chart(canvas, {
+      type: 'line',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { ticks: { callback: function(v) { return Fmt.currency(v); } } },
+          x: { grid: { display: false } }
         }
       }
     });

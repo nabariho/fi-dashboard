@@ -392,8 +392,8 @@ describe('SavingsCapacityCalculator', function() {
     var monthly = SavingsCapacityCalculator.computeMonthly(testData, { monthlyIncome: 4000 });
     var avg = SavingsCapacityCalculator.computeTrailingAverage(monthly, 3);
     assertEqual(avg.months, 3);
-    assertClose(avg.avgSavings, 2933.33, 1);
-    assertClose(avg.avgExpenses, 1066.67, 1);
+    assertClose(avg.avgSavings, 2966.67, 1);
+    assertClose(avg.avgExpenses, 1033.33, 1);
   });
 
   it('computeWaterfall builds correct distribution', function() {
@@ -477,8 +477,8 @@ describe('CashflowCalculator', function() {
   });
 
   it('buildEntryId generates correct format', function() {
-    var id = CashflowCalculator.buildEntryId('2024-03', 'expense', 'Housing');
-    assertEqual(id, '2024-03_expense_housing');
+    var id = CashflowCalculator.buildEntryId('2024-03', 'expense', 'expense_housing', 'expense_housing_rent');
+    assertEqual(id, '2024-03_expense_expense_housing_expense_housing_rent');
   });
 
   it('computePlannedVsActual compares budget to actuals', function() {
@@ -504,5 +504,35 @@ describe('CashflowCalculator', function() {
     assertEqual(result.series['Housing'][1], 900);
     assertEqual(result.series['Food'][0], 400);
     assertEqual(result.series['Food'][1], 350);
+  });
+});
+
+// --- CashflowNormalizationService ---
+
+describe('CashflowNormalizationService', function() {
+  it('normalizes legacy categories into taxonomy IDs', function() {
+    var data = {
+      cashflowEntries: [
+        { entry_id: 'legacy_1', month: '2024-01', type: 'income', category: 'salary', amount: 3000, notes: '' },
+        { entry_id: 'legacy_2', month: '2024-01', type: 'expense', category: 'donations', subcategory: 'Cruz Roja', amount: 50, notes: '' }
+      ]
+    };
+    var normalized = CashflowNormalizationService.normalizeDataset(data);
+    assert(normalized.categories.length >= 2, 'Expected at least two categories');
+    assert(normalized.subcategories.length >= 1, 'Expected one subcategory');
+    var income = normalized.entries.find(function(e) { return e.type === 'income'; });
+    var expense = normalized.entries.find(function(e) { return e.type === 'expense'; });
+    assert(income && income.category_id, 'Income entry should have category_id');
+    assert(expense && expense.subcategory_id, 'Expense entry should have subcategory_id');
+  });
+
+  it('ensures default income categories exist', function() {
+    var normalized = CashflowNormalizationService.normalizeDataset({ cashflowEntries: [] });
+    var incomeNames = normalized.categories
+      .filter(function(c) { return c.type === 'income'; })
+      .map(function(c) { return c.name; });
+    assert(incomeNames.indexOf('Salary') >= 0, 'Missing Salary');
+    assert(incomeNames.indexOf('Bonus') >= 0, 'Missing Bonus');
+    assert(incomeNames.indexOf('Other') >= 0, 'Missing Other');
   });
 });

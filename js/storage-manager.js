@@ -71,6 +71,22 @@ var StorageManager = (function() {
       }
     }
 
+    // Cashflow categories: one record per category
+    if (data.cashflowCategories) {
+      for (var cc = 0; cc < data.cashflowCategories.length; cc++) {
+        var cat = data.cashflowCategories[cc];
+        map['cashflow_category|' + cat.category_id] = cat;
+      }
+    }
+
+    // Cashflow subcategories: one record per subcategory
+    if (data.cashflowSubcategories) {
+      for (var cs = 0; cs < data.cashflowSubcategories.length; cs++) {
+        var sub = data.cashflowSubcategories[cs];
+        map['cashflow_subcategory|' + sub.subcategory_id] = sub;
+      }
+    }
+
     // Cashflow entries: one record per entry
     if (data.cashflowEntries) {
       for (var cf = 0; cf < data.cashflowEntries.length; cf++) {
@@ -138,6 +154,8 @@ var StorageManager = (function() {
       milestones: [],
       mortgage: null,
       plannerGoals: [],
+      cashflowCategories: [],
+      cashflowSubcategories: [],
       cashflowEntries: []
     };
 
@@ -165,6 +183,12 @@ var StorageManager = (function() {
         case 'planner_goal':
           data.plannerGoals.push(r.payload);
           break;
+        case 'cashflow_category':
+          data.cashflowCategories.push(r.payload);
+          break;
+        case 'cashflow_subcategory':
+          data.cashflowSubcategories.push(r.payload);
+          break;
         case 'cashflow':
           data.cashflowEntries.push(r.payload);
           break;
@@ -183,6 +207,16 @@ var StorageManager = (function() {
     data.cashflowEntries.sort(function(a, b) {
       if (a.month !== b.month) return a.month > b.month ? -1 : 1;
       return (a.entry_id || '').localeCompare(b.entry_id || '');
+    });
+    data.cashflowCategories.sort(function(a, b) {
+      if ((a.type || '') !== (b.type || '')) return (a.type || '').localeCompare(b.type || '');
+      if ((a.sort_order || 0) !== (b.sort_order || 0)) return (a.sort_order || 0) - (b.sort_order || 0);
+      return (a.name || '').localeCompare(b.name || '');
+    });
+    data.cashflowSubcategories.sort(function(a, b) {
+      if ((a.category_id || '') !== (b.category_id || '')) return (a.category_id || '').localeCompare(b.category_id || '');
+      if ((a.sort_order || 0) !== (b.sort_order || 0)) return (a.sort_order || 0) - (b.sort_order || 0);
+      return (a.name || '').localeCompare(b.name || '');
     });
 
     return data;

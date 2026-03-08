@@ -20,6 +20,8 @@ var AdminState = {
   plannerGoals: [],
   milestones: [],
   mortgage: null,
+  cashflowCategories: [],
+  cashflowSubcategories: [],
   cashflowEntries: [],
   originalFileText: null,
   filename: null,
@@ -181,7 +183,16 @@ function loadAdminData(data) {
   AdminState.milestones = (data.milestones || []).map(function(m) {
     return Object.assign({}, m, { sub_targets: (m.sub_targets || []).map(function(s) { return Object.assign({}, s); }) });
   });
-  AdminState.cashflowEntries = (data.cashflowEntries || []).map(function(e) { return Object.assign({}, e); });
+  if (typeof CashflowNormalizationService !== 'undefined') {
+    var normalizedCashflow = CashflowNormalizationService.normalizeDataset(data);
+    AdminState.cashflowCategories = normalizedCashflow.categories;
+    AdminState.cashflowSubcategories = normalizedCashflow.subcategories;
+    AdminState.cashflowEntries = normalizedCashflow.entries;
+  } else {
+    AdminState.cashflowCategories = (data.cashflowCategories || []).map(function(c) { return Object.assign({}, c); });
+    AdminState.cashflowSubcategories = (data.cashflowSubcategories || []).map(function(s) { return Object.assign({}, s); });
+    AdminState.cashflowEntries = (data.cashflowEntries || []).map(function(e) { return Object.assign({}, e); });
+  }
   if (data.mortgage) {
     AdminState.mortgage = Object.assign({}, data.mortgage, {
       extra_payments: (data.mortgage.extra_payments || []).map(function(e) { return Object.assign({}, e); }),
@@ -1631,34 +1642,159 @@ function addMonthEnd() {
 // --- Cash Flow Tab ---
 
 function cashflowSlugify(str) {
+  if (typeof CashflowTaxonomyService !== 'undefined') return CashflowTaxonomyService.slugify(str);
   return (str || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 }
 
 function cashflowTitleCase(str) {
-  return (str || '').trim().replace(/\w\S*/g, function(txt) {
-    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-  });
+  if (typeof CashflowTaxonomyService !== 'undefined') return CashflowTaxonomyService.titleCase(str);
+  return (str || '').trim();
+}
+
+function getCashflowCategoriesByType(type) {
+  if (typeof CashflowTaxonomyService !== 'undefined') {
+    return CashflowTaxonomyService.getCategoriesForType(AdminState.cashflowCategories, type);
+  }
+  return (AdminState.cashflowCategories || []).filter(function(c) { return c.type === type && c.active !== false; });
+}
+
+function getCashflowSubcategories(categoryId) {
+  if (typeof CashflowTaxonomyService !== 'undefined') {
+    return CashflowTaxonomyService.getSubcategoriesForCategory(AdminState.cashflowSubcategories, categoryId);
+  }
+  return (AdminState.cashflowSubcategories || []).filter(function(s) { return s.category_id === categoryId && s.active !== false; });
+}
+
+function ensureCashflowCategory(type, categoryName) {
+  var name = cashflowTitleCase(categoryName || 'Other');
+  if (typeof CashflowTaxonomyService === 'undefined') {
+    return { category_id: type + '_' + cashflowSlugify(name), type: type, name: name, active: true, sort_order: 0 };
+  }
+  var existing = CashflowTaxonomyService.findCategoryByName(type, name, AdminState.cashflowCategories);
+  if (existing) return existing;
+  var created = CashflowTaxonomyService.createCategory(type, name, AdminState.cashflowCategories);
+  AdminState.cashflowCategories.push(created);
+  markDirty();
+  return created;
+}
+
+function ensureCashflowSubcategory(categoryId, subcategoryName) {
+  var name = cashflowTitleCase(subcategoryName || '');
+  if (!name) return null;
+  if (typeof CashflowTaxonomyService === 'undefined') {
+    return { subcategory_id: categoryId + '_' + cashflowSlugify(name), category_id: categoryId, name: name, active: true, sort_order: 0 };
+  }
+  var existing = CashflowTaxonomyService.findSubcategoryByName(categoryId, name, AdminState.cashflowSubcategories);
+  if (existing) return existing;
+  var created = CashflowTaxonomyService.createSubcategory(categoryId, name, AdminState.cashflowSubcategories);
+  AdminState.cashflowSubcategories.push(created);
+  markDirty();
+  return created;
+}
+
+function buildCashflowEntryId(month, type, categoryId, subcategoryId) {
+  if (typeof CashflowNormalizationService !== 'undefined') {
+    return CashflowNormalizationService.buildEntryId(month, type, categoryId, subcategoryId || null);
+  }
+  var id = month + '_' + type + '_' + categoryId;
+  if (subcategoryId) id += '_' + subcategoryId;
+  return id;
+}
+
+function buildCashflowCategoryOptions(type, selectedCategoryId) {
+  var options = getCashflowCategoriesByType(type);
+  return options.map(function(c) {
+    return '<option value="' + escHtml(c.category_id) + '"' + (c.category_id === selectedCategoryId ? ' selected' : '') + '>' + escHtml(c.name) + '</option>';
+  }).join('');
+}
+
+function buildCashflowSubcategoryOptions(categoryId, selectedSubcategoryId) {
+  var options = getCashflowSubcategories(categoryId);
+  var html = '<option value="">(none)</option>';
+  html += options.map(function(s) {
+    return '<option value="' + escHtml(s.subcategory_id) + '"' + (s.subcategory_id === selectedSubcategoryId ? ' selected' : '') + '>' + escHtml(s.name) + '</option>';
+  }).join('');
+  return html;
+}
+
+function syncNewCashflowCategoryOptions() {
+  var typeEl = document.getElementById('cfNewType');
+  var categoryEl = document.getElementById('cfNewCategoryId');
+  if (!typeEl || !categoryEl) return;
+  var type = typeEl.value;
+  var options = getCashflowCategoriesByType(type);
+  categoryEl.innerHTML = options.map(function(c) {
+    return '<option value="' + escHtml(c.category_id) + '">' + escHtml(c.name) + '</option>';
+  }).join('');
+  syncNewCashflowSubcategoryOptions();
+}
+
+function syncNewCashflowSubcategoryOptions() {
+  var typeEl = document.getElementById('cfNewType');
+  var categoryEl = document.getElementById('cfNewCategoryId');
+  var subEl = document.getElementById('cfNewSubcategoryId');
+  if (!typeEl || !categoryEl || !subEl) return;
+
+  if (typeEl.value !== 'expense') {
+    subEl.innerHTML = '<option value="">(none)</option>';
+    subEl.disabled = true;
+    return;
+  }
+  subEl.disabled = false;
+  subEl.innerHTML = buildCashflowSubcategoryOptions(categoryEl.value, '');
+}
+
+function addCashflowCategoryFromForm() {
+  var typeEl = document.getElementById('cfNewType');
+  var nameEl = document.getElementById('cfNewCategoryName');
+  if (!typeEl || !nameEl) return;
+  var type = typeEl.value;
+  var name = nameEl.value.trim();
+  if (!name) {
+    nameEl.classList.add('input-error');
+    return;
+  }
+  nameEl.classList.remove('input-error');
+  var category = ensureCashflowCategory(type, name);
+  nameEl.value = '';
+  syncNewCashflowCategoryOptions();
+  var categoryEl = document.getElementById('cfNewCategoryId');
+  if (categoryEl) categoryEl.value = category.category_id;
+  syncNewCashflowSubcategoryOptions();
+  showToast('Category created: ' + category.name);
+}
+
+function addCashflowSubcategoryFromForm() {
+  var typeEl = document.getElementById('cfNewType');
+  var categoryEl = document.getElementById('cfNewCategoryId');
+  var nameEl = document.getElementById('cfNewSubcategoryName');
+  if (!typeEl || !categoryEl || !nameEl) return;
+  if (typeEl.value !== 'expense') return;
+  var name = nameEl.value.trim();
+  if (!name) {
+    nameEl.classList.add('input-error');
+    return;
+  }
+  nameEl.classList.remove('input-error');
+  var sub = ensureCashflowSubcategory(categoryEl.value, name);
+  nameEl.value = '';
+  syncNewCashflowSubcategoryOptions();
+  var subEl = document.getElementById('cfNewSubcategoryId');
+  if (subEl && sub) subEl.value = sub.subcategory_id;
+  showToast('Subcategory created: ' + sub.name);
 }
 
 function renderCashflowAdmin() {
   var container = document.getElementById('cashflowAdminTable');
   var entries = AdminState.cashflowEntries;
 
-  // Gather existing expense categories from budget items for datalist
-  var budgetCategories = [];
-  var catSet = {};
-  (AdminState.budgetItems || []).forEach(function(b) {
-    var cat = b.category || 'Other';
-    if (!catSet[cat]) { catSet[cat] = true; budgetCategories.push(cat); }
-  });
-  budgetCategories.sort();
-
-  // Default income categories
-  var incomeCategories = ['Salary', 'Bonus', 'Other'];
+  if (typeof CashflowTaxonomyService !== 'undefined') {
+    AdminState.cashflowCategories = CashflowTaxonomyService.ensureDefaultIncomeCategories(AdminState.cashflowCategories || []);
+  }
 
   var html = '<div class="section-header">' +
     '<h2>Cash Flow Entries</h2>' +
-    '<p class="section-desc">Track actual monthly income and expenses. Use Quick Add to pre-populate from budget categories, or add individual entries below.</p>' +
+    '<p class="section-desc">Track actual monthly income and expenses. Categories are configurable, and expenses can optionally use subcategories.</p>' +
     '</div>';
 
   // --- Quick Add Month ---
@@ -1679,18 +1815,23 @@ function renderCashflowAdmin() {
     '<div class="add-form-title">Add Single Entry</div>' +
     '<div class="add-form-row">' +
     '<div class="add-form-field"><label>Month</label><input type="month" id="cfNewMonth" value="' + defaultMonth + '" style="width:140px"></div>' +
-    '<div class="add-form-field"><label>Type</label><select id="cfNewType"><option value="expense">Expense</option><option value="income">Income</option></select></div>' +
-    '<div class="add-form-field"><label>Category</label><input type="text" id="cfNewCategory" placeholder="Category" list="cfCategoryList" style="width:140px"></div>' +
+    '<div class="add-form-field"><label>Type</label><select id="cfNewType" onchange="syncNewCashflowCategoryOptions()"><option value="expense">Expense</option><option value="income">Income</option></select></div>' +
+    '<div class="add-form-field"><label>Category</label><select id="cfNewCategoryId" onchange="syncNewCashflowSubcategoryOptions()" style="width:180px"></select></div>' +
+    '<div class="add-form-field"><label>Subcategory</label><select id="cfNewSubcategoryId" style="width:180px"></select></div>' +
     '<div class="add-form-field"><label>Amount</label><input type="number" step="any" id="cfNewAmount" placeholder="0" style="width:100px"></div>' +
     '<div class="add-form-field"><label>Notes</label><input type="text" id="cfNewNotes" placeholder="" style="width:120px"></div>' +
     '<button class="btn-add" onclick="addCashflowEntry()">Add</button>' +
     '</div></div>';
 
-  // Datalist for categories
-  html += '<datalist id="cfCategoryList">';
-  budgetCategories.forEach(function(c) { html += '<option value="' + escHtml(c) + '">'; });
-  incomeCategories.forEach(function(c) { html += '<option value="' + escHtml(c) + '">'; });
-  html += '</datalist>';
+  html += '<div class="add-form-card">' +
+    '<div class="add-form-title">Manage Categories</div>' +
+    '<div class="add-form-row">' +
+    '<div class="add-form-field"><label>New Category</label><input type="text" id="cfNewCategoryName" placeholder="Dividend / Donations" style="width:180px"></div>' +
+    '<button class="btn-add" onclick="addCashflowCategoryFromForm()">Add Category</button>' +
+    '<div class="add-form-field"><label>New Subcategory</label><input type="text" id="cfNewSubcategoryName" placeholder="Cruz Roja / AECC" style="width:180px"></div>' +
+    '<button class="btn-add" onclick="addCashflowSubcategoryFromForm()">Add Subcategory</button>' +
+    '</div>' +
+    '</div>';
 
   // --- Historical table with month filter ---
   var months = {};
@@ -1727,7 +1868,9 @@ function renderCashflowAdmin() {
     html += '<tr>' +
       '<td>' + escHtml(e.month) + '</td>' +
       '<td ' + typeClass + '>' + escHtml(e.type) + '</td>' +
-      '<td><input type="text" value="' + escHtml(e.category) + '" data-idx="' + idx + '" data-field="category" class="cf-field" style="width:130px"></td>' +
+      '<td><select data-idx="' + idx + '" class="cf-category-select" style="width:170px">' + buildCashflowCategoryOptions(e.type, e.category_id) + '</select>' +
+        '<div style="margin-top:4px"><select data-idx="' + idx + '" class="cf-subcategory-select" style="width:170px"' + (e.type !== 'expense' ? ' disabled' : '') + '>' +
+        buildCashflowSubcategoryOptions(e.category_id, e.subcategory_id) + '</select></div></td>' +
       '<td><input type="number" step="any" value="' + e.amount + '" data-idx="' + idx + '" data-field="amount" class="cf-num" style="width:100px"></td>' +
       '<td><input type="text" value="' + escHtml(e.notes || '') + '" data-idx="' + idx + '" data-field="notes" class="cf-field" style="width:120px"></td>' +
       '<td style="width:60px"><button class="btn-delete" data-idx="' + idx + '" onclick="deleteCashflowEntry(this)">Delete</button></td>' +
@@ -1744,18 +1887,50 @@ function renderCashflowAdmin() {
   }
 
   // Bind inline edit events
+  syncNewCashflowCategoryOptions();
+
+  container.querySelectorAll('.cf-category-select').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      var entry = AdminState.cashflowEntries[idx];
+      entry.category_id = this.value;
+      entry.category = (AdminState.cashflowCategories.find(function(c) { return c.category_id === entry.category_id; }) || {}).name || '';
+      if (entry.type !== 'expense') {
+        entry.subcategory_id = null;
+        entry.subcategory = '';
+      } else {
+        entry.subcategory_id = null;
+        entry.subcategory = '';
+      }
+      entry.entry_id = buildCashflowEntryId(entry.month, entry.type, entry.category_id, entry.subcategory_id);
+      markDirty();
+      renderCashflowAdmin();
+    });
+  });
+
+  container.querySelectorAll('.cf-subcategory-select').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      var entry = AdminState.cashflowEntries[idx];
+      entry.subcategory_id = this.value || null;
+      if (entry.subcategory_id) {
+        entry.subcategory = (AdminState.cashflowSubcategories.find(function(s) {
+          return s.subcategory_id === entry.subcategory_id;
+        }) || {}).name || '';
+      } else {
+        entry.subcategory = '';
+      }
+      entry.entry_id = buildCashflowEntryId(entry.month, entry.type, entry.category_id, entry.subcategory_id);
+      markDirty();
+    });
+  });
+
   container.querySelectorAll('.cf-field').forEach(function(el) {
     el.addEventListener('change', function() {
       var idx = parseInt(this.dataset.idx);
       var field = this.dataset.field;
       var val = this.value;
-      if (field === 'category') val = cashflowTitleCase(val);
       AdminState.cashflowEntries[idx][field] = val;
-      if (field === 'category') {
-        // Regenerate entry_id
-        var e = AdminState.cashflowEntries[idx];
-        e.entry_id = e.month + '_' + e.type + '_' + cashflowSlugify(e.category);
-      }
       markDirty();
     });
   });
@@ -1802,7 +1977,8 @@ function quickAddCashflowMonth() {
     '</tr></thead><tbody>';
 
   // Income rows
-  var incomeDefaults = ['Salary', 'Bonus', 'Other'];
+  var incomeDefaults = getCashflowCategoriesByType('income').map(function(c) { return c.name; });
+  if (!incomeDefaults.length) incomeDefaults = ['Salary', 'Bonus', 'Other'];
   incomeDefaults.forEach(function(cat) {
     html += '<tr style="background:#e6f4ea33">' +
       '<td style="color:#0d904f">income</td>' +
@@ -1839,7 +2015,8 @@ function saveQuickCashflow() {
 
     var type = input.dataset.type;
     var category = cashflowTitleCase(input.dataset.category);
-    var entryId = month + '_' + type + '_' + cashflowSlugify(category);
+    var categoryRow = ensureCashflowCategory(type, category);
+    var entryId = buildCashflowEntryId(month, type, categoryRow.category_id, null);
 
     // Check for duplicate entry_id
     var exists = AdminState.cashflowEntries.some(function(e) { return e.entry_id === entryId; });
@@ -1849,7 +2026,10 @@ function saveQuickCashflow() {
       entry_id: entryId,
       month: month,
       type: type,
-      category: category,
+      category_id: categoryRow.category_id,
+      category: categoryRow.name,
+      subcategory_id: null,
+      subcategory: '',
       amount: amt,
       notes: ''
     });
@@ -1873,7 +2053,8 @@ function saveQuickCashflow() {
 function addCashflowEntry() {
   var monthEl = document.getElementById('cfNewMonth');
   var typeEl = document.getElementById('cfNewType');
-  var catEl = document.getElementById('cfNewCategory');
+  var catEl = document.getElementById('cfNewCategoryId');
+  var subcatEl = document.getElementById('cfNewSubcategoryId');
   var amtEl = document.getElementById('cfNewAmount');
   var notesEl = document.getElementById('cfNewNotes');
 
@@ -1883,14 +2064,19 @@ function addCashflowEntry() {
 
   var month = monthEl.value;
   var type = typeEl.value;
-  var category = cashflowTitleCase(catEl.value);
+  var categoryId = catEl.value;
+  var subcategoryId = (type === 'expense' && subcatEl) ? (subcatEl.value || null) : null;
   var amount = parseFloat(amtEl.value);
 
   if (!/^\d{4}-\d{2}$/.test(month)) { monthEl.classList.add('input-error'); return; }
-  if (!category) { catEl.classList.add('input-error'); return; }
+  if (!categoryId) { catEl.classList.add('input-error'); return; }
   if (isNaN(amount) || amount <= 0) { amtEl.classList.add('input-error'); return; }
 
-  var entryId = month + '_' + type + '_' + cashflowSlugify(category);
+  var category = (AdminState.cashflowCategories.find(function(c) { return c.category_id === categoryId; }) || {}).name || '';
+  var subcategory = subcategoryId
+    ? ((AdminState.cashflowSubcategories.find(function(s) { return s.subcategory_id === subcategoryId; }) || {}).name || '')
+    : '';
+  var entryId = buildCashflowEntryId(month, type, categoryId, subcategoryId);
 
   // Check for duplicate
   if (AdminState.cashflowEntries.some(function(e) { return e.entry_id === entryId; })) {
@@ -1902,7 +2088,10 @@ function addCashflowEntry() {
     entry_id: entryId,
     month: month,
     type: type,
+    category_id: categoryId,
     category: category,
+    subcategory_id: subcategoryId,
+    subcategory: subcategory,
     amount: amount,
     notes: notesEl.value.trim()
   });
@@ -2005,9 +2194,31 @@ function validate() {
   });
 
   var cfIds = {};
+  var cashflowCategoryIds = {};
+  (AdminState.cashflowCategories || []).forEach(function(c) { cashflowCategoryIds[c.category_id] = true; });
+  var cashflowSubcategoryById = {};
+  (AdminState.cashflowSubcategories || []).forEach(function(s) { cashflowSubcategoryById[s.subcategory_id] = s; });
+
+  if (typeof CashflowTaxonomyService !== 'undefined') {
+    CashflowTaxonomyService.validate(AdminState.cashflowCategories, AdminState.cashflowSubcategories).forEach(function(err) {
+      errors.push(err);
+    });
+  }
+
   AdminState.cashflowEntries.forEach(function(e) {
     if (!/^\d{4}-\d{2}$/.test(e.month)) errors.push('Cash Flow: invalid month "' + e.month + '".');
-    if (!e.category) errors.push('Cash Flow: missing category for entry "' + e.entry_id + '".');
+    if (!e.category_id) errors.push('Cash Flow: missing category_id for entry "' + e.entry_id + '".');
+    if (e.category_id && !cashflowCategoryIds[e.category_id]) {
+      errors.push('Cash Flow: "' + e.entry_id + '" references unknown category "' + e.category_id + '".');
+    }
+    if (e.subcategory_id) {
+      var sub = cashflowSubcategoryById[e.subcategory_id];
+      if (!sub) errors.push('Cash Flow: "' + e.entry_id + '" references unknown subcategory "' + e.subcategory_id + '".');
+      else if (sub.category_id !== e.category_id) {
+        errors.push('Cash Flow: "' + e.entry_id + '" subcategory does not belong to category.');
+      }
+      if (e.type === 'income') errors.push('Cash Flow: "' + e.entry_id + '" income entries cannot have subcategory.');
+    }
     if (typeof e.amount !== 'number' || e.amount <= 0) errors.push('Cash Flow: "' + e.entry_id + '" amount must be > 0.');
     if (e.type !== 'income' && e.type !== 'expense') errors.push('Cash Flow: "' + e.entry_id + '" type must be income or expense.');
     if (cfIds[e.entry_id]) errors.push('Cash Flow: duplicate entry_id "' + e.entry_id + '".');
@@ -2049,6 +2260,8 @@ async function save() {
       budgetItems: AdminState.budgetItems,
       plannerGoals: AdminState.plannerGoals,
       milestones: AdminState.milestones,
+      cashflowCategories: AdminState.cashflowCategories,
+      cashflowSubcategories: AdminState.cashflowSubcategories,
       cashflowEntries: AdminState.cashflowEntries
     };
     if (AdminState.mortgage) {
@@ -2306,7 +2519,10 @@ function exportDataXlsx() {
       budgetItems: AdminState.budgetItems,
       plannerGoals: AdminState.plannerGoals,
       milestones: AdminState.milestones,
-      mortgage: AdminState.mortgage
+      mortgage: AdminState.mortgage,
+      cashflowCategories: AdminState.cashflowCategories,
+      cashflowSubcategories: AdminState.cashflowSubcategories,
+      cashflowEntries: AdminState.cashflowEntries
     };
     DataExport.exportXLSX(data);
     showToast('Exported to fi-dashboard-export.xlsx');
@@ -2328,6 +2544,15 @@ async function importFileToDb() {
       var pp = prompt('Enter file passphrase:');
       if (!pp) return;
       decrypted = await Crypto.decrypt(fileData, pp);
+    }
+
+    var normalized = (typeof CashflowNormalizationService !== 'undefined')
+      ? CashflowNormalizationService.normalizeDataset(decrypted)
+      : null;
+    if (normalized) {
+      decrypted.cashflowCategories = normalized.categories;
+      decrypted.cashflowSubcategories = normalized.subcategories;
+      decrypted.cashflowEntries = normalized.entries;
     }
 
     await StorageManager.importFromDecrypted(decrypted);
