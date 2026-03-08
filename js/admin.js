@@ -1834,6 +1834,8 @@ function renderCashflowAdmin() {
   var html = '<div class="section-header">' +
     '<h2>Cash Flow Entries</h2>' +
     '<p class="section-desc">Track actual monthly income and expenses. Categories are configurable, and expenses can optionally use subcategories.</p>' +
+    '<button class="btn-add" onclick="document.getElementById(\'cfImportFile\').click()" style="margin-top:8px">Import JSON</button>' +
+    '<input type="file" id="cfImportFile" accept=".json" style="display:none" onchange="importCashflowJson(this)">' +
     '</div>';
 
   // --- Quick Add Month ---
@@ -2271,6 +2273,94 @@ function deleteCashflowEntry(btn) {
   AdminState.cashflowEntries.splice(idx, 1);
   markDirty();
   renderCashflowAdmin();
+}
+
+function importCashflowJson(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var imported = JSON.parse(e.target.result);
+    } catch (err) {
+      alert('Invalid JSON file: ' + err.message);
+      return;
+    }
+
+    var newCategories = imported.cashflowCategories || [];
+    var newSubcategories = imported.cashflowSubcategories || [];
+    var newEntries = imported.cashflowEntries || [];
+
+    if (newEntries.length === 0) {
+      alert('No cashflow entries found in the file.');
+      return;
+    }
+
+    // Merge categories (add missing ones)
+    var existingCatIds = {};
+    AdminState.cashflowCategories.forEach(function(c) { existingCatIds[c.category_id] = true; });
+    var catsAdded = 0;
+    newCategories.forEach(function(c) {
+      if (!existingCatIds[c.category_id]) {
+        AdminState.cashflowCategories.push(Object.assign({}, c));
+        existingCatIds[c.category_id] = true;
+        catsAdded++;
+      }
+    });
+
+    // Merge subcategories (add missing ones)
+    var existingSubIds = {};
+    AdminState.cashflowSubcategories.forEach(function(s) { existingSubIds[s.subcategory_id] = true; });
+    var subsAdded = 0;
+    newSubcategories.forEach(function(s) {
+      if (!existingSubIds[s.subcategory_id]) {
+        AdminState.cashflowSubcategories.push(Object.assign({}, s));
+        existingSubIds[s.subcategory_id] = true;
+        subsAdded++;
+      }
+    });
+
+    // Merge entries (skip duplicates by entry_id)
+    var existingEntryIds = {};
+    AdminState.cashflowEntries.forEach(function(e) { existingEntryIds[e.entry_id] = true; });
+    var entriesAdded = 0;
+    var entriesSkipped = 0;
+    newEntries.forEach(function(entry) {
+      if (existingEntryIds[entry.entry_id]) {
+        entriesSkipped++;
+      } else {
+        AdminState.cashflowEntries.push(Object.assign({}, entry));
+        existingEntryIds[entry.entry_id] = true;
+        entriesAdded++;
+      }
+    });
+
+    // Re-normalize if service available
+    if (typeof CashflowNormalizationService !== 'undefined') {
+      var normalized = CashflowNormalizationService.normalizeDataset({
+        cashflowCategories: AdminState.cashflowCategories,
+        cashflowSubcategories: AdminState.cashflowSubcategories,
+        cashflowEntries: AdminState.cashflowEntries
+      });
+      AdminState.cashflowCategories = normalized.categories;
+      AdminState.cashflowSubcategories = normalized.subcategories;
+      AdminState.cashflowEntries = normalized.entries;
+    }
+
+    markDirty();
+    renderCashflowAdmin();
+
+    var msg = 'Import complete:\n' +
+      '  Entries added: ' + entriesAdded + '\n' +
+      '  Entries skipped (duplicates): ' + entriesSkipped + '\n' +
+      '  Categories added: ' + catsAdded + '\n' +
+      '  Subcategories added: ' + subsAdded + '\n\n' +
+      'Remember to Save to persist changes.';
+    alert(msg);
+  };
+  reader.readAsText(file);
 }
 
 // --- Validation ---

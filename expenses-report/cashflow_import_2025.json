@@ -1,0 +1,2106 @@
+{
+  "cashflowCategories": [
+    {
+      "category_id": "expense_food-delivery",
+      "type": "expense",
+      "name": "Food Delivery",
+      "active": true,
+      "sort_order": 1
+    },
+    {
+      "category_id": "expense_restaurants",
+      "type": "expense",
+      "name": "Restaurants",
+      "active": true,
+      "sort_order": 2
+    },
+    {
+      "category_id": "expense_groceries",
+      "type": "expense",
+      "name": "Groceries",
+      "active": true,
+      "sort_order": 3
+    },
+    {
+      "category_id": "expense_transport",
+      "type": "expense",
+      "name": "Transport",
+      "active": true,
+      "sort_order": 4
+    },
+    {
+      "category_id": "expense_fuel",
+      "type": "expense",
+      "name": "Fuel",
+      "active": true,
+      "sort_order": 5
+    },
+    {
+      "category_id": "expense_shopping",
+      "type": "expense",
+      "name": "Shopping",
+      "active": true,
+      "sort_order": 6
+    },
+    {
+      "category_id": "expense_subscriptions",
+      "type": "expense",
+      "name": "Subscriptions",
+      "active": true,
+      "sort_order": 7
+    },
+    {
+      "category_id": "expense_health",
+      "type": "expense",
+      "name": "Health",
+      "active": true,
+      "sort_order": 8
+    },
+    {
+      "category_id": "expense_car",
+      "type": "expense",
+      "name": "Car",
+      "active": true,
+      "sort_order": 9
+    },
+    {
+      "category_id": "expense_travel",
+      "type": "expense",
+      "name": "Travel",
+      "active": true,
+      "sort_order": 10
+    },
+    {
+      "category_id": "expense_education",
+      "type": "expense",
+      "name": "Education",
+      "active": true,
+      "sort_order": 11
+    },
+    {
+      "category_id": "expense_insurance",
+      "type": "expense",
+      "name": "Insurance",
+      "active": true,
+      "sort_order": 12
+    },
+    {
+      "category_id": "expense_donations",
+      "type": "expense",
+      "name": "Donations",
+      "active": true,
+      "sort_order": 13
+    },
+    {
+      "category_id": "expense_entertainment",
+      "type": "expense",
+      "name": "Entertainment",
+      "active": true,
+      "sort_order": 14
+    },
+    {
+      "category_id": "expense_gifts",
+      "type": "expense",
+      "name": "Gifts",
+      "active": true,
+      "sort_order": 15
+    },
+    {
+      "category_id": "expense_utilities",
+      "type": "expense",
+      "name": "Utilities",
+      "active": true,
+      "sort_order": 16
+    },
+    {
+      "category_id": "expense_bank-fees",
+      "type": "expense",
+      "name": "Bank Fees",
+      "active": true,
+      "sort_order": 17
+    },
+    {
+      "category_id": "expense_housing",
+      "type": "expense",
+      "name": "Housing",
+      "active": true,
+      "sort_order": 18
+    },
+    {
+      "category_id": "expense_taxes",
+      "type": "expense",
+      "name": "Taxes",
+      "active": true,
+      "sort_order": 19
+    },
+    {
+      "category_id": "expense_other",
+      "type": "expense",
+      "name": "Other",
+      "active": true,
+      "sort_order": 99
+    },
+    {
+      "category_id": "income_salary",
+      "type": "income",
+      "name": "Salary",
+      "active": true,
+      "sort_order": 1
+    },
+    {
+      "category_id": "income_bonus",
+      "type": "income",
+      "name": "Bonus",
+      "active": true,
+      "sort_order": 2
+    },
+    {
+      "category_id": "income_other",
+      "type": "income",
+      "name": "Other",
+      "active": true,
+      "sort_order": 3
+    }
+  ],
+  "cashflowSubcategories": [
+    {
+      "subcategory_id": "expense_food-delivery_uber-eats",
+      "category_id": "expense_food-delivery",
+      "name": "Uber Eats",
+      "active": true,
+      "sort_order": 1
+    },
+    {
+      "subcategory_id": "expense_food-delivery_glovo",
+      "category_id": "expense_food-delivery",
+      "name": "Glovo",
+      "active": true,
+      "sort_order": 2
+    },
+    {
+      "subcategory_id": "expense_transport_uber-rides",
+      "category_id": "expense_transport",
+      "name": "Uber Rides",
+      "active": true,
+      "sort_order": 1
+    },
+    {
+      "subcategory_id": "expense_transport_taxi",
+      "category_id": "expense_transport",
+      "name": "Taxi",
+      "active": true,
+      "sort_order": 2
+    },
+    {
+      "subcategory_id": "expense_transport_public-transport",
+      "category_id": "expense_transport",
+      "name": "Public Transport",
+      "active": true,
+      "sort_order": 3
+    },
+    {
+      "subcategory_id": "expense_transport_parking",
+      "category_id": "expense_transport",
+      "name": "Parking",
+      "active": true,
+      "sort_order": 4
+    },
+    {
+      "subcategory_id": "expense_shopping_el-corte-ingles",
+      "category_id": "expense_shopping",
+      "name": "El Corte Ingles",
+      "active": true,
+      "sort_order": 1
+    },
+    {
+      "subcategory_id": "expense_shopping_amazon",
+      "category_id": "expense_shopping",
+      "name": "Amazon",
+      "active": true,
+      "sort_order": 2
+    },
+    {
+      "subcategory_id": "expense_shopping_decathlon",
+      "category_id": "expense_shopping",
+      "name": "Decathlon",
+      "active": true,
+      "sort_order": 3
+    },
+    {
+      "subcategory_id": "expense_shopping_other",
+      "category_id": "expense_shopping",
+      "name": "Other",
+      "active": true,
+      "sort_order": 99
+    },
+    {
+      "subcategory_id": "expense_subscriptions_apple",
+      "category_id": "expense_subscriptions",
+      "name": "Apple",
+      "active": true,
+      "sort_order": 1
+    },
+    {
+      "subcategory_id": "expense_subscriptions_gamma",
+      "category_id": "expense_subscriptions",
+      "name": "Gamma",
+      "active": true,
+      "sort_order": 2
+    },
+    {
+      "subcategory_id": "expense_subscriptions_amazon-prime",
+      "category_id": "expense_subscriptions",
+      "name": "Amazon Prime",
+      "active": true,
+      "sort_order": 3
+    },
+    {
+      "subcategory_id": "expense_subscriptions_godaddy",
+      "category_id": "expense_subscriptions",
+      "name": "Godaddy",
+      "active": true,
+      "sort_order": 4
+    },
+    {
+      "subcategory_id": "expense_subscriptions_other",
+      "category_id": "expense_subscriptions",
+      "name": "Other",
+      "active": true,
+      "sort_order": 99
+    },
+    {
+      "subcategory_id": "expense_health_dental",
+      "category_id": "expense_health",
+      "name": "Dental",
+      "active": true,
+      "sort_order": 1
+    },
+    {
+      "subcategory_id": "expense_health_pharmacy",
+      "category_id": "expense_health",
+      "name": "Pharmacy",
+      "active": true,
+      "sort_order": 2
+    },
+    {
+      "subcategory_id": "expense_car_repair",
+      "category_id": "expense_car",
+      "name": "Repair",
+      "active": true,
+      "sort_order": 1
+    },
+    {
+      "subcategory_id": "expense_car_rental",
+      "category_id": "expense_car",
+      "name": "Rental",
+      "active": true,
+      "sort_order": 2
+    }
+  ],
+  "cashflowEntries": [
+    {
+      "entry_id": "2025-12_expense_expense_bank-fees",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Bank Fees",
+      "category_id": "expense_bank-fees",
+      "amount": 6.45,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-12_expense_expense_donations",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-12_expense_expense_education",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Education",
+      "category_id": "expense_education",
+      "amount": 215.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-12_expense_expense_fuel",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 40.2,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-12_expense_expense_groceries",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Groceries",
+      "category_id": "expense_groceries",
+      "amount": 162.09,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-12_expense_expense_health_expense_health_dental",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Health",
+      "category_id": "expense_health",
+      "amount": 60.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_health_dental",
+      "subcategory": "Dental"
+    },
+    {
+      "entry_id": "2025-12_expense_expense_housing",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 628.14,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-12_expense_expense_other",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 396.93,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-12_expense_expense_restaurants",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 257.7,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-12_expense_expense_shopping_expense_shopping_el-corte-ingles",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 1101.65,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_el-corte-ingles",
+      "subcategory": "El Corte Ingles"
+    },
+    {
+      "entry_id": "2025-12_expense_expense_shopping_expense_shopping_other",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 103.49,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_other",
+      "subcategory": "Other"
+    },
+    {
+      "entry_id": "2025-12_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 2.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-12_expense_expense_transport_expense_transport_taxi",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 10.75,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_taxi",
+      "subcategory": "Taxi"
+    },
+    {
+      "entry_id": "2025-12_expense_expense_transport_expense_transport_uber-rides",
+      "month": "2025-12",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 93.9,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_uber-rides",
+      "subcategory": "Uber Rides"
+    },
+    {
+      "entry_id": "2025-12_income_income_other",
+      "month": "2025-12",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3783.01,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-11_expense_expense_bank-fees",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Bank Fees",
+      "category_id": "expense_bank-fees",
+      "amount": 11.82,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-11_expense_expense_car_expense_car_rental",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Car",
+      "category_id": "expense_car",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_car_rental",
+      "subcategory": "Rental"
+    },
+    {
+      "entry_id": "2025-11_expense_expense_donations",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-11_expense_expense_fuel",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 54.01,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-11_expense_expense_groceries",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Groceries",
+      "category_id": "expense_groceries",
+      "amount": 197.01,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-11_expense_expense_health_expense_health_dental",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Health",
+      "category_id": "expense_health",
+      "amount": 180.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_health_dental",
+      "subcategory": "Dental"
+    },
+    {
+      "entry_id": "2025-11_expense_expense_housing",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 635.75,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-11_expense_expense_other",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 58.2,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-11_expense_expense_restaurants",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 52.16,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-11_expense_expense_shopping_expense_shopping_el-corte-ingles",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 55.78,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_el-corte-ingles",
+      "subcategory": "El Corte Ingles"
+    },
+    {
+      "entry_id": "2025-11_expense_expense_shopping_expense_shopping_other",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 36.11,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_other",
+      "subcategory": "Other"
+    },
+    {
+      "entry_id": "2025-11_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 2.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-11_expense_expense_transport_expense_transport_uber-rides",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 267.88,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_uber-rides",
+      "subcategory": "Uber Rides"
+    },
+    {
+      "entry_id": "2025-11_expense_expense_travel",
+      "month": "2025-11",
+      "type": "expense",
+      "category": "Travel",
+      "category_id": "expense_travel",
+      "amount": 520.2,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-11_income_income_other",
+      "month": "2025-11",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3584.56,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-10_expense_expense_car_expense_car_repair",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Car",
+      "category_id": "expense_car",
+      "amount": 113.27,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_car_repair",
+      "subcategory": "Repair"
+    },
+    {
+      "entry_id": "2025-10_expense_expense_donations",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-10_expense_expense_fuel",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 99.96,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-10_expense_expense_groceries",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Groceries",
+      "category_id": "expense_groceries",
+      "amount": 44.27,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-10_expense_expense_health_expense_health_dental",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Health",
+      "category_id": "expense_health",
+      "amount": 235.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_health_dental",
+      "subcategory": "Dental"
+    },
+    {
+      "entry_id": "2025-10_expense_expense_housing",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 622.95,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-10_expense_expense_other",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 105.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-10_expense_expense_restaurants",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 95.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-10_expense_expense_shopping_expense_shopping_el-corte-ingles",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 89.27,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_el-corte-ingles",
+      "subcategory": "El Corte Ingles"
+    },
+    {
+      "entry_id": "2025-10_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 3.18,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-10_expense_expense_transport_expense_transport_parking",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 1.3,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_parking",
+      "subcategory": "Parking"
+    },
+    {
+      "entry_id": "2025-10_expense_expense_transport_expense_transport_uber-rides",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 110.77,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_uber-rides",
+      "subcategory": "Uber Rides"
+    },
+    {
+      "entry_id": "2025-10_expense_expense_travel",
+      "month": "2025-10",
+      "type": "expense",
+      "category": "Travel",
+      "category_id": "expense_travel",
+      "amount": 130.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-10_income_income_other",
+      "month": "2025-10",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3641.56,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-09_expense_expense_car_expense_car_repair",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Car",
+      "category_id": "expense_car",
+      "amount": 516.26,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_car_repair",
+      "subcategory": "Repair"
+    },
+    {
+      "entry_id": "2025-09_expense_expense_donations",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-09_expense_expense_food-delivery_expense_food-delivery_uber-eats",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Food Delivery",
+      "category_id": "expense_food-delivery",
+      "amount": 38.05,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_food-delivery_uber-eats",
+      "subcategory": "Uber Eats"
+    },
+    {
+      "entry_id": "2025-09_expense_expense_fuel",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 56.41,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-09_expense_expense_groceries",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Groceries",
+      "category_id": "expense_groceries",
+      "amount": 86.58,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-09_expense_expense_housing",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 1213.43,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-09_expense_expense_other",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 71.1,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-09_expense_expense_restaurants",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 75.8,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-09_expense_expense_shopping_expense_shopping_decathlon",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 85.47,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_decathlon",
+      "subcategory": "Decathlon"
+    },
+    {
+      "entry_id": "2025-09_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 0.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-09_expense_expense_transport_expense_transport_uber-rides",
+      "month": "2025-09",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 17.77,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_uber-rides",
+      "subcategory": "Uber Rides"
+    },
+    {
+      "entry_id": "2025-09_income_income_other",
+      "month": "2025-09",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 4167.56,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-08_expense_expense_donations",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-08_expense_expense_entertainment",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Entertainment",
+      "category_id": "expense_entertainment",
+      "amount": 10.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-08_expense_expense_fuel",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 144.1,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-08_expense_expense_groceries",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Groceries",
+      "category_id": "expense_groceries",
+      "amount": 46.79,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-08_expense_expense_housing",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 631.01,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-08_expense_expense_other",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 6.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-08_expense_expense_restaurants",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 167.5,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-08_expense_expense_shopping_expense_shopping_amazon",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 236.23,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_amazon",
+      "subcategory": "Amazon"
+    },
+    {
+      "entry_id": "2025-08_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 5.98,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-08_expense_expense_subscriptions_expense_subscriptions_gamma",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 10.3,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_gamma",
+      "subcategory": "Gamma"
+    },
+    {
+      "entry_id": "2025-08_expense_expense_transport_expense_transport_uber-rides",
+      "month": "2025-08",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 101.54,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_uber-rides",
+      "subcategory": "Uber Rides"
+    },
+    {
+      "entry_id": "2025-08_income_income_other",
+      "month": "2025-08",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3644.56,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-07_expense_expense_donations",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-07_expense_expense_entertainment",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Entertainment",
+      "category_id": "expense_entertainment",
+      "amount": 5.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-07_expense_expense_food-delivery_expense_food-delivery_glovo",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Food Delivery",
+      "category_id": "expense_food-delivery",
+      "amount": 34.02,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_food-delivery_glovo",
+      "subcategory": "Glovo"
+    },
+    {
+      "entry_id": "2025-07_expense_expense_fuel",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 54.62,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-07_expense_expense_housing",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 667.93,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-07_expense_expense_other",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 88.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-07_expense_expense_restaurants",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 208.4,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-07_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 0.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-07_expense_expense_subscriptions_expense_subscriptions_gamma",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 10.3,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_gamma",
+      "subcategory": "Gamma"
+    },
+    {
+      "entry_id": "2025-07_expense_expense_transport_expense_transport_uber-rides",
+      "month": "2025-07",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 130.78,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_uber-rides",
+      "subcategory": "Uber Rides"
+    },
+    {
+      "entry_id": "2025-07_income_income_other",
+      "month": "2025-07",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 6799.8,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-06_expense_expense_bank-fees",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Bank Fees",
+      "category_id": "expense_bank-fees",
+      "amount": 4.01,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-06_expense_expense_donations",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-06_expense_expense_entertainment",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Entertainment",
+      "category_id": "expense_entertainment",
+      "amount": 27.1,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-06_expense_expense_food-delivery_expense_food-delivery_uber-eats",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Food Delivery",
+      "category_id": "expense_food-delivery",
+      "amount": 185.5,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_food-delivery_uber-eats",
+      "subcategory": "Uber Eats"
+    },
+    {
+      "entry_id": "2025-06_expense_expense_fuel",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 61.08,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-06_expense_expense_housing",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 625.64,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-06_expense_expense_other",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 106.75,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-06_expense_expense_restaurants",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 124.75,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-06_expense_expense_shopping_expense_shopping_amazon",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 8.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_amazon",
+      "subcategory": "Amazon"
+    },
+    {
+      "entry_id": "2025-06_expense_expense_shopping_expense_shopping_el-corte-ingles",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 33.9,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_el-corte-ingles",
+      "subcategory": "El Corte Ingles"
+    },
+    {
+      "entry_id": "2025-06_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 0.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-06_expense_expense_subscriptions_expense_subscriptions_gamma",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 10.3,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_gamma",
+      "subcategory": "Gamma"
+    },
+    {
+      "entry_id": "2025-06_expense_expense_transport_expense_transport_parking",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 0.2,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_parking",
+      "subcategory": "Parking"
+    },
+    {
+      "entry_id": "2025-06_expense_expense_transport_expense_transport_uber-rides",
+      "month": "2025-06",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 44.98,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_uber-rides",
+      "subcategory": "Uber Rides"
+    },
+    {
+      "entry_id": "2025-06_income_income_other",
+      "month": "2025-06",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 4969.68,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-05_expense_expense_car_expense_car_repair",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Car",
+      "category_id": "expense_car",
+      "amount": 151.2,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_car_repair",
+      "subcategory": "Repair"
+    },
+    {
+      "entry_id": "2025-05_expense_expense_donations",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-05_expense_expense_food-delivery_expense_food-delivery_glovo",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Food Delivery",
+      "category_id": "expense_food-delivery",
+      "amount": 45.9,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_food-delivery_glovo",
+      "subcategory": "Glovo"
+    },
+    {
+      "entry_id": "2025-05_expense_expense_food-delivery_expense_food-delivery_uber-eats",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Food Delivery",
+      "category_id": "expense_food-delivery",
+      "amount": 149.47,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_food-delivery_uber-eats",
+      "subcategory": "Uber Eats"
+    },
+    {
+      "entry_id": "2025-05_expense_expense_fuel",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 51.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-05_expense_expense_groceries",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Groceries",
+      "category_id": "expense_groceries",
+      "amount": 28.93,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-05_expense_expense_housing",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 575.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-05_expense_expense_other",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 20.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-05_expense_expense_restaurants",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 21.2,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-05_expense_expense_shopping_expense_shopping_other",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 61.5,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_other",
+      "subcategory": "Other"
+    },
+    {
+      "entry_id": "2025-05_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 0.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-05_expense_expense_subscriptions_expense_subscriptions_godaddy",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 44.32,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_godaddy",
+      "subcategory": "Godaddy"
+    },
+    {
+      "entry_id": "2025-05_expense_expense_taxes",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Taxes",
+      "category_id": "expense_taxes",
+      "amount": 115.37,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-05_expense_expense_transport_expense_transport_taxi",
+      "month": "2025-05",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 17.9,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_taxi",
+      "subcategory": "Taxi"
+    },
+    {
+      "entry_id": "2025-05_income_income_other",
+      "month": "2025-05",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3647.59,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-04_expense_expense_donations",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-04_expense_expense_entertainment",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Entertainment",
+      "category_id": "expense_entertainment",
+      "amount": 5.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-04_expense_expense_food-delivery_expense_food-delivery_uber-eats",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Food Delivery",
+      "category_id": "expense_food-delivery",
+      "amount": 28.63,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_food-delivery_uber-eats",
+      "subcategory": "Uber Eats"
+    },
+    {
+      "entry_id": "2025-04_expense_expense_fuel",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 103.27,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-04_expense_expense_groceries",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Groceries",
+      "category_id": "expense_groceries",
+      "amount": 228.63,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-04_expense_expense_health_expense_health_pharmacy",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Health",
+      "category_id": "expense_health",
+      "amount": 3.03,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_health_pharmacy",
+      "subcategory": "Pharmacy"
+    },
+    {
+      "entry_id": "2025-04_expense_expense_housing",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 685.81,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-04_expense_expense_other",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 30.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-04_expense_expense_restaurants",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 10.7,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-04_expense_expense_shopping_expense_shopping_amazon",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 37.91,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_amazon",
+      "subcategory": "Amazon"
+    },
+    {
+      "entry_id": "2025-04_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 0.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-04_expense_expense_subscriptions_expense_subscriptions_other",
+      "month": "2025-04",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 69.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_other",
+      "subcategory": "Other"
+    },
+    {
+      "entry_id": "2025-04_income_income_other",
+      "month": "2025-04",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3637.59,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-03_expense_expense_donations",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-03_expense_expense_food-delivery_expense_food-delivery_uber-eats",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Food Delivery",
+      "category_id": "expense_food-delivery",
+      "amount": 138.3,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_food-delivery_uber-eats",
+      "subcategory": "Uber Eats"
+    },
+    {
+      "entry_id": "2025-03_expense_expense_fuel",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 89.48,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-03_expense_expense_groceries",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Groceries",
+      "category_id": "expense_groceries",
+      "amount": 156.25,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-03_expense_expense_other",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 60.43,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-03_expense_expense_restaurants",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 242.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-03_expense_expense_shopping_expense_shopping_el-corte-ingles",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 176.84,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_el-corte-ingles",
+      "subcategory": "El Corte Ingles"
+    },
+    {
+      "entry_id": "2025-03_expense_expense_subscriptions_expense_subscriptions_amazon-prime",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 3.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_amazon-prime",
+      "subcategory": "Amazon Prime"
+    },
+    {
+      "entry_id": "2025-03_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 30.98,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-03_expense_expense_transport_expense_transport_parking",
+      "month": "2025-03",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 1.75,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_parking",
+      "subcategory": "Parking"
+    },
+    {
+      "entry_id": "2025-03_income_income_other",
+      "month": "2025-03",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3796.59,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-02_expense_expense_car_expense_car_rental",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Car",
+      "category_id": "expense_car",
+      "amount": 115.83,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_car_rental",
+      "subcategory": "Rental"
+    },
+    {
+      "entry_id": "2025-02_expense_expense_donations",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-02_expense_expense_education",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Education",
+      "category_id": "expense_education",
+      "amount": 749.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-02_expense_expense_entertainment",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Entertainment",
+      "category_id": "expense_entertainment",
+      "amount": 5.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-02_expense_expense_food-delivery_expense_food-delivery_uber-eats",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Food Delivery",
+      "category_id": "expense_food-delivery",
+      "amount": 84.85,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_food-delivery_uber-eats",
+      "subcategory": "Uber Eats"
+    },
+    {
+      "entry_id": "2025-02_expense_expense_fuel",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 64.4,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-02_expense_expense_gifts",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Gifts",
+      "category_id": "expense_gifts",
+      "amount": 67.46,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-02_expense_expense_groceries",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Groceries",
+      "category_id": "expense_groceries",
+      "amount": 69.4,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-02_expense_expense_housing",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 1212.36,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-02_expense_expense_other",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 102.2,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-02_expense_expense_restaurants",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 200.63,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-02_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-02",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 0.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-02_income_income_other",
+      "month": "2025-02",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3787.59,
+      "notes": "Imported from Bankinter 2025"
+    },
+    {
+      "entry_id": "2025-01_expense_expense_donations",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Donations",
+      "category_id": "expense_donations",
+      "amount": 22.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_expense_expense_education",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Education",
+      "category_id": "expense_education",
+      "amount": 46.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_expense_expense_entertainment",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Entertainment",
+      "category_id": "expense_entertainment",
+      "amount": 5.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_expense_expense_food-delivery_expense_food-delivery_glovo",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Food Delivery",
+      "category_id": "expense_food-delivery",
+      "amount": 84.85,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_food-delivery_glovo",
+      "subcategory": "Glovo"
+    },
+    {
+      "entry_id": "2025-01_expense_expense_food-delivery_expense_food-delivery_uber-eats",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Food Delivery",
+      "category_id": "expense_food-delivery",
+      "amount": 132.03,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_food-delivery_uber-eats",
+      "subcategory": "Uber Eats"
+    },
+    {
+      "entry_id": "2025-01_expense_expense_fuel",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Fuel",
+      "category_id": "expense_fuel",
+      "amount": 51.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_expense_expense_groceries",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Groceries",
+      "category_id": "expense_groceries",
+      "amount": 6.29,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_expense_expense_housing",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Housing",
+      "category_id": "expense_housing",
+      "amount": 638.3,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_expense_expense_insurance",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Insurance",
+      "category_id": "expense_insurance",
+      "amount": 323.3,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_expense_expense_other",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Other",
+      "category_id": "expense_other",
+      "amount": 95.0,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_expense_expense_restaurants",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Restaurants",
+      "category_id": "expense_restaurants",
+      "amount": 53.5,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_expense_expense_shopping_expense_shopping_decathlon",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 5.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_decathlon",
+      "subcategory": "Decathlon"
+    },
+    {
+      "entry_id": "2025-01_expense_expense_shopping_expense_shopping_el-corte-ingles",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 29.17,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_el-corte-ingles",
+      "subcategory": "El Corte Ingles"
+    },
+    {
+      "entry_id": "2025-01_expense_expense_shopping_expense_shopping_other",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Shopping",
+      "category_id": "expense_shopping",
+      "amount": 35.38,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_shopping_other",
+      "subcategory": "Other"
+    },
+    {
+      "entry_id": "2025-01_expense_expense_subscriptions_expense_subscriptions_apple",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Subscriptions",
+      "category_id": "expense_subscriptions",
+      "amount": 0.99,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_subscriptions_apple",
+      "subcategory": "Apple"
+    },
+    {
+      "entry_id": "2025-01_expense_expense_transport_expense_transport_taxi",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Transport",
+      "category_id": "expense_transport",
+      "amount": 10.75,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": "expense_transport_taxi",
+      "subcategory": "Taxi"
+    },
+    {
+      "entry_id": "2025-01_expense_expense_utilities",
+      "month": "2025-01",
+      "type": "expense",
+      "category": "Utilities",
+      "category_id": "expense_utilities",
+      "amount": 47.48,
+      "notes": "Imported from Bankinter 2025",
+      "subcategory_id": null,
+      "subcategory": ""
+    },
+    {
+      "entry_id": "2025-01_income_income_other",
+      "month": "2025-01",
+      "type": "income",
+      "category": "Other",
+      "category_id": "income_other",
+      "subcategory_id": null,
+      "subcategory": "",
+      "amount": 3654.59,
+      "notes": "Imported from Bankinter 2025"
+    }
+  ]
+}
