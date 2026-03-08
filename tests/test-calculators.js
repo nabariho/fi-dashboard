@@ -291,6 +291,48 @@ describe('SummaryCalculator', function() {
     assertEqual(result[1].startNW, 60000);
     assertEqual(result[1].endNW, 90000);
     assertEqual(result[1].nwChange, 30000);
+    // Verify new decomposition fields default to 0 when no mortgage
+    assertEqual(result[0].debtReduction, 0);
+    assertEqual(result[0].houseValueChange, 0);
+    assertEqual(result[1].debtReduction, 0);
+    assertEqual(result[1].houseValueChange, 0);
+    // marketReturns = nwChange - totalSaved - debtReduction - houseValueChange
+    assertEqual(result[0].marketReturns, 10000 - 5000); // 5000
+    assertEqual(result[1].marketReturns, 30000 - 7000); // 23000
+  });
+
+  it('computeAnnualSummaries handles negative NW percentage', function() {
+    var nwData = [
+      { month: '2024-06', total: -100000, accounts: {} },
+      { month: '2024-12', total: -50000, accounts: {} }
+    ];
+    var allData = [
+      { month: '2024-06', account_id: 'A', net_contribution: 1000 },
+      { month: '2024-12', account_id: 'A', net_contribution: 2000 }
+    ];
+    var result = SummaryCalculator.computeAnnualSummaries(nwData, allData);
+    assertEqual(result.length, 1);
+    // NW went from -100k to -50k = +50k change on |100k| base = +50%
+    assertClose(result[0].nwChangePct, 50, 0.1);
+  });
+
+  it('computeAnnualSummaries decomposes mortgage correctly', function() {
+    var nwData = [
+      { month: '2024-06', total: -50000, accounts: {}, mortgage_balance: 200000, house_value: 250000 },
+      { month: '2024-12', total: -20000, accounts: {}, mortgage_balance: 190000, house_value: 260000 }
+    ];
+    var allData = [
+      { month: '2024-06', account_id: 'A', net_contribution: 5000 },
+      { month: '2024-12', account_id: 'A', net_contribution: 3000 }
+    ];
+    var result = SummaryCalculator.computeAnnualSummaries(nwData, allData);
+    assertEqual(result.length, 1);
+    assertEqual(result[0].nwChange, 30000); // -50k to -20k
+    assertEqual(result[0].totalSaved, 8000);
+    assertEqual(result[0].debtReduction, 10000); // 200k - 190k
+    assertEqual(result[0].houseValueChange, 10000); // 260k - 250k
+    // marketReturns = 30000 - 8000 - 10000 - 10000 = 2000
+    assertEqual(result[0].marketReturns, 2000);
   });
 });
 
@@ -331,6 +373,28 @@ describe('NetWorthCalculator', function() {
     var mom = NetWorthCalculator.computeMoM(data);
     assertEqual(mom.change, 5000);
     assertClose(mom.pct, 5, 0.01);
+  });
+
+  it('computeMoM handles negative net worth', function() {
+    var data = [
+      { month: '2024-01', total: -100000 },
+      { month: '2024-02', total: -80000 }
+    ];
+    var mom = NetWorthCalculator.computeMoM(data);
+    assertEqual(mom.change, 20000);
+    // 20000 / |-100000| * 100 = 20%
+    assertClose(mom.pct, 20, 0.01);
+  });
+
+  it('computeYTD handles negative net worth', function() {
+    var data = [
+      { month: '2024-12', total: -100000 },
+      { month: '2025-03', total: -60000 }
+    ];
+    var ytd = NetWorthCalculator.computeYTD(data);
+    assertEqual(ytd.change, 40000);
+    // 40000 / |-100000| * 100 = 40%
+    assertClose(ytd.pct, 40, 0.01);
   });
 });
 
