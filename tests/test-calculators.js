@@ -1507,3 +1507,219 @@ describe('GoalsCalculator.findByIdPattern', function() {
     assertEqual(found, null);
   });
 });
+
+// --- CashflowCalculator (new methods: spending split, income stability, volatility, FI impact, YoY) ---
+
+describe('CashflowCalculator (spending split)', function() {
+  it('computeSpendingSplit classifies categories by budget type', function() {
+    var pnl = {
+      expenses: {
+        total: 2000,
+        byCategory: {
+          'Housing': { total: 900, subcategories: {}, items: [] },
+          'Food': { total: 400, subcategories: {}, items: [] },
+          'Entertainment': { total: 200, subcategories: {}, items: [] },
+          'Misc': { total: 500, subcategories: {}, items: [] }
+        }
+      }
+    };
+    var budgetItems = [
+      { item_id: 'b1', name: 'Rent', type: 'fixed', amount: 900, frequency: 'monthly', category: 'Housing', active: true },
+      { item_id: 'b2', name: 'Groceries', type: 'variable', amount: 400, frequency: 'monthly', category: 'Food', active: true },
+      { item_id: 'b3', name: 'Movies', type: 'variable', amount: 100, frequency: 'monthly', category: 'Entertainment', active: true }
+    ];
+    var result = CashflowCalculator.computeSpendingSplit(pnl, budgetItems);
+
+    // Housing = fixed → essential
+    assertClose(result.essential.total, 900, 0.01);
+    assertEqual(result.essential.categories['Housing'], 900);
+
+    // Food + Entertainment = variable → discretionary
+    assertClose(result.discretionary.total, 600, 0.01);
+    assertEqual(result.discretionary.categories['Food'], 400);
+
+    // Misc = not in budget → unclassified
+    assertClose(result.unclassified.total, 500, 0.01);
+    assertEqual(result.unclassified.categories['Misc'], 500);
+
+    // Percentages
+    assertClose(result.essentialPct, 45, 0.1);
+    assertClose(result.discretionaryPct, 30, 0.1);
+    assertClose(result.unclassifiedPct, 25, 0.1);
+  });
+
+  it('computeSpendingSplit handles null inputs', function() {
+    var result = CashflowCalculator.computeSpendingSplit(null, []);
+    assertEqual(result.essential.total, 0);
+    assertEqual(result.essentialPct, 0);
+  });
+});
+
+describe('CashflowCalculator (income stability)', function() {
+  it('computeIncomeStability detects stable income', function() {
+    var entries = [
+      { month: '2024-01', type: 'income', category: 'Salary', amount: 3000 },
+      { month: '2024-02', type: 'income', category: 'Salary', amount: 3000 },
+      { month: '2024-03', type: 'income', category: 'Salary', amount: 3000 },
+      { month: '2024-04', type: 'income', category: 'Salary', amount: 3000 }
+    ];
+    var result = CashflowCalculator.computeIncomeStability(entries);
+    assertClose(result.avgIncome, 3000, 0.01);
+    assertClose(result.coeffOfVariation, 0, 0.01);
+    assertEqual(result.isStable, true);
+    assertEqual(result.cvStatus, 'positive');
+    assertEqual(result.monthCount, 4);
+  });
+
+  it('computeIncomeStability detects variable income', function() {
+    var entries = [
+      { month: '2024-01', type: 'income', category: 'Salary', amount: 2000 },
+      { month: '2024-02', type: 'income', category: 'Salary', amount: 4000 },
+      { month: '2024-03', type: 'income', category: 'Salary', amount: 1500 },
+      { month: '2024-04', type: 'income', category: 'Salary', amount: 5000 }
+    ];
+    var result = CashflowCalculator.computeIncomeStability(entries);
+    assert(result.coeffOfVariation > 15, 'CV should be > 15%: ' + result.coeffOfVariation);
+    assertEqual(result.isStable, false);
+    assertEqual(result.cvStatus, 'negative');
+  });
+
+  it('computeIncomeStability handles single month', function() {
+    var entries = [
+      { month: '2024-01', type: 'income', category: 'Salary', amount: 3000 }
+    ];
+    var result = CashflowCalculator.computeIncomeStability(entries);
+    assertEqual(result.monthCount, 1);
+    assertEqual(result.isStable, true);
+  });
+});
+
+describe('CashflowCalculator (expense volatility)', function() {
+  it('computeExpenseVolatility flags volatile categories', function() {
+    var entries = [
+      { month: '2024-01', type: 'expense', category: 'Housing', amount: 900 },
+      { month: '2024-02', type: 'expense', category: 'Housing', amount: 900 },
+      { month: '2024-03', type: 'expense', category: 'Housing', amount: 900 },
+      { month: '2024-01', type: 'expense', category: 'Dining', amount: 50 },
+      { month: '2024-02', type: 'expense', category: 'Dining', amount: 300 },
+      { month: '2024-03', type: 'expense', category: 'Dining', amount: 20 },
+      // Need income to make months valid
+      { month: '2024-01', type: 'income', category: 'Salary', amount: 3000 },
+      { month: '2024-02', type: 'income', category: 'Salary', amount: 3000 },
+      { month: '2024-03', type: 'income', category: 'Salary', amount: 3000 }
+    ];
+    var result = CashflowCalculator.computeExpenseVolatility(entries, '2024-03', [], [], 6);
+
+    // Housing: CV = 0 (constant) → not volatile
+    assertClose(result['Housing'].cv, 0, 0.1);
+    assertEqual(result['Housing'].isVolatile, false);
+
+    // Dining: highly variable → volatile
+    assert(result['Dining'].cv > 30, 'Dining CV should be > 30%: ' + result['Dining'].cv);
+    assertEqual(result['Dining'].isVolatile, true);
+  });
+});
+
+describe('CashflowCalculator (FI impact)', function() {
+  it('computeFIImpact ranks categories by FI acceleration', function() {
+    var pnl = {
+      expenses: {
+        total: 2000,
+        byCategory: {
+          'Housing': { total: 1000, subcategories: {}, items: [] },
+          'Food': { total: 500, subcategories: {}, items: [] },
+          'Transport': { total: 300, subcategories: {}, items: [] },
+          'Other': { total: 200, subcategories: {}, items: [] }
+        }
+      }
+    };
+    var fiParams = {
+      currentNW: 100000,
+      monthlySavings: 1500,
+      annualReturn: 0.07,
+      fiTarget: 1000000
+    };
+    var result = CashflowCalculator.computeFIImpact(pnl, fiParams);
+
+    assert(result.length >= 4, 'Should have results for all categories');
+    // Should be sorted by impact desc
+    assert(result[0].fiImpactMonths >= result[1].fiImpactMonths, 'Should be sorted by impact');
+    // Housing (1000/mo) should have biggest impact
+    assertEqual(result[0].category, 'Housing');
+    assert(result[0].fiImpactMonths > 0, 'Should have positive impact');
+    assertEqual(result[0].fiImpactMonthsStatus, 'positive');
+  });
+
+  it('computeFIImpact returns empty when no FI target', function() {
+    var result = CashflowCalculator.computeFIImpact(null, { fiTarget: 0 });
+    assertEqual(result.length, 0);
+  });
+});
+
+describe('CashflowCalculator (what-if cut)', function() {
+  it('computeWhatIfCut calculates savings from discretionary cut', function() {
+    var pnl = {
+      income: { total: 4000 },
+      expenses: { total: 2000, byCategory: {} },
+      netSavings: 2000,
+      savingsRate: 0.50
+    };
+    var split = {
+      essential: { total: 1000, categories: {} },
+      discretionary: { total: 700, categories: {} },
+      unclassified: { total: 300, categories: {} }
+    };
+    var fiParams = {
+      currentNW: 100000,
+      monthlySavings: 2000,
+      annualReturn: 0.07,
+      fiTarget: 1000000
+    };
+    var result = CashflowCalculator.computeWhatIfCut(pnl, split, fiParams, 0.50);
+
+    // 50% cut of (700 + 300) = 500
+    assertClose(result.savings, 500, 0.01);
+    assertClose(result.newExpenses, 1500, 0.01);
+    // New savings rate = (4000-1500)/4000 = 0.625
+    assertClose(result.newSavingsRate, 0.625, 0.001);
+    assertClose(result.annualSavings, 6000, 0.01);
+    // FI should accelerate
+    assert(result.fiAccelerationMonths > 0, 'Should accelerate FI');
+  });
+
+  it('computeWhatIfCut returns null on null inputs', function() {
+    var result = CashflowCalculator.computeWhatIfCut(null, null, null, 0.10);
+    assertEqual(result, null);
+  });
+});
+
+describe('CashflowCalculator (YoY comparison)', function() {
+  it('computeYoYComparison finds same month last year', function() {
+    var entries = [
+      { month: '2024-03', type: 'income', category: 'Salary', amount: 3000 },
+      { month: '2024-03', type: 'expense', category: 'Housing', amount: 800 },
+      { month: '2024-03', type: 'expense', category: 'Food', amount: 300 },
+      { month: '2025-03', type: 'income', category: 'Salary', amount: 3500 },
+      { month: '2025-03', type: 'expense', category: 'Housing', amount: 850 },
+      { month: '2025-03', type: 'expense', category: 'Food', amount: 350 }
+    ];
+    var result = CashflowCalculator.computeYoYComparison(entries, '2025-03');
+
+    assert(result.hasPriorYear, 'Should have prior year');
+    assertEqual(result.priorYearMonth, '2024-03');
+    assertClose(result.totalIncomeChange.delta, 500, 0.01);
+    assertEqual(result.totalIncomeChange.deltaStatus, 'positive');
+    assertClose(result.totalExpenseChange.delta, 100, 0.01);
+    assertEqual(result.totalExpenseChange.deltaStatus, 'negative'); // expenses up = bad
+    assert(result.savingsRateChangePP !== undefined, 'Should have savings rate change');
+    assert(result.expenseChanges.length > 0, 'Should have category changes');
+  });
+
+  it('computeYoYComparison handles no prior year', function() {
+    var entries = [
+      { month: '2025-01', type: 'income', category: 'Salary', amount: 3000 }
+    ];
+    var result = CashflowCalculator.computeYoYComparison(entries, '2025-01');
+    assertEqual(result.hasPriorYear, false);
+  });
+});

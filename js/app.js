@@ -462,6 +462,11 @@ function refreshCashFlow() {
   var insights = null;
   var improvementAreas = null;
   var waterfall = null;
+  var spendingSplit = null;
+  var expenseVolatility = null;
+  var fiImpact = null;
+  var goalFundingReality = null;
+  var yoyComparison = null;
 
   // Derive FI savings rate target from config
   var fiSavingsRate = 0;
@@ -478,10 +483,47 @@ function refreshCashFlow() {
     categoryAverages = CashflowCalculator.computeCategoryAverages(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories, _cashflowTrailingMonths);
     insights = CashflowCalculator.computeMoMInsights(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories);
     improvementAreas = CashflowCalculator.computeImprovementAreas(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories, budgetItems.length ? budgetItems : null, goalPlan, _cashflowTrailingMonths);
+    expenseVolatility = CashflowCalculator.computeExpenseVolatility(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories, _cashflowTrailingMonths);
+    yoyComparison = CashflowCalculator.computeYoYComparison(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories);
 
     if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
       budgetVsActual = CashflowCalculator.computePlannedVsActual(cashflowEntries, budgetItems, selectedMonth, cashflowCategories);
       budgetVsActualYTD = CashflowCalculator.computeBudgetVsActualYTD(cashflowEntries, budgetItems, selectedMonth, cashflowCategories);
+      spendingSplit = CashflowCalculator.computeSpendingSplit(pnl, budgetItems);
+    }
+
+    // FI params (shared by fiImpact, what-if)
+    var cfFiTarget = parseFloat(appConfig.fi_target) || 0;
+    var cfAnnualReturn = parseFloat(appConfig.expected_return) || 0.05;
+    var cfLatestNW = (_cachedNWData && _cachedNWData.months && _cachedNWData.months.length)
+      ? _cachedNWData.months[_cachedNWData.months.length - 1].liquid : 0;
+    var cfFiParams = {
+      currentNW: cfLatestNW,
+      monthlySavings: pnl.netSavings,
+      annualReturn: cfAnnualReturn,
+      fiTarget: cfFiTarget
+    };
+
+    // FI impact per category
+    if (pnl && typeof FICalculator !== 'undefined' && cfFiTarget > 0) {
+      fiImpact = CashflowCalculator.computeFIImpact(pnl, cfFiParams);
+    }
+
+    // Goal funding reality for selected month
+    if (goalPlan && goalPlan.goals && goalPlan.goals.length) {
+      goalFundingReality = CashflowCalculator.computeGoalFundingReality(
+        selectedMonth, allData, goalPlan.goals, pnl.netSavings
+      );
+    }
+
+    // What-if scenarios (10%, 25%, 50% cuts to discretionary)
+    var whatIfScenarios = null;
+    if (spendingSplit && (spendingSplit.discretionary.total + spendingSplit.unclassified.total) > 0) {
+      whatIfScenarios = [
+        Object.assign({ label: '10% cut' }, CashflowCalculator.computeWhatIfCut(pnl, spendingSplit, cfFiParams, 0.10) || {}),
+        Object.assign({ label: '25% cut' }, CashflowCalculator.computeWhatIfCut(pnl, spendingSplit, cfFiParams, 0.25) || {}),
+        Object.assign({ label: '50% cut' }, CashflowCalculator.computeWhatIfCut(pnl, spendingSplit, cfFiParams, 0.50) || {})
+      ];
     }
 
     // Build waterfall from PnL + goal plan for selected month
@@ -505,8 +547,10 @@ function refreshCashFlow() {
 
   // Cross-month computations
   var categoryTrends = null;
+  var incomeStability = null;
   if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
     categoryTrends = CashflowCalculator.computeCategoryTrends(cashflowEntries, 12, cashflowCategories);
+    incomeStability = CashflowCalculator.computeIncomeStability(cashflowEntries, cashflowCategories);
   }
 
   var budgetSummary = null;
@@ -533,12 +577,28 @@ function refreshCashFlow() {
     waterfall: waterfall,
     categoryTrends: categoryTrends,
     budgetSummary: budgetSummary,
-    budgetStale: budgetStale
+    budgetStale: budgetStale,
+    spendingSplit: spendingSplit,
+    incomeStability: incomeStability,
+    expenseVolatility: expenseVolatility,
+    fiImpact: fiImpact,
+    goalFundingReality: goalFundingReality,
+    yoyComparison: yoyComparison,
+    whatIfScenarios: whatIfScenarios,
+    trailingMonths: _cashflowTrailingMonths
   });
 }
 
+window._cashflowTrailingMonths = _cashflowTrailingMonths;
+
 window.onCashflowMonthChange = function(month) {
   _cashflowSelectedMonth = month;
+  refreshCashFlow();
+};
+
+window.onCashflowTrailingChange = function(months) {
+  _cashflowTrailingMonths = months;
+  window._cashflowTrailingMonths = months;
   refreshCashFlow();
 };
 

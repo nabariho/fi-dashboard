@@ -998,6 +998,327 @@ var CashflowCalculator = {
     return areas;
   },
 
+  // Classify expense categories as essential (fixed) or discretionary (variable)
+  // using budget items as the source of truth. Returns a spending split for the month.
+  // budgetItems: array of { type: 'fixed'|'variable', category, active }
+  // Returns: { essential: { total, categories: { cat: amount } },
+  //            discretionary: { total, categories: { cat: amount } },
+  //            unclassified: { total, categories: { cat: amount } },
+  //            essentialPct, discretionaryPct, unclassifiedPct }
+  computeSpendingSplit: function(pnl, budgetItems) {
+    var essential = { total: 0, categories: {} };
+    var discretionary = { total: 0, categories: {} };
+    var unclassified = { total: 0, categories: {} };
+
+    if (!pnl || !pnl.expenses || !pnl.expenses.byCategory) {
+      return { essential: essential, discretionary: discretionary, unclassified: unclassified,
+               essentialPct: 0, discretionaryPct: 0, unclassifiedPct: 0 };
+    }
+
+    // Build category → type map from budget items
+    // A category is 'fixed' if >50% of its budget is fixed items, else 'variable'
+    var catBudget = {};
+    (budgetItems || []).forEach(function(b) {
+      if (!b.active) return;
+      var cat = b.category || 'Other';
+      if (!catBudget[cat]) catBudget[cat] = { fixed: 0, variable: 0 };
+      var monthly = typeof BudgetCalculator !== 'undefined'
+        ? BudgetCalculator.toMonthly(b.amount, b.frequency)
+        : b.amount;
+      if (b.type === 'fixed') catBudget[cat].fixed += monthly;
+      else catBudget[cat].variable += monthly;
+    });
+
+    var catType = {};
+    Object.keys(catBudget).forEach(function(cat) {
+      catType[cat] = catBudget[cat].fixed >= catBudget[cat].variable ? 'essential' : 'discretionary';
+    });
+
+    // Classify each expense category
+    var expCats = Object.keys(pnl.expenses.byCategory);
+    for (var i = 0; i < expCats.length; i++) {
+      var cat = expCats[i];
+      var amt = pnl.expenses.byCategory[cat].total;
+      var type = catType[cat];
+      if (type === 'essential') {
+        essential.total += amt;
+        essential.categories[cat] = amt;
+      } else if (type === 'discretionary') {
+        discretionary.total += amt;
+        discretionary.categories[cat] = amt;
+      } else {
+        unclassified.total += amt;
+        unclassified.categories[cat] = amt;
+      }
+    }
+
+    essential.total = Math.round(essential.total * 100) / 100;
+    discretionary.total = Math.round(discretionary.total * 100) / 100;
+    unclassified.total = Math.round(unclassified.total * 100) / 100;
+    var totalExp = pnl.expenses.total;
+
+    return {
+      essential: essential,
+      discretionary: discretionary,
+      unclassified: unclassified,
+      essentialPct: totalExp > EPSILON ? Math.round(essential.total / totalExp * 10000) / 100 : 0,
+      discretionaryPct: totalExp > EPSILON ? Math.round(discretionary.total / totalExp * 10000) / 100 : 0,
+      unclassifiedPct: totalExp > EPSILON ? Math.round(unclassified.total / totalExp * 10000) / 100 : 0
+    };
+  },
+
+  // Compute income stability metrics across available months.
+  // Returns: { avgIncome, stdDev, coeffOfVariation, cvStatus, isStable, monthCount,
+  //            minIncome, maxIncome, range }
+  computeIncomeStability: function(entries, categories) {
+    var allMonths = this.computeAllMonths(entries, categories);
+    if (allMonths.length < 2) {
+      return { avgIncome: allMonths.length ? allMonths[0].totalIncome : 0,
+               stdDev: 0, coeffOfVariation: 0, cvStatus: 'positive', isStable: true,
+               monthCount: allMonths.length, minIncome: 0, maxIncome: 0, range: 0 };
+    }
+
+    var incomes = allMonths.map(function(m) { return m.totalIncome; });
+    var n = incomes.length;
+    var sum = incomes.reduce(function(s, v) { return s + v; }, 0);
+    var avg = sum / n;
+
+    var variance = incomes.reduce(function(s, v) { return s + (v - avg) * (v - avg); }, 0) / n;
+    var stdDev = Math.round(Math.sqrt(variance) * 100) / 100;
+    var cv = avg > EPSILON ? Math.round(stdDev / avg * 10000) / 100 : 0;
+
+    // CV < 5% = very stable, < 15% = stable, else variable
+    var isStable = cv < 15;
+    var cvStatus = cv < 5 ? 'positive' : (cv < 15 ? 'neutral' : 'negative');
+
+    return {
+      avgIncome: Math.round(avg * 100) / 100,
+      stdDev: stdDev,
+      coeffOfVariation: cv,
+      cvStatus: cvStatus,
+      isStable: isStable,
+      monthCount: n,
+      minIncome: Math.min.apply(null, incomes),
+      maxIncome: Math.max.apply(null, incomes),
+      range: Math.round((Math.max.apply(null, incomes) - Math.min.apply(null, incomes)) * 100) / 100
+    };
+  },
+
+  // Compute expense volatility per category over trailing months.
+  // Returns: { [category]: { avg, stdDev, cv, cvStatus, isVolatile, months } }
+  computeExpenseVolatility: function(entries, month, categories, subcategories, trailingMonths) {
+    var allMonths = this.computeAllMonths(entries, categories, subcategories);
+    var n = trailingMonths || 6;
+
+    var monthIdx = -1;
+    for (var i = 0; i < allMonths.length; i++) {
+      if (allMonths[i].month === month) { monthIdx = i; break; }
+    }
+    if (monthIdx < 0) return {};
+
+    // Include current month in volatility window
+    var start = Math.max(0, monthIdx - n + 1);
+    var window = allMonths.slice(start, monthIdx + 1);
+    if (window.length < 2) return {};
+
+    // Collect all expense categories across window
+    var catSet = {};
+    window.forEach(function(m) {
+      Object.keys(m.expensesByCategory).forEach(function(c) { catSet[c] = true; });
+    });
+
+    var result = {};
+    Object.keys(catSet).forEach(function(cat) {
+      var values = window.map(function(m) { return m.expensesByCategory[cat] || 0; });
+      var count = values.length;
+      var sum = values.reduce(function(s, v) { return s + v; }, 0);
+      var avg = sum / count;
+      var variance = values.reduce(function(s, v) { return s + (v - avg) * (v - avg); }, 0) / count;
+      var stdDev = Math.round(Math.sqrt(variance) * 100) / 100;
+      var cv = avg > EPSILON ? Math.round(stdDev / avg * 10000) / 100 : 0;
+
+      result[cat] = {
+        avg: Math.round(avg * 100) / 100,
+        stdDev: stdDev,
+        cv: cv,
+        cvStatus: cv < 15 ? 'positive' : (cv < 30 ? 'neutral' : 'negative'),
+        isVolatile: cv >= 30,
+        months: count
+      };
+    });
+
+    return result;
+  },
+
+  // Compute FI impact per expense category: how much reducing this category by a % accelerates FI.
+  // fiParams: { currentNW, monthlySavings, annualReturn, fiTarget }
+  // Returns: [{ category, amount, fiImpactMonths, fiImpactMonthsStatus }] sorted by impact desc
+  computeFIImpact: function(pnl, fiParams) {
+    if (!pnl || !pnl.expenses || !fiParams || !fiParams.fiTarget || fiParams.fiTarget <= 0) return [];
+    if (typeof FICalculator === 'undefined') return [];
+
+    var baseYears = FICalculator.yearsToFI(
+      fiParams.currentNW, fiParams.monthlySavings, fiParams.annualReturn, fiParams.fiTarget
+    );
+    if (baseYears === 0 || baseYears === Infinity) return [];
+
+    var results = [];
+    var expCats = Object.keys(pnl.expenses.byCategory);
+    for (var i = 0; i < expCats.length; i++) {
+      var cat = expCats[i];
+      var catAmount = pnl.expenses.byCategory[cat].total;
+      if (catAmount < EPSILON) continue;
+
+      // Simulate eliminating this category entirely
+      var newSavings = fiParams.monthlySavings + catAmount;
+      var newYears = FICalculator.yearsToFI(
+        fiParams.currentNW, newSavings, fiParams.annualReturn, fiParams.fiTarget
+      );
+      var impactMonths = Math.round((baseYears - newYears) * 12 * 10) / 10;
+
+      results.push({
+        category: cat,
+        amount: catAmount,
+        fiImpactMonths: impactMonths,
+        fiImpactMonthsStatus: ValueStatus.sign(impactMonths)
+      });
+    }
+
+    results.sort(function(a, b) { return b.fiImpactMonths - a.fiImpactMonths; });
+    return results;
+  },
+
+  // Compute same-month year-over-year comparison.
+  // Returns: { hasPriorYear, priorYearMonth, current, prior, expenseChanges, incomeChanges,
+  //            totalExpenseChange, totalIncomeChange, savingsRateChange }
+  computeYoYComparison: function(entries, month, categories, subcategories) {
+    var yearStr = month.slice(0, 4);
+    var monthStr = month.slice(5, 7);
+    var priorYearMonth = (parseInt(yearStr, 10) - 1) + '-' + monthStr;
+
+    var allMonths = Array.from(this.getMonthsWithActuals(entries));
+    if (allMonths.indexOf(priorYearMonth) < 0) {
+      return { hasPriorYear: false, priorYearMonth: priorYearMonth };
+    }
+
+    var currentPnL = this.computeMonthPnL(entries, month, categories, subcategories);
+    var priorPnL = this.computeMonthPnL(entries, priorYearMonth, categories, subcategories);
+
+    // Expense changes by category
+    var allExpCats = {};
+    Object.keys(currentPnL.expenses.byCategory).forEach(function(c) { allExpCats[c] = true; });
+    Object.keys(priorPnL.expenses.byCategory).forEach(function(c) { allExpCats[c] = true; });
+
+    var expenseChanges = [];
+    Object.keys(allExpCats).forEach(function(cat) {
+      var current = currentPnL.expenses.byCategory[cat] ? currentPnL.expenses.byCategory[cat].total : 0;
+      var prior = priorPnL.expenses.byCategory[cat] ? priorPnL.expenses.byCategory[cat].total : 0;
+      var delta = current - prior;
+      var deltaPct = prior > EPSILON ? Math.round(delta / prior * 10000) / 100 : (current > 0 ? 100 : 0);
+      expenseChanges.push({
+        category: cat, current: current, prior: prior,
+        delta: delta, deltaPct: deltaPct,
+        deltaStatus: ValueStatus.signInverse(delta)
+      });
+    });
+    expenseChanges.sort(function(a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
+
+    // Income changes
+    var allIncCats = {};
+    Object.keys(currentPnL.income.byCategory).forEach(function(c) { allIncCats[c] = true; });
+    Object.keys(priorPnL.income.byCategory).forEach(function(c) { allIncCats[c] = true; });
+
+    var incomeChanges = [];
+    Object.keys(allIncCats).forEach(function(cat) {
+      var current = currentPnL.income.byCategory[cat] || 0;
+      var prior = priorPnL.income.byCategory[cat] || 0;
+      var delta = current - prior;
+      var deltaPct = prior > EPSILON ? Math.round(delta / prior * 10000) / 100 : (current > 0 ? 100 : 0);
+      incomeChanges.push({
+        category: cat, current: current, prior: prior,
+        delta: delta, deltaPct: deltaPct,
+        deltaStatus: ValueStatus.sign(delta)
+      });
+    });
+    incomeChanges.sort(function(a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
+
+    var totalExpDelta = currentPnL.expenses.total - priorPnL.expenses.total;
+    var totalIncDelta = currentPnL.income.total - priorPnL.income.total;
+    var srDelta = Math.round((currentPnL.savingsRate - priorPnL.savingsRate) * 10000) / 100;
+
+    return {
+      hasPriorYear: true,
+      priorYearMonth: priorYearMonth,
+      current: { income: currentPnL.income.total, expenses: currentPnL.expenses.total,
+                 netSavings: currentPnL.netSavings, savingsRate: currentPnL.savingsRate },
+      prior: { income: priorPnL.income.total, expenses: priorPnL.expenses.total,
+               netSavings: priorPnL.netSavings, savingsRate: priorPnL.savingsRate },
+      expenseChanges: expenseChanges,
+      incomeChanges: incomeChanges,
+      totalExpenseChange: {
+        current: currentPnL.expenses.total, prior: priorPnL.expenses.total,
+        delta: totalExpDelta,
+        deltaPct: priorPnL.expenses.total > EPSILON ? Math.round(totalExpDelta / priorPnL.expenses.total * 10000) / 100 : 0,
+        deltaStatus: ValueStatus.signInverse(totalExpDelta)
+      },
+      totalIncomeChange: {
+        current: currentPnL.income.total, prior: priorPnL.income.total,
+        delta: totalIncDelta,
+        deltaPct: priorPnL.income.total > EPSILON ? Math.round(totalIncDelta / priorPnL.income.total * 10000) / 100 : 0,
+        deltaStatus: ValueStatus.sign(totalIncDelta)
+      },
+      savingsRateChangePP: srDelta,
+      savingsRateChangeStatus: ValueStatus.sign(srDelta)
+    };
+  },
+
+  // Compute what-if scenario: impact of cutting discretionary spending by cutPct.
+  // spendingSplit: from computeSpendingSplit
+  // fiParams: { currentNW, monthlySavings, annualReturn, fiTarget }
+  // cutPct: decimal (e.g. 0.20 = 20% cut in discretionary)
+  // Returns: { currentExpenses, newExpenses, savings, newSavingsRate, newSavingsRateStatus,
+  //            currentFIYears, newFIYears, fiAccelerationMonths, fiAccelerationStatus, annualSavings }
+  computeWhatIfCut: function(pnl, spendingSplit, fiParams, cutPct) {
+    if (!pnl || !spendingSplit || !fiParams) return null;
+
+    var discTotal = spendingSplit.discretionary.total + spendingSplit.unclassified.total;
+    var cutAmount = Math.round(discTotal * cutPct * 100) / 100;
+    var newExpenses = Math.round((pnl.expenses.total - cutAmount) * 100) / 100;
+    var newNetSavings = pnl.income.total - newExpenses;
+    var newSavingsRate = pnl.income.total > EPSILON ? newNetSavings / pnl.income.total : 0;
+
+    var result = {
+      currentExpenses: pnl.expenses.total,
+      newExpenses: newExpenses,
+      savings: cutAmount,
+      currentSavingsRate: pnl.savingsRate,
+      newSavingsRate: newSavingsRate,
+      newSavingsRateStatus: newSavingsRate >= 0.30 ? 'positive' : (newSavingsRate >= 0.15 ? 'neutral' : 'negative'),
+      annualSavings: Math.round(cutAmount * 12 * 100) / 100,
+      currentFIYears: null,
+      newFIYears: null,
+      fiAccelerationMonths: null,
+      fiAccelerationStatus: 'neutral'
+    };
+
+    if (typeof FICalculator !== 'undefined' && fiParams.fiTarget > 0) {
+      var currentYears = FICalculator.yearsToFI(
+        fiParams.currentNW, fiParams.monthlySavings, fiParams.annualReturn, fiParams.fiTarget
+      );
+      var newYears = FICalculator.yearsToFI(
+        fiParams.currentNW, fiParams.monthlySavings + cutAmount, fiParams.annualReturn, fiParams.fiTarget
+      );
+      result.currentFIYears = currentYears;
+      result.newFIYears = newYears;
+      if (currentYears !== Infinity && newYears !== Infinity) {
+        result.fiAccelerationMonths = Math.round((currentYears - newYears) * 12 * 10) / 10;
+        result.fiAccelerationStatus = ValueStatus.sign(result.fiAccelerationMonths);
+      }
+    }
+
+    return result;
+  },
+
   // Generate a slug from a category name (lowercase, spaces to hyphens).
   slugify: function(str) {
     return (str || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');

@@ -1662,6 +1662,8 @@ tr:hover { background: var(--bg); }
   .cf-pnl .cf-summary-arrow { display: none; }
   .cf-pnl-detail { grid-template-columns: 1fr; }
   .cf-scorecard-metrics { gap: 8px; }
+  .cf-yoy-summary { flex-direction: column; gap: 8px; }
+  .cf-spending-split { font-size: 10px; }
   .cf-modal { width: 95vw; max-height: 90vh; }
   .cf-modal-grid { grid-template-columns: 1fr; }
   .cf-modal-summary { flex-wrap: wrap; gap: 8px; }
@@ -1696,6 +1698,11 @@ tr:hover { background: var(--bg); }
 .cf-month-selector select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 14px; background: var(--card-bg); color: var(--text); }
 .cf-month-nav-btn { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer; color: var(--text); font-size: 12px; }
 .cf-month-nav-btn:hover { background: var(--bg); }
+.cf-trailing-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-left: auto; }
+.cf-trailing-btn { padding: 4px 10px; font-size: 11px; border: none; background: var(--card-bg); color: var(--text-secondary); cursor: pointer; }
+.cf-trailing-btn:hover { background: var(--bg); }
+.cf-trailing-active { background: var(--primary); color: white; }
+.cf-trailing-active:hover { background: var(--primary); }
 
 /* Scorecard */
 .cf-scorecard { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--border-light); }
@@ -1739,6 +1746,25 @@ tr:hover { background: var(--bg); }
 .cf-improvement-title { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
 .cf-improvement-detail { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
 .cf-improvement-impact { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+/* Spending split bar (essential vs discretionary) */
+.cf-spending-split { display: flex; height: 24px; border-radius: 6px; overflow: hidden; margin-bottom: 12px; font-size: 11px; font-weight: 600; color: white; }
+.cf-split-bar { display: flex; align-items: center; justify-content: center; min-width: 30px; white-space: nowrap; padding: 0 6px; }
+.cf-split-essential { background: #5c6bc0; }
+.cf-split-discretionary { background: #e8710a; }
+.cf-split-unclassified { background: #9e9e9e; }
+
+/* Volatility badge */
+.cf-volatility-badge { display: inline-block; font-size: 10px; font-weight: 700; color: #e8710a; border: 1px solid #e8710a; border-radius: 3px; padding: 0 3px; margin-left: 4px; cursor: help; vertical-align: middle; line-height: 14px; }
+
+/* FI Impact hint */
+.cf-fi-impact-hint { font-size: 11px; color: var(--text-secondary); font-weight: 400; margin-left: 8px; }
+
+/* YoY Comparison */
+.cf-yoy-summary { display: flex; gap: 16px; padding: 12px 16px; flex-wrap: wrap; }
+.cf-yoy-item { display: flex; flex-direction: column; gap: 2px; padding: 8px 16px; background: var(--bg); border-radius: 6px; min-width: 140px; }
+.cf-yoy-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+.cf-yoy-value { font-size: 14px; font-weight: 600; }
 
 /* === CASH FLOW MODAL (legacy, kept for compat) === */
 .cf-modal-overlay {

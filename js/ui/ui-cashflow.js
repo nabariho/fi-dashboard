@@ -1,12 +1,14 @@
 // === CASH FLOW RENDERER ===
 // Renders Cash Flow tab organized by user questions:
-// 1. "How did I do?" — Scorecard with narrative
-// 2. "Where did the money go?" — Side-by-side income/expense detail
+// 1. "How did I do?" — Scorecard with narrative + spending split + income stability
+// 2. "Where did the money go?" — Side-by-side income/expense detail with volatility badges
 // 3. "Am I on budget?" — Budget vs Actual (month + YTD toggle)
-// 4. "What should I improve?" — Actionable improvement areas
-// 5. "Money flow" — Waterfall chart
-// 6. "How am I trending?" — Charts (expense trends, income vs expenses, savings rate)
-// 7. "History" — Clickable monthly table
+// 4. "What should I improve?" — Improvement areas + FI impact per category
+// 5. "Goal funding" — Per-goal planned vs actual contributions
+// 6. "Money flow" — Waterfall chart
+// 7. "How am I trending?" — Charts (expense trends, income vs expenses, savings rate)
+// 8. "Year-over-year" — Same month last year comparison
+// 9. "History" — Clickable monthly table
 
 var CashFlowRenderer = {
   _waterfallChart: null,
@@ -27,12 +29,18 @@ var CashFlowRenderer = {
     var categoryAverages = renderData.categoryAverages;
     var budgetVsActual = renderData.budgetVsActual;
     var budgetVsActualYTD = renderData.budgetVsActualYTD;
-    var insights = renderData.insights;
     var improvementAreas = renderData.improvementAreas;
     var waterfall = renderData.waterfall;
     var categoryTrends = renderData.categoryTrends;
     var budgetSummary = renderData.budgetSummary;
     var budgetStale = renderData.budgetStale;
+    var spendingSplit = renderData.spendingSplit;
+    var incomeStability = renderData.incomeStability;
+    var expenseVolatility = renderData.expenseVolatility;
+    var fiImpact = renderData.fiImpact;
+    var goalFundingReality = renderData.goalFundingReality;
+    var yoyComparison = renderData.yoyComparison;
+    var trailingMonths = renderData.trailingMonths || 6;
 
     if (!months.length) {
       if (budgetSummary) {
@@ -66,12 +74,12 @@ var CashFlowRenderer = {
 
     // 2. Scorecard — "How did I do?"
     if (scorecard) {
-      html += this._renderScorecard(scorecard);
+      html += this._renderScorecard(scorecard, spendingSplit, incomeStability);
     }
 
     // 3. Side-by-side Income + Expense detail — "Where did the money go?"
     if (pnl) {
-      html += this._renderPnLDetail(pnl, categoryAverages);
+      html += this._renderPnLDetail(pnl, categoryAverages, expenseVolatility);
     }
 
     // 4. Budget vs Actual — "Am I on budget?"
@@ -79,21 +87,31 @@ var CashFlowRenderer = {
       html += this._renderBudgetVsActual(budgetVsActual, budgetVsActualYTD, selectedMonth);
     }
 
-    // 5. Improvement Areas — "What should I improve?"
+    // 5. Improvement Areas + FI Impact — "What should I improve?"
     if (improvementAreas && improvementAreas.length) {
       html += this._renderImprovementAreas(improvementAreas);
     }
+    if (fiImpact && fiImpact.length) {
+      html += this._renderFIImpact(fiImpact);
+    }
+    if (renderData.whatIfScenarios) {
+      html += this._renderWhatIf(renderData.whatIfScenarios);
+    }
 
-    // 6. Waterfall — "Money flow"
+    // 6. Goal Funding Reality
+    if (goalFundingReality && goalFundingReality.goals.length) {
+      html += this._renderGoalFundingReality(goalFundingReality);
+    }
+
+    // 7. Waterfall — "Money flow"
     if (waterfall) {
       html += '<div class="chart-container">' +
         '<div class="chart-header"><h2>Money Flow (' + selectedMonth + ')</h2></div>' +
         '<canvas id="waterfallChart"></canvas></div>';
     }
 
-    // 7. Charts — "How am I trending?"
+    // 8. Charts — "How am I trending?"
     if (monthlyData.length > 1) {
-      // Income vs Expenses dual line
       html += '<div class="chart-container">' +
         '<div class="chart-header"><h2>Income vs Expenses</h2></div>' +
         '<canvas id="incExpChart"></canvas></div>';
@@ -111,7 +129,12 @@ var CashFlowRenderer = {
         '<canvas id="savingsRateTrendChart"></canvas></div>';
     }
 
-    // 8. History table
+    // 9. YoY Comparison
+    if (yoyComparison && yoyComparison.hasPriorYear) {
+      html += this._renderYoYComparison(yoyComparison, selectedMonth);
+    }
+
+    // 10. History table
     html += this._renderHistoryTable(monthlyData, selectedMonth);
 
     el.innerHTML = html;
@@ -139,6 +162,17 @@ var CashFlowRenderer = {
     }
     html += '</select>';
     html += '<button class="cf-month-nav-btn" id="cfMonthNext" title="Next month">&#9654;</button>';
+
+    // Rolling average toggle
+    html += '<div class="cf-trailing-toggle">';
+    var trailingOptions = [3, 6, 12];
+    var currentTrailing = (window._cashflowTrailingMonths || 6);
+    for (var t = 0; t < trailingOptions.length; t++) {
+      var active = trailingOptions[t] === currentTrailing ? ' cf-trailing-active' : '';
+      html += '<button class="cf-trailing-btn' + active + '" data-trailing="' + trailingOptions[t] + '">' +
+        trailingOptions[t] + 'mo</button>';
+    }
+    html += '</div>';
     html += '</div>';
 
     setTimeout(function() {
@@ -162,13 +196,21 @@ var CashFlowRenderer = {
           if (idx < months.length - 1 && window.onCashflowMonthChange) window.onCashflowMonthChange(months[idx + 1]);
         });
       }
+      // Trailing toggle
+      var trailingBtns = document.querySelectorAll('.cf-trailing-btn');
+      for (var b = 0; b < trailingBtns.length; b++) {
+        trailingBtns[b].addEventListener('click', function() {
+          var val = parseInt(this.getAttribute('data-trailing'), 10);
+          if (window.onCashflowTrailingChange) window.onCashflowTrailingChange(val);
+        });
+      }
     }, 0);
 
     return html;
   },
 
   // --- Scorecard ---
-  _renderScorecard: function(sc) {
+  _renderScorecard: function(sc, spendingSplit, incomeStability) {
     var netCls = sc.netSavingsStatus === 'positive' ? 'cf-summary-positive' :
       (sc.netSavingsStatus === 'negative' ? 'cf-summary-negative' : '');
     var ratePct = (sc.savingsRate * 100).toFixed(1);
@@ -183,6 +225,27 @@ var CashFlowRenderer = {
       '<div class="cf-summary-arrow">=</div>' +
       this._summaryItem('Net Savings', sc.netSavings, netCls, ' (' + ratePct + '%)') +
     '</div>';
+
+    // Spending split bar (essential vs discretionary)
+    if (spendingSplit && sc.expenses > 0) {
+      html += '<div class="cf-spending-split">';
+      if (spendingSplit.essentialPct > 0) {
+        html += '<div class="cf-split-bar cf-split-essential" style="width:' + spendingSplit.essentialPct + '%" ' +
+          'title="Essential: ' + Fmt.currency(spendingSplit.essential.total) + ' (' + spendingSplit.essentialPct.toFixed(0) + '%)">' +
+          spendingSplit.essentialPct.toFixed(0) + '% Needs</div>';
+      }
+      if (spendingSplit.discretionaryPct > 0) {
+        html += '<div class="cf-split-bar cf-split-discretionary" style="width:' + spendingSplit.discretionaryPct + '%" ' +
+          'title="Discretionary: ' + Fmt.currency(spendingSplit.discretionary.total) + ' (' + spendingSplit.discretionaryPct.toFixed(0) + '%)">' +
+          spendingSplit.discretionaryPct.toFixed(0) + '% Wants</div>';
+      }
+      if (spendingSplit.unclassifiedPct > 0) {
+        html += '<div class="cf-split-bar cf-split-unclassified" style="width:' + spendingSplit.unclassifiedPct + '%" ' +
+          'title="Unclassified: ' + Fmt.currency(spendingSplit.unclassified.total) + ' (' + spendingSplit.unclassifiedPct.toFixed(0) + '%)">' +
+          spendingSplit.unclassifiedPct.toFixed(0) + '%</div>';
+      }
+      html += '</div>';
+    }
 
     // Comparison metrics
     html += '<div class="cf-scorecard-metrics">';
@@ -227,6 +290,16 @@ var CashFlowRenderer = {
       '</div>';
     }
 
+    // Income stability
+    if (incomeStability && incomeStability.monthCount >= 3) {
+      var stabilityLabel = incomeStability.coeffOfVariation < 5 ? 'Very Stable' :
+        (incomeStability.coeffOfVariation < 15 ? 'Stable' : 'Variable');
+      html += '<div class="cf-scorecard-metric">' +
+        '<span class="cf-scorecard-metric-label">Income</span>' +
+        '<span class="cf-scorecard-metric-value ' + incomeStability.cvStatus + '">' + stabilityLabel + '</span>' +
+      '</div>';
+    }
+
     html += '</div>';
 
     // Narrative
@@ -245,7 +318,7 @@ var CashFlowRenderer = {
   },
 
   // --- Side-by-side P&L Detail ---
-  _renderPnLDetail: function(pnl, categoryAverages) {
+  _renderPnLDetail: function(pnl, categoryAverages, expenseVolatility) {
     var html = '<div class="cf-pnl-detail">';
 
     // Income panel (left)
@@ -298,8 +371,15 @@ var CashFlowRenderer = {
         anomalyFlag = ' <span class="cf-anomaly-flag" title="' + avgData.deltaPct.toFixed(0) + '% above average">&#9888;</span>';
       }
 
+      // Volatility badge
+      var volBadge = '';
+      if (expenseVolatility && expenseVolatility[cat] && expenseVolatility[cat].isVolatile) {
+        volBadge = ' <span class="cf-volatility-badge" title="High variability (CV: ' +
+          expenseVolatility[cat].cv.toFixed(0) + '%)">~</span>';
+      }
+
       html += '<tr class="' + (hasSubcats ? 'cf-cat-row' : '') + '" data-category="' + cat + '">' +
-        '<td>' + chevron + cat + anomalyFlag + '</td>' +
+        '<td>' + chevron + cat + anomalyFlag + volBadge + '</td>' +
         '<td class="text-right">' + Fmt.currency(catObj.total) + '</td>';
 
       if (hasAvgs) {
@@ -417,11 +497,9 @@ var CashFlowRenderer = {
         var ytdEl = document.getElementById('cfBudgetYTD');
         if (!monthEl || !ytdEl) return;
 
-        // Toggle visibility
         monthEl.style.display = view === 'month' ? '' : 'none';
         ytdEl.style.display = view === 'ytd' ? '' : 'none';
 
-        // Toggle active class
         var siblings = this.parentElement.querySelectorAll('.cf-budget-toggle-btn');
         for (var j = 0; j < siblings.length; j++) siblings[j].classList.remove('cf-budget-toggle-active');
         this.classList.add('cf-budget-toggle-active');
@@ -456,6 +534,154 @@ var CashFlowRenderer = {
     }
 
     html += '</div></div>';
+    return html;
+  },
+
+  // --- FI Impact per Category ---
+  _renderFIImpact: function(fiImpact) {
+    if (!fiImpact || !fiImpact.length) return '';
+
+    var html = '<div class="table-container"><div class="table-header-row"><h2>FI Impact by Category</h2>' +
+      '<span class="cf-fi-impact-hint">If eliminated entirely</span></div>';
+    html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+      '<th>Category</th><th class="text-right">Monthly</th>' +
+      '<th class="text-right">FI Acceleration</th></tr></thead><tbody>';
+
+    for (var i = 0; i < fiImpact.length; i++) {
+      var fi = fiImpact[i];
+      if (fi.fiImpactMonths < 0.1) continue; // skip negligible
+      var months = fi.fiImpactMonths;
+      var label = months >= 12 ? (months / 12).toFixed(1) + ' years' : months.toFixed(1) + ' months';
+
+      html += '<tr><td>' + fi.category + '</td>' +
+        '<td class="text-right">' + Fmt.currency(fi.amount) + '</td>' +
+        '<td class="text-right ' + fi.fiImpactMonthsStatus + '">' + label + ' faster</td></tr>';
+    }
+
+    html += '</tbody></table></div></div>';
+    return html;
+  },
+
+  // --- What-If Scenarios ---
+  _renderWhatIf: function(scenarios) {
+    if (!scenarios || !scenarios.length) return '';
+
+    var html = '<div class="table-container"><div class="table-header-row">' +
+      '<h2>What If I Cut Discretionary Spending?</h2></div>';
+    html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+      '<th>Cut</th><th class="text-right">Monthly Saved</th>' +
+      '<th class="text-right">New Rate</th><th class="text-right">FI Faster By</th>' +
+      '</tr></thead><tbody>';
+
+    for (var i = 0; i < scenarios.length; i++) {
+      var s = scenarios[i];
+      var fiLabel = '-';
+      if (s.fiAccelerationMonths !== null) {
+        fiLabel = s.fiAccelerationMonths >= 12
+          ? (s.fiAccelerationMonths / 12).toFixed(1) + ' years'
+          : s.fiAccelerationMonths.toFixed(1) + ' months';
+      }
+      html += '<tr>' +
+        '<td>' + s.label + '</td>' +
+        '<td class="text-right">' + Fmt.currency(s.savings) + '</td>' +
+        '<td class="text-right ' + s.newSavingsRateStatus + '">' + (s.newSavingsRate * 100).toFixed(1) + '%</td>' +
+        '<td class="text-right ' + s.fiAccelerationStatus + '">' + fiLabel + '</td></tr>';
+    }
+
+    html += '</tbody></table></div></div>';
+    return html;
+  },
+
+  // --- Goal Funding Reality ---
+  _renderGoalFundingReality: function(gfr) {
+    if (!gfr || !gfr.goals.length) return '';
+
+    var html = '<div class="table-container"><div class="table-header-row"><h2>Goal Funding</h2></div>';
+    html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+      '<th>Goal</th><th class="text-right">Planned</th>' +
+      '<th class="text-right">Actual</th><th class="text-right">Status</th>' +
+      '</tr></thead><tbody>';
+
+    for (var i = 0; i < gfr.goals.length; i++) {
+      var g = gfr.goals[i];
+      var statusLabel = g.status === 'on_track' ? 'On track' :
+        (g.status === 'underfunded' ? 'Underfunded' :
+        (g.status === 'overfunded' ? 'Overfunded' :
+        (g.status === 'withdrawn' ? 'Withdrawn' : g.status)));
+      var statusCls = g.status === 'on_track' || g.status === 'overfunded' ? 'positive' :
+        (g.status === 'underfunded' ? 'negative' : 'negative');
+
+      html += '<tr><td>' + g.name + '</td>' +
+        '<td class="text-right">' + Fmt.currency(g.planned) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(g.actual) + '</td>' +
+        '<td class="text-right ' + statusCls + '">' + statusLabel + '</td></tr>';
+    }
+
+    html += '<tr class="table-total-row"><td>Total</td>' +
+      '<td class="text-right">' + Fmt.currency(gfr.totalPlanned) + '</td>' +
+      '<td class="text-right">' + Fmt.currency(gfr.totalActual) + '</td>' +
+      '<td class="text-right"></td></tr>';
+
+    if (gfr.overdrawn > 0) {
+      html += '<tr><td colspan="4" class="cf-funding-alert-warning">' +
+        'Goal contributions exceed available savings by ' + Fmt.currency(gfr.overdrawn) + '</td></tr>';
+    }
+
+    html += '</tbody></table></div></div>';
+    return html;
+  },
+
+  // --- YoY Comparison ---
+  _renderYoYComparison: function(yoy, selectedMonth) {
+    if (!yoy || !yoy.hasPriorYear) return '';
+
+    var html = '<div class="table-container"><div class="table-header-row">' +
+      '<h2>Year-over-Year (' + this._formatMonthShort(selectedMonth) + ' ' + selectedMonth.slice(0, 4) +
+      ' vs ' + this._formatMonthShort(yoy.priorYearMonth) + ' ' + yoy.priorYearMonth.slice(0, 4) + ')</h2></div>';
+
+    // Summary cards
+    html += '<div class="cf-yoy-summary">';
+    var incDeltaSign = yoy.totalIncomeChange.delta >= 0 ? '+' : '';
+    var expDeltaSign = yoy.totalExpenseChange.delta >= 0 ? '+' : '';
+    var srSign = yoy.savingsRateChangePP >= 0 ? '+' : '';
+
+    html += '<div class="cf-yoy-item">' +
+      '<span class="cf-yoy-label">Income</span>' +
+      '<span class="cf-yoy-value ' + yoy.totalIncomeChange.deltaStatus + '">' +
+        incDeltaSign + Fmt.currency(yoy.totalIncomeChange.delta) +
+        ' (' + incDeltaSign + yoy.totalIncomeChange.deltaPct.toFixed(0) + '%)</span></div>';
+    html += '<div class="cf-yoy-item">' +
+      '<span class="cf-yoy-label">Expenses</span>' +
+      '<span class="cf-yoy-value ' + yoy.totalExpenseChange.deltaStatus + '">' +
+        expDeltaSign + Fmt.currency(yoy.totalExpenseChange.delta) +
+        ' (' + expDeltaSign + yoy.totalExpenseChange.deltaPct.toFixed(0) + '%)</span></div>';
+    html += '<div class="cf-yoy-item">' +
+      '<span class="cf-yoy-label">Savings Rate</span>' +
+      '<span class="cf-yoy-value ' + yoy.savingsRateChangeStatus + '">' +
+        srSign + yoy.savingsRateChangePP.toFixed(1) + 'pp</span></div>';
+    html += '</div>';
+
+    // Category detail (top changes)
+    if (yoy.expenseChanges.length) {
+      html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+        '<th>Category</th><th class="text-right">This Year</th>' +
+        '<th class="text-right">Last Year</th><th class="text-right">Change</th>' +
+        '</tr></thead><tbody>';
+
+      var shown = Math.min(yoy.expenseChanges.length, 8);
+      for (var i = 0; i < shown; i++) {
+        var c = yoy.expenseChanges[i];
+        var sign = c.delta >= 0 ? '+' : '';
+        html += '<tr><td>' + c.category + '</td>' +
+          '<td class="text-right">' + Fmt.currency(c.current) + '</td>' +
+          '<td class="text-right text-secondary">' + Fmt.currency(c.prior) + '</td>' +
+          '<td class="text-right ' + c.deltaStatus + '">' + sign + Fmt.currency(c.delta) + '</td></tr>';
+      }
+
+      html += '</tbody></table></div>';
+    }
+
+    html += '</div>';
     return html;
   },
 
