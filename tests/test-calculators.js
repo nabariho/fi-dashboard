@@ -269,12 +269,12 @@ describe('SummaryCalculator', function() {
     assertEqual(result.direction, 'same');
   });
 
-  it('computeAnnualSummaries aggregates by year', function() {
+  it('computeAnnualSummaries aggregates by year using liquid NW', function() {
     var nwData = [
-      { month: '2024-06', total: 50000, accounts: {} },
-      { month: '2024-12', total: 60000, accounts: {} },
-      { month: '2025-06', total: 75000, accounts: {} },
-      { month: '2025-12', total: 90000, accounts: {} }
+      { month: '2024-06', total: 50000, liquid: 50000, accounts: {} },
+      { month: '2024-12', total: 60000, liquid: 60000, accounts: {} },
+      { month: '2025-06', total: 75000, liquid: 75000, accounts: {} },
+      { month: '2025-12', total: 90000, liquid: 90000, accounts: {} }
     ];
     var allData = [
       { month: '2024-06', account_id: 'A', net_contribution: 3000 },
@@ -291,20 +291,15 @@ describe('SummaryCalculator', function() {
     assertEqual(result[1].startNW, 60000);
     assertEqual(result[1].endNW, 90000);
     assertEqual(result[1].nwChange, 30000);
-    // Verify new decomposition fields default to 0 when no mortgage
-    assertEqual(result[0].debtReduction, 0);
-    assertEqual(result[0].houseValueChange, 0);
-    assertEqual(result[1].debtReduction, 0);
-    assertEqual(result[1].houseValueChange, 0);
-    // marketReturns = nwChange - totalSaved - debtReduction - houseValueChange
+    // marketReturns = nwChange - totalSaved
     assertEqual(result[0].marketReturns, 10000 - 5000); // 5000
     assertEqual(result[1].marketReturns, 30000 - 7000); // 23000
   });
 
   it('computeAnnualSummaries handles negative NW percentage', function() {
     var nwData = [
-      { month: '2024-06', total: -100000, accounts: {} },
-      { month: '2024-12', total: -50000, accounts: {} }
+      { month: '2024-06', total: -100000, liquid: -100000, accounts: {} },
+      { month: '2024-12', total: -50000, liquid: -50000, accounts: {} }
     ];
     var allData = [
       { month: '2024-06', account_id: 'A', net_contribution: 1000 },
@@ -314,25 +309,6 @@ describe('SummaryCalculator', function() {
     assertEqual(result.length, 1);
     // NW went from -100k to -50k = +50k change on |100k| base = +50%
     assertClose(result[0].nwChangePct, 50, 0.1);
-  });
-
-  it('computeAnnualSummaries decomposes mortgage correctly', function() {
-    var nwData = [
-      { month: '2024-06', total: -50000, accounts: {}, mortgage_balance: 200000, house_value: 250000 },
-      { month: '2024-12', total: -20000, accounts: {}, mortgage_balance: 190000, house_value: 260000 }
-    ];
-    var allData = [
-      { month: '2024-06', account_id: 'A', net_contribution: 5000 },
-      { month: '2024-12', account_id: 'A', net_contribution: 3000 }
-    ];
-    var result = SummaryCalculator.computeAnnualSummaries(nwData, allData);
-    assertEqual(result.length, 1);
-    assertEqual(result[0].nwChange, 30000); // -50k to -20k
-    assertEqual(result[0].totalSaved, 8000);
-    assertEqual(result[0].debtReduction, 10000); // 200k - 190k
-    assertEqual(result[0].houseValueChange, 10000); // 260k - 250k
-    // marketReturns = 30000 - 8000 - 10000 - 10000 = 2000
-    assertEqual(result[0].marketReturns, 2000);
   });
 });
 
@@ -363,6 +339,27 @@ describe('NetWorthCalculator', function() {
     assertEqual(result[0].assets, 70000);
     assertEqual(result[0].liabilities, 0);
     assertEqual(result[0].total, 70000);
+  });
+
+  it('carries forward last known balance for missing accounts', function() {
+    var data = [
+      { month: '2024-01', account_id: 'BROKER_A', end_value: 50000, net_contribution: 0 },
+      { month: '2024-01', account_id: 'TRADE_REPUBLIC', end_value: 20000, net_contribution: 0 },
+      // Month 2: TRADE_REPUBLIC is missing
+      { month: '2024-02', account_id: 'BROKER_A', end_value: 55000, net_contribution: 1000 }
+    ];
+    var accountIds = ['BROKER_A', 'TRADE_REPUBLIC'];
+    var result = NetWorthCalculator.compute(data, accountIds);
+    assertEqual(result.length, 2);
+    // Month 2: TRADE_REPUBLIC should carry forward 20000
+    assertEqual(result[1].accounts['TRADE_REPUBLIC'], 20000);
+    assertEqual(result[1].liquid, 75000); // 55000 + 20000
+    assertEqual(result[1].total, 75000);
+    // Should have warnings
+    assertEqual(result.warnings.length, 1);
+    assertEqual(result.warnings[0].month, '2024-02');
+    assertEqual(result.warnings[0].accountId, 'TRADE_REPUBLIC');
+    assertEqual(result.warnings[0].carriedValue, 20000);
   });
 
   it('computeMoM returns change and percentage', function() {
@@ -725,7 +722,7 @@ describe('SavingsCapacityCalculator', function() {
     assertClose(result[0].totalContributions, 3000, 0.01);
     assertClose(result[0].savingsContributions, 500, 0.01);
     assertClose(result[0].transactionalContributions, 2500, 0.01);
-    assertClose(result[0].impliedExpenses, 1000, 0.01);
+    assertClose(result[0].expenses, 1000, 0.01);
     assertClose(result[0].savingsRate, 0.75, 0.01);
   });
 
@@ -1229,9 +1226,9 @@ describe('BudgetCalculator (precision)', function() {
 
   it('computeStaleness detects stale budget', function() {
     var recentMonths = [
-      { impliedExpenses: 2000 },
-      { impliedExpenses: 2100 },
-      { impliedExpenses: 1900 }
+      { expenses: 2000 },
+      { expenses: 2100 },
+      { expenses: 1900 }
     ];
     // Budget is 1500, avg actual is 2000 → 33% deviation > 15%
     var result = BudgetCalculator.computeStaleness(1500, recentMonths);
@@ -1242,9 +1239,9 @@ describe('BudgetCalculator (precision)', function() {
 
   it('computeStaleness returns null when not stale', function() {
     var recentMonths = [
-      { impliedExpenses: 1480 },
-      { impliedExpenses: 1520 },
-      { impliedExpenses: 1500 }
+      { expenses: 1480 },
+      { expenses: 1520 },
+      { expenses: 1500 }
     ];
     var result = BudgetCalculator.computeStaleness(1500, recentMonths);
     assertEqual(result, null);

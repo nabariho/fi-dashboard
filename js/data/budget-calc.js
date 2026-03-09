@@ -63,7 +63,7 @@ var BudgetCalculator = {
   computeStaleness: function(budgetTotal, recentActualMonths, threshold) {
     threshold = threshold || 0.15;
     if (budgetTotal <= 0 || !recentActualMonths || recentActualMonths.length < 3) return null;
-    var avgActual = recentActualMonths.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / recentActualMonths.length;
+    var avgActual = recentActualMonths.reduce(function(s, r) { return s + r.expenses; }, 0) / recentActualMonths.length;
     var deviation = Math.abs(avgActual - budgetTotal) / budgetTotal;
     if (deviation <= threshold) return null;
     return { avgActual: avgActual, planned: budgetTotal, deviation: deviation };

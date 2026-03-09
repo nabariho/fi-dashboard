@@ -6,7 +6,7 @@
 var SavingsCapacityCalculator = {
   // Compute monthly savings from net contributions to savings accounts.
   // Returns array of: { month, income, totalContributions, savingsContributions,
-  //                     transactionalContributions, impliedExpenses, savingsRate }
+  //                     transactionalContributions, expenses, savingsRate }
   // Options: { monthlyIncome, trailingMonths (default 6) }
   computeMonthly: function(data, options) {
     var income = (options && options.monthlyIncome) || 0;
@@ -39,7 +39,7 @@ var SavingsCapacityCalculator = {
         }
       });
 
-      var impliedExpenses = income > 0 ? Math.max(0, income - totalContrib) : 0;
+      var expenses = income > 0 ? Math.max(0, income - totalContrib) : 0;
       var savingsRate = income > 0 ? totalContrib / income : 0;
 
       // Savings rate status: >=30% positive, >=15% neutral, else negative
@@ -51,7 +51,7 @@ var SavingsCapacityCalculator = {
         totalContributions: totalContrib,
         savingsContributions: savingsContrib,
         transactionalContributions: transactionalContrib,
-        impliedExpenses: impliedExpenses,
+        expenses: expenses,
         savingsRate: savingsRate,
         savingsRateStatus: savingsRateStatus
       };
@@ -75,7 +75,7 @@ var SavingsCapacityCalculator = {
       if (actualMonths.has(row.month)) {
         var actual = CashflowCalculator.computeMonth(cashflowEntries, row.month, categories, subcategories);
         row.income = actual.totalIncome;
-        row.impliedExpenses = actual.totalExpenses;
+        row.expenses = actual.totalExpenses;
         row.totalTransfers = actual.totalTransfers;
         row.totalOutflows = actual.totalOutflows;
         row.totalContributions = actual.netSavings;
@@ -85,7 +85,7 @@ var SavingsCapacityCalculator = {
         row.dataSource = 'actual';
       } else {
         row.totalTransfers = 0;
-        row.totalOutflows = row.impliedExpenses;
+        row.totalOutflows = row.expenses;
         row.dataSource = 'derived';
       }
       return row;
@@ -100,7 +100,7 @@ var SavingsCapacityCalculator = {
 
     var totals = recent.reduce(function(acc, r) {
       acc.savings += r.totalContributions;
-      acc.expenses += r.impliedExpenses;
+      acc.expenses += r.expenses;
       acc.rate += r.savingsRate;
       return acc;
     }, { savings: 0, expenses: 0, rate: 0 });

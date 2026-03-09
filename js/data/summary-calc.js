@@ -242,34 +242,23 @@ var SummaryCalculator = {
     var years = Object.keys(byYear).sort();
     var summaries = [];
     var prevYearEnd = null;
-    var prevYearEndMortgage = null;
-    var prevYearEndHouseValue = null;
 
     for (var i = 0; i < years.length; i++) {
       var year = years[i];
       var yearData = byYear[year];
-      var startRow = prevYearEnd !== null ? null : yearData[0];
       var endRow = yearData[yearData.length - 1];
-      var startNW = prevYearEnd !== null ? prevYearEnd : yearData[0].total;
-      var endNW = endRow.total;
+      // NW uses liquid (financial accounts only, no house/mortgage)
+      var startNW = prevYearEnd !== null ? prevYearEnd : yearData[0].liquid;
+      var endNW = endRow.liquid;
       var nwChange = endNW - startNW;
 
-      // Fix: handle negative NW for percentage calculation
-      var nwChangePct = Math.abs(startNW) > 0.01 ? (nwChange / Math.abs(startNW)) * 100 : 0;
+      // Handle negative NW for percentage calculation
+      var nwChangePct = Math.abs(startNW) > EPSILON ? (nwChange / Math.abs(startNW)) * 100 : 0;
 
       var totalSaved = contribByYear[year] || 0;
 
-      // Decompose NW change: contributions + investment gains + debt reduction + house value change
-      var startMortgage = prevYearEndMortgage !== null ? prevYearEndMortgage : (startRow ? startRow.mortgage_balance || 0 : 0);
-      var endMortgage = endRow.mortgage_balance || 0;
-      var debtReduction = startMortgage - endMortgage; // positive means debt went down
-
-      var startHouseValue = prevYearEndHouseValue !== null ? prevYearEndHouseValue : (startRow ? startRow.house_value || 0 : 0);
-      var endHouseValue = endRow.house_value || 0;
-      var houseValueChange = endHouseValue - startHouseValue;
-
-      // Market returns = NW change minus savings, debt reduction, and house appreciation
-      var marketReturns = nwChange - totalSaved - debtReduction - houseValueChange;
+      // Market returns = NW change minus contributions (simple decomposition)
+      var marketReturns = nwChange - totalSaved;
 
       var cf = cfByYear[year] || { income: 0, expenses: 0 };
       var savingsRate = cf.income > 0 ? (totalSaved / cf.income * 100) : 0;
@@ -282,8 +271,6 @@ var SummaryCalculator = {
         nwChangePct: nwChangePct,
         totalSaved: totalSaved,
         marketReturns: marketReturns,
-        debtReduction: debtReduction,
-        houseValueChange: houseValueChange,
         savingsRate: savingsRate,
         totalIncome: cf.income,
         totalExpenses: cf.expenses,
@@ -291,8 +278,6 @@ var SummaryCalculator = {
       });
 
       prevYearEnd = endNW;
-      prevYearEndMortgage = endMortgage;
-      prevYearEndHouseValue = endHouseValue;
     }
 
     return summaries;

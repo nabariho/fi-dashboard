@@ -12,8 +12,48 @@ var _cachedNWData = null; // Shared NW computation for Summary, Home, FI Progres
 
 function _computeNWData() {
   var accountIds = AccountService.getNetworthAccountIds();
-  _cachedNWData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+  _cachedNWData = NetWorthCalculator.compute(allData, accountIds);
+  // Show data integrity warnings if any accounts had missing entries
+  if (_cachedNWData.warnings && _cachedNWData.warnings.length) {
+    _renderDataWarnings(_cachedNWData.warnings);
+  }
   return _cachedNWData;
+}
+
+// Render data integrity warnings (missing account entries using carry-forward)
+function _renderDataWarnings(warnings) {
+  var el = document.getElementById('dataWarnings');
+  if (!el) return;
+  if (!warnings || !warnings.length) { el.style.display = 'none'; return; }
+
+  // Group by month for readability
+  var byMonth = {};
+  warnings.forEach(function(w) {
+    if (!byMonth[w.month]) byMonth[w.month] = [];
+    byMonth[w.month].push(w);
+  });
+
+  var html = '<div class="data-warnings-panel">' +
+    '<div class="data-warnings-title">&#9888; Missing Account Data</div>' +
+    '<div class="data-warnings-desc">The following accounts had no entry for some months. ' +
+    'Last known balances were used. Please update via <a href="admin.html">Admin &gt; MonthEnd</a>.</div>' +
+    '<ul class="data-warnings-list">';
+
+  var months = Object.keys(byMonth).sort().reverse();
+  // Show only the most recent 5 months to avoid flooding
+  months.slice(0, 5).forEach(function(m) {
+    var accounts = byMonth[m].map(function(w) {
+      return w.accountName + ' (' + Fmt.currency(w.carriedValue) + ')';
+    }).join(', ');
+    html += '<li><strong>' + m + '</strong>: ' + accounts + '</li>';
+  });
+  if (months.length > 5) {
+    html += '<li>... and ' + (months.length - 5) + ' more months</li>';
+  }
+
+  html += '</ul></div>';
+  el.innerHTML = html;
+  el.style.display = 'block';
 }
 
 // --- Monthly Summary (always visible) ---
@@ -82,9 +122,10 @@ function refreshHome() {
     var perfMonthly = DataService.aggregateByMonth(perfData);
     var avgSavings = FICalculator.avgMonthlySavings(perfMonthly, 12);
 
-    var currYearsToFI = FICalculator.yearsToFI(current.total, avgSavings, projReturn, fiTarget);
+    // FI calculations use liquid NW (excludes house/mortgage)
+    var currYearsToFI = FICalculator.yearsToFI(current.liquid, avgSavings, projReturn, fiTarget);
     var prev = nwData[nwData.length - 2];
-    var prevYearsToFI = FICalculator.yearsToFI(prev.total, avgSavings, projReturn, fiTarget);
+    var prevYearsToFI = FICalculator.yearsToFI(prev.liquid, avgSavings, projReturn, fiTarget);
     var fiImpact = SummaryCalculator.computeFIImpact(prevYearsToFI, currYearsToFI);
 
     // Savings rate trend
@@ -97,7 +138,7 @@ function refreshHome() {
       actions = ActionsCalculator.computeActions(_cachedGoalPlan, null, null);
     }
 
-    var progressPct = FICalculator.progress(current.total, fiTarget);
+    var progressPct = FICalculator.progress(current.liquid, fiTarget);
 
     // Annual summaries for year-over-year review
     var annualSummaries = SummaryCalculator.computeAnnualSummaries(nwData, allData, cashflowEntries, cashflowCategories);
@@ -123,7 +164,9 @@ function refreshFIProgress() {
   var inflationRate = appConfig.inflation_rate || 0;
   var taxRate = appConfig.tax_rate_withdrawals || 0;
 
-  var progressPct = FICalculator.progress(current.total, fiTarget);
+  // FI progress uses liquid NW (excludes house/mortgage — FI target is financial assets only)
+  var liquidNW = current.liquid;
+  var progressPct = FICalculator.progress(liquidNW, fiTarget);
   var passiveIncome = FICalculator.passiveIncome(current.investments, withdrawalRate);
   var passiveIncomeNet = FICalculator.passiveIncomeNet(current.investments, withdrawalRate, taxRate);
 
@@ -136,14 +179,20 @@ function refreshFIProgress() {
   var avgSavings = FICalculator.avgMonthlySavings(perfMonthly, 12);
   // Use inflation-adjusted calculation when inflation_rate is configured
   var yearsToFI = inflationRate > 0
-    ? FICalculator.yearsToFIReal(current.total, avgSavings, expectedReturn, inflationRate, fiTarget)
-    : FICalculator.yearsToFI(current.total, avgSavings, expectedReturn, fiTarget);
+    ? FICalculator.yearsToFIReal(liquidNW, avgSavings, expectedReturn, inflationRate, fiTarget)
+    : FICalculator.yearsToFI(liquidNW, avgSavings, expectedReturn, fiTarget);
 
-  // Monthly expenses from budget (for passive income coverage stat)
+  // Monthly expenses: prefer actual cashflow data, fall back to budget
   var monthlyExpenses = 0;
-  if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
-    var budget = BudgetCalculator.computeMonthlyBudget(budgetItems);
-    monthlyExpenses = budget.total || 0;
+  if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
+    var cfMonths = CashflowCalculator.computeAllMonths(cashflowEntries, cashflowCategories);
+    if (cfMonths.length) {
+      var recent = cfMonths.slice(-6);
+      monthlyExpenses = recent.reduce(function(s, r) { return s + r.totalExpenses; }, 0) / recent.length;
+    }
+  }
+  if (monthlyExpenses <= 0 && typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+    monthlyExpenses = BudgetCalculator.computeMonthlyBudget(budgetItems).total || 0;
   }
 
   // Derived FI target from actual expenses (for validation)
@@ -159,9 +208,9 @@ function refreshFIProgress() {
   // Savings rate trend (last 12 months)
   var savingsRateTrend = FICalculator.savingsRateTrend(perfMonthly, monthlyIncome, 12);
 
-  // Coast FI analysis
+  // Coast FI analysis (uses liquid NW, not total)
   var coastFI = FICalculator.coastFIAnalysis(
-    current.total, fiTarget, expectedReturn, inflationRate,
+    liquidNW, fiTarget, expectedReturn, inflationRate,
     appConfig.birth_year, appConfig.target_retirement_age || 55
   );
 
@@ -172,7 +221,7 @@ function refreshFIProgress() {
     incomeGrowthRate = incomeTrend.growthRate || 0;
   }
 
-  MetricsRenderer.renderFIProgress(progressPct, fiTarget, current.total, yearsToFI, passiveIncome, savingsRate, monthlyExpenses, {
+  MetricsRenderer.renderFIProgress(progressPct, fiTarget, liquidNW, yearsToFI, passiveIncome, savingsRate, monthlyExpenses, {
     passiveIncomeNet: passiveIncomeNet,
     taxRate: taxRate,
     inflationRate: inflationRate,
@@ -215,28 +264,20 @@ function _computeGoalPlan() {
 
   var monthlyIncome = appConfig.monthly_income || 0;
 
-  // Use actual cashflow trailing avg for both income and expenses when available
+  // Expenses/income: prefer actual cashflow data, fall back to budget
   var monthlyExpenses = 0;
-  if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
-    monthlyExpenses = BudgetCalculator.computeMonthlyBudget(budgetItems).total || 0;
-  }
-  if (typeof SavingsCapacityCalculator !== 'undefined' && typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
-    var hybridData = SavingsCapacityCalculator.computeMonthlyHybrid(
-      allData, cashflowEntries, {
-        monthlyIncome: monthlyIncome,
-        categories: cashflowCategories,
-        subcategories: cashflowSubcategories
-      }
-    );
-    var actualOnly = hybridData.filter(function(r) { return r.dataSource === 'actual'; });
-    if (actualOnly.length > 0) {
-      var n = Math.min(actualOnly.length, 6);
-      var recent = actualOnly.slice(-n);
-      monthlyExpenses = recent.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / n;
-      // Use actual trailing income too
-      var incomeSum = recent.reduce(function(s, r) { return s + (r.income || 0); }, 0);
+  if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
+    var cfMonths = CashflowCalculator.computeAllMonths(cashflowEntries, cashflowCategories);
+    if (cfMonths.length) {
+      var n = Math.min(cfMonths.length, 6);
+      var recent = cfMonths.slice(-n);
+      monthlyExpenses = recent.reduce(function(s, r) { return s + r.totalExpenses; }, 0) / n;
+      var incomeSum = recent.reduce(function(s, r) { return s + r.totalIncome; }, 0);
       if (incomeSum > 0) monthlyIncome = incomeSum / n;
     }
+  }
+  if (monthlyExpenses <= 0 && typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+    monthlyExpenses = BudgetCalculator.computeMonthlyBudget(budgetItems).total || 0;
   }
 
   var latestAccounts = _buildLatestAccounts(allData);
@@ -277,7 +318,7 @@ function _computeEFData() {
     var target = appConfig.emergency_fund_target || 40000;
 
     var nwAccountIds = AccountService.getNetworthAccountIds();
-    var nwData = NetWorthCalculator.compute(allData, nwAccountIds, mortgageData);
+    var nwData = NetWorthCalculator.compute(allData, nwAccountIds);
     if (!nwData.length) return null;
 
     var latestAccounts = nwData[nwData.length - 1].accounts;
@@ -353,26 +394,31 @@ function _buildLatestAccounts(data) {
 var _cashflowTrailingMonths = 6;
 
 function refreshCashFlow() {
-  if (typeof SavingsCapacityCalculator === 'undefined' || typeof CashFlowRenderer === 'undefined') return;
+  if (typeof CashFlowRenderer === 'undefined') return;
 
   var monthlyIncome = appConfig.monthly_income || 0;
-  var monthlyData = SavingsCapacityCalculator.computeMonthly(allData, { monthlyIncome: monthlyIncome });
-  if (!monthlyData.length) {
-    CashFlowRenderer.render(null, [], null, _cashflowTrailingMonths);
-    return;
-  }
 
-  // Hybrid: override with actual cashflow data where available
+  // Cash Flow tab uses only actual cashflow entries — no derived data
+  var monthlyData = [];
   var actualMonths = null;
   if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
     actualMonths = CashflowCalculator.getMonthsWithActuals(cashflowEntries);
-    monthlyData = SavingsCapacityCalculator.computeMonthlyHybrid(
-      allData, cashflowEntries, {
-        monthlyIncome: monthlyIncome,
-        categories: cashflowCategories,
-        subcategories: cashflowSubcategories
-      }
-    );
+    var cfMonths = CashflowCalculator.computeAllMonths(cashflowEntries, cashflowCategories, cashflowSubcategories);
+    // Map to the shape the renderer expects
+    monthlyData = cfMonths.map(function(m) {
+      return {
+        month: m.month,
+        income: m.totalIncome,
+        expenses: m.totalExpenses,
+        totalContributions: m.netSavings,
+        totalTransfers: m.totalTransfers,
+        savingsRate: m.savingsRate,
+        savingsRateStatus: m.savingsRate >= 0.30 ? 'positive' : (m.savingsRate >= 0.15 ? 'neutral' : 'negative'),
+        expensesByCategory: m.expensesByCategory,
+        incomeByCategory: m.incomeByCategory,
+        dataSource: 'actual'
+      };
+    });
   }
 
   // Budget total for comparison
@@ -384,16 +430,15 @@ function refreshCashFlow() {
   // Goal plan for allocation overlay
   var goalPlan = null;
   if (typeof GoalPlannerCalculator !== 'undefined' && plannerGoalsData && plannerGoalsData.length) {
-    // Use actual cashflow avg expenses when available, budget estimate as fallback
-    var actualMonthlyData = monthlyData.filter(function(r) { return r.dataSource === 'actual'; });
+    // Use actual cashflow avg expenses, budget as fallback
     var monthlyExpenses = budgetTotal;
-    if (actualMonthlyData.length > 0) {
-      var n = Math.min(actualMonthlyData.length, _cashflowTrailingMonths || 6);
-      var recentActual = actualMonthlyData.slice(-n);
-      monthlyExpenses = recentActual.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / n;
+    if (monthlyData.length > 0) {
+      var n = Math.min(monthlyData.length, _cashflowTrailingMonths || 6);
+      var recentActual = monthlyData.slice(-n);
+      monthlyExpenses = recentActual.reduce(function(s, r) { return s + r.expenses; }, 0) / n;
     }
     var latestAccounts = _buildLatestAccounts(allData);
-    var asOfMonth = monthlyData[monthlyData.length - 1].month;
+    var asOfMonth = monthlyData.length ? monthlyData[monthlyData.length - 1].month : DateUtils.currentMonth();
     goalPlan = GoalPlannerCalculator.plan(plannerGoalsData, {
       monthlyIncome: monthlyIncome,
       monthlyExpenses: monthlyExpenses,
@@ -402,8 +447,13 @@ function refreshCashFlow() {
     });
   }
 
-  var waterfall = SavingsCapacityCalculator.computeWaterfall(monthlyData, budgetTotal, goalPlan, _cashflowTrailingMonths);
-  var achievability = SavingsCapacityCalculator.computeAchievability(goalPlan, waterfall.actualSavings);
+  // Waterfall uses actual cashflow data (or null if no data)
+  var waterfall = typeof SavingsCapacityCalculator !== 'undefined' && monthlyData.length
+    ? SavingsCapacityCalculator.computeWaterfall(monthlyData, budgetTotal, goalPlan, _cashflowTrailingMonths)
+    : null;
+  var achievability = waterfall
+    ? SavingsCapacityCalculator.computeAchievability(goalPlan, waterfall.actualSavings)
+    : null;
 
   // Provide modal drill-down data (includes allData for goal funding reality)
   CashFlowRenderer.setModalData({
@@ -421,9 +471,8 @@ function refreshCashFlow() {
 
   // Budget staleness: compare trailing actual expenses vs budget (delegated to calculator)
   var budgetStale = null;
-  if (budgetSummary && budgetSummary.total > 0 && actualMonths && actualMonths.size >= 3) {
-    var recentActualMonths = monthlyData.filter(function(r) { return r.dataSource === 'actual'; }).slice(-3);
-    budgetStale = BudgetCalculator.computeStaleness(budgetSummary.total, recentActualMonths);
+  if (budgetSummary && budgetSummary.total > 0 && monthlyData.length >= 3) {
+    budgetStale = BudgetCalculator.computeStaleness(budgetSummary.total, monthlyData.slice(-3));
   }
 
   CashFlowRenderer.render(
@@ -441,7 +490,7 @@ function refreshGoalsTab() {
   var milestoneStatuses = [];
   if (typeof MilestoneCalculator !== 'undefined' && _cachedGoalPlan && _cachedGoalPlan.goals) {
     var accountIds = AccountService.getNetworthAccountIds();
-    var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+    var nwData = NetWorthCalculator.compute(allData, accountIds);
     if (nwData.length) {
       milestoneStatuses = MilestoneCalculator.computeAllFromGoals(
         _cachedGoalPlan.goals, nwData[0].month, nwData[nwData.length - 1].month
@@ -468,18 +517,21 @@ function refreshGoalsTab() {
     GoalRulesService.enrichConfidenceFromFunding(_cachedGoalPlan.goals, fundingHistory);
   }
 
-  // Compute recommended actions
+  // Compute recommended actions (using actual cashflow data only)
   var actions = [];
   if (typeof ActionsCalculator !== 'undefined') {
     var cashflowMonths = null;
-    if (typeof SavingsCapacityCalculator !== 'undefined' && typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
-      cashflowMonths = SavingsCapacityCalculator.computeMonthlyHybrid(
-        allData, cashflowEntries, {
-          monthlyIncome: _cachedGoalPlan.monthly_income,
-          categories: cashflowCategories,
-          subcategories: cashflowSubcategories
-        }
-      );
+    if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
+      var cfAll = CashflowCalculator.computeAllMonths(cashflowEntries, cashflowCategories, cashflowSubcategories);
+      cashflowMonths = cfAll.map(function(m) {
+        return {
+          month: m.month, income: m.totalIncome,
+          expenses: m.totalExpenses,
+          totalContributions: m.netSavings,
+          savingsRate: m.savingsRate,
+          dataSource: 'actual'
+        };
+      });
     }
     actions = ActionsCalculator.computeActions(_cachedGoalPlan, fundingHistory, cashflowMonths);
   }
@@ -488,9 +540,9 @@ function refreshGoalsTab() {
   var fiProjection = null;
   if (typeof FICalculator !== 'undefined') {
     var accountIds2 = AccountService.getNetworthAccountIds();
-    var nwData2 = NetWorthCalculator.compute(allData, accountIds2, mortgageData);
+    var nwData2 = NetWorthCalculator.compute(allData, accountIds2);
     if (nwData2.length) {
-      var currentNW = nwData2[nwData2.length - 1].total || 0;
+      var currentNW = nwData2[nwData2.length - 1].liquid || 0;
       var fiTarget = appConfig.fi_target || 1000000;
       var expectedReturn = appConfig.expected_return || 0.05;
       var inflRate = appConfig.inflation_rate || 0;
@@ -570,7 +622,7 @@ function refreshNetWorth() {
   var rangeMonths = parseInt(rangeBtn.dataset.range);
 
   var accountIds = AccountService.getNetworthAccountIds();
-  var nwData = NetWorthCalculator.compute(allData, accountIds, mortgageData);
+  var nwData = NetWorthCalculator.compute(allData, accountIds);
   var data = DataService.applyTimeRange(nwData, rangeMonths);
 
   if (!data.length) {

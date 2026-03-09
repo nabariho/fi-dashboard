@@ -54,7 +54,7 @@ var CashFlowRenderer = {
     // --- Metric cards: latest actual month ---
     html += '<div class="metrics">';
     html += this._metricCard('Monthly Income', Fmt.currency(latest.income), '');
-    html += this._metricCard('Expenses', Fmt.currency(latest.impliedExpenses), '');
+    html += this._metricCard('Expenses', Fmt.currency(latest.expenses), '');
     html += this._metricCard('Net Savings', Fmt.currency(latest.totalContributions),
       ValueStatus.sign(latest.totalContributions));
     html += this._metricCard('Savings Rate', Fmt.pct(latest.savingsRate * 100),
@@ -88,7 +88,7 @@ var CashFlowRenderer = {
       html += '<tr class="cf-row-clickable" data-month="' + r.month + '">' +
         '<td>' + r.month + '</td>' +
         '<td class="text-right">' + Fmt.currency(r.income) + '</td>' +
-        '<td class="text-right">' + Fmt.currency(r.impliedExpenses) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(r.expenses) + '</td>' +
         '<td class="text-right">' + (transfers > 0 ? Fmt.currency(transfers) : '-') + '</td>' +
         '<td class="text-right ' + ValueStatus.sign(r.totalContributions) + '">' +
           Fmt.currency(r.totalContributions) + '</td>' +
@@ -101,7 +101,7 @@ var CashFlowRenderer = {
       var n = Math.min(actualData.length, trailingMonths || 6);
       var recent = actualData.slice(-n);
       var avgIncome = recent.reduce(function(s, r) { return s + r.income; }, 0) / n;
-      var avgExp = recent.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / n;
+      var avgExp = recent.reduce(function(s, r) { return s + r.expenses; }, 0) / n;
       var avgTransfers = recent.reduce(function(s, r) { return s + (r.totalTransfers || 0); }, 0) / n;
       var avgSavings = recent.reduce(function(s, r) { return s + r.totalContributions; }, 0) / n;
       var avgRate = avgIncome > 0 ? (avgIncome - avgExp) / avgIncome * 100 : 0;
@@ -147,7 +147,7 @@ var CashFlowRenderer = {
     html += this._metricCard('Fixed', Fmt.currency(budgetSummary.fixed), '');
     html += this._metricCard('Variable', Fmt.currency(budgetSummary.variable), '');
     if (latestActual) {
-      var actualExp = latestActual.impliedExpenses || 0;
+      var actualExp = latestActual.expenses || 0;
       var delta = actualExp - budgetSummary.total;
       var deltaClass = delta <= 0 ? 'positive' : 'negative';
       html += this._metricCard('Actual (' + latestActual.month + ')', Fmt.currency(actualExp), deltaClass);

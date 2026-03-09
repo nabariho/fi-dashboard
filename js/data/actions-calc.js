@@ -81,8 +81,8 @@ var ActionsCalculator = {
         var older3 = actual.length >= 6 ? actual.slice(-6, -3) : null;
 
         if (older3 && older3.length >= 2) {
-          var recentAvg = recent3.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / recent3.length;
-          var olderAvg = older3.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / older3.length;
+          var recentAvg = recent3.reduce(function(s, r) { return s + r.expenses; }, 0) / recent3.length;
+          var olderAvg = older3.reduce(function(s, r) { return s + r.expenses; }, 0) / older3.length;
 
           if (olderAvg > 0) {
             var increase = (recentAvg - olderAvg) / olderAvg;

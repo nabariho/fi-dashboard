@@ -7,15 +7,20 @@
 //   liabilities — mortgage outstanding balance
 //   total      — assets - liabilities (net worth)
 //   investments, bank — breakdowns of liquid
+//
+// When an account has no entry for a month, the last known balance is carried forward
+// and a warning is added to result.warnings[].
 
 var NetWorthCalculator = {
   // Build monthly net worth rows from raw data.
   // Returns array of: { month, total, assets, liabilities, liquid, investments, bank,
   //   accounts: { id: value }, mortgage_balance?, house_value?, house_equity? }
+  // The returned array also has a .warnings property: [{ month, accountId, accountName, carriedValue }]
   // Optional 3rd param: mortgage object — if provided, integrates mortgage debt and house value.
   compute: function(data, accountIds, mortgage) {
     var nwData = data.filter(function(r) { return accountIds.indexOf(r.account_id) >= 0; });
     var months = DataService.getUniqueMonths(nwData);
+    var warnings = [];
 
     // Pre-compute mortgage schedule if provided
     var mortgageSchedule = null;
@@ -23,11 +28,29 @@ var NetWorthCalculator = {
       mortgageSchedule = MortgageCalculator.computeSchedule(mortgage);
     }
 
-    return months.map(function(m) {
+    // Track last known balance per account for carry-forward
+    var lastKnown = {};
+
+    var result = months.map(function(m) {
       var row = { month: m, total: 0, liquid: 0, assets: 0, liabilities: 0, investments: 0, bank: 0, accounts: {} };
       accountIds.forEach(function(a) {
         var entry = nwData.find(function(r) { return r.month === m && r.account_id === a; });
-        var val = entry ? entry.end_value : 0;
+        var val;
+        if (entry) {
+          val = entry.end_value;
+          lastKnown[a] = val;
+        } else if (lastKnown[a] !== undefined) {
+          // Carry forward last known balance and record warning
+          val = lastKnown[a];
+          warnings.push({
+            month: m,
+            accountId: a,
+            accountName: AccountService.getName(a),
+            carriedValue: val
+          });
+        } else {
+          val = 0;
+        }
         row.accounts[a] = val;
         row.liquid += val;
         if (AccountService.isBroker(a)) row.investments += val;
@@ -52,6 +75,10 @@ var NetWorthCalculator = {
 
       return row;
     });
+
+    // Attach warnings to the result array
+    result.warnings = warnings;
+    return result;
   },
 
   // Compute YTD change metrics for the most recent data point
