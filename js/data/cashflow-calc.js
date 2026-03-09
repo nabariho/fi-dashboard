@@ -432,6 +432,167 @@ var CashflowCalculator = {
     };
   },
 
+  // Compute P&L statement for a single month with nested category→subcategory structure.
+  // Returns: { month, income: { total, byCategory }, expenses: { total, byCategory: { cat: { total, subcategories, items } } },
+  //            transfers: { total, byCategory }, netSavings, netSavingsStatus, savingsRate, savingsRateStatus }
+  computeMonthPnL: function(entries, month, categories, subcategories) {
+    var monthEntries = (entries || []).filter(function(e) { return e.month === month; });
+    var income = { total: 0, byCategory: {} };
+    var expenses = { total: 0, byCategory: {} };
+    var transfers = { total: 0, byCategory: {} };
+
+    for (var i = 0; i < monthEntries.length; i++) {
+      var e = monthEntries[i];
+      var amt = e.amount || 0;
+      var cat = this._resolveCategoryName(e, categories);
+      var subcat = this._resolveSubcategoryName(e, subcategories);
+
+      if (e.type === 'income') {
+        income.total += amt;
+        income.byCategory[cat] = (income.byCategory[cat] || 0) + amt;
+      } else {
+        var classification = this._resolveClassification(e, categories);
+        if (classification === 'transfer') {
+          transfers.total += amt;
+          transfers.byCategory[cat] = (transfers.byCategory[cat] || 0) + amt;
+        } else {
+          expenses.total += amt;
+          if (!expenses.byCategory[cat]) {
+            expenses.byCategory[cat] = { total: 0, subcategories: {}, items: [] };
+          }
+          var catObj = expenses.byCategory[cat];
+          catObj.total += amt;
+          if (subcat) {
+            catObj.subcategories[subcat] = (catObj.subcategories[subcat] || 0) + amt;
+          }
+          catObj.items.push({ subcategory: subcat, amount: amt, notes: e.notes || '' });
+        }
+      }
+    }
+
+    // Sort items within each expense category by amount desc
+    var catKeys = Object.keys(expenses.byCategory);
+    for (var j = 0; j < catKeys.length; j++) {
+      expenses.byCategory[catKeys[j]].items.sort(function(a, b) { return b.amount - a.amount; });
+    }
+
+    var netSavings = Math.round((income.total - expenses.total) * 100) / 100;
+    var savingsRate = income.total > 0 ? netSavings / income.total : 0;
+
+    return {
+      month: month,
+      income: income,
+      expenses: expenses,
+      transfers: transfers,
+      netSavings: netSavings,
+      netSavingsStatus: ValueStatus.sign(netSavings),
+      savingsRate: savingsRate,
+      savingsRateStatus: savingsRate >= 0.30 ? 'positive' : (savingsRate >= 0.15 ? 'neutral' : 'negative')
+    };
+  },
+
+  // Compare selected month vs prior month with actual data.
+  // Returns delta analysis for expense and income categories.
+  computeMoMInsights: function(entries, month, categories, subcategories) {
+    var allMonths = Array.from(this.getMonthsWithActuals(entries)).sort();
+    var idx = allMonths.indexOf(month);
+    var hasPriorMonth = idx > 0;
+    var priorMonth = hasPriorMonth ? allMonths[idx - 1] : null;
+
+    var currentPnL = this.computeMonthPnL(entries, month, categories, subcategories);
+    var priorPnL = hasPriorMonth ? this.computeMonthPnL(entries, priorMonth, categories, subcategories) : null;
+
+    // Top expense categories for current month
+    var topExpenseCategories = [];
+    var expCats = Object.keys(currentPnL.expenses.byCategory);
+    for (var i = 0; i < expCats.length; i++) {
+      var catTotal = currentPnL.expenses.byCategory[expCats[i]].total;
+      topExpenseCategories.push({
+        category: expCats[i],
+        amount: catTotal,
+        pctOfTotal: currentPnL.expenses.total > 0 ? catTotal / currentPnL.expenses.total : 0
+      });
+    }
+    topExpenseCategories.sort(function(a, b) { return b.amount - a.amount; });
+    topExpenseCategories = topExpenseCategories.slice(0, 5);
+
+    if (!hasPriorMonth) {
+      return {
+        hasPriorMonth: false,
+        priorMonth: null,
+        expenseChanges: [],
+        incomeChanges: [],
+        topExpenseCategories: topExpenseCategories,
+        totalExpenseChange: null,
+        totalIncomeChange: null
+      };
+    }
+
+    // Build expense delta by category
+    var allExpCats = {};
+    expCats.forEach(function(c) { allExpCats[c] = true; });
+    Object.keys(priorPnL.expenses.byCategory).forEach(function(c) { allExpCats[c] = true; });
+
+    var expenseChanges = [];
+    Object.keys(allExpCats).forEach(function(cat) {
+      var current = currentPnL.expenses.byCategory[cat] ? currentPnL.expenses.byCategory[cat].total : 0;
+      var prior = priorPnL.expenses.byCategory[cat] ? priorPnL.expenses.byCategory[cat].total : 0;
+      var delta = current - prior;
+      var deltaPct = prior > 0 ? delta / prior : (current > 0 ? 1 : 0);
+      expenseChanges.push({
+        category: cat, current: current, prior: prior,
+        delta: delta, deltaPct: deltaPct,
+        deltaStatus: ValueStatus.signInverse(delta)
+      });
+    });
+    expenseChanges.sort(function(a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
+
+    // Build income delta by category
+    var allIncCats = {};
+    Object.keys(currentPnL.income.byCategory).forEach(function(c) { allIncCats[c] = true; });
+    Object.keys(priorPnL.income.byCategory).forEach(function(c) { allIncCats[c] = true; });
+
+    var incomeChanges = [];
+    Object.keys(allIncCats).forEach(function(cat) {
+      var current = currentPnL.income.byCategory[cat] || 0;
+      var prior = priorPnL.income.byCategory[cat] || 0;
+      var delta = current - prior;
+      var deltaPct = prior > 0 ? delta / prior : (current > 0 ? 1 : 0);
+      incomeChanges.push({
+        category: cat, current: current, prior: prior,
+        delta: delta, deltaPct: deltaPct,
+        deltaStatus: ValueStatus.sign(delta)
+      });
+    });
+    incomeChanges.sort(function(a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
+
+    // Totals
+    var totalExpDelta = currentPnL.expenses.total - priorPnL.expenses.total;
+    var totalIncDelta = currentPnL.income.total - priorPnL.income.total;
+
+    return {
+      hasPriorMonth: true,
+      priorMonth: priorMonth,
+      expenseChanges: expenseChanges,
+      incomeChanges: incomeChanges,
+      topExpenseCategories: topExpenseCategories,
+      totalExpenseChange: {
+        current: currentPnL.expenses.total,
+        prior: priorPnL.expenses.total,
+        delta: totalExpDelta,
+        deltaPct: priorPnL.expenses.total > 0 ? totalExpDelta / priorPnL.expenses.total : 0,
+        deltaStatus: ValueStatus.signInverse(totalExpDelta)
+      },
+      totalIncomeChange: {
+        current: currentPnL.income.total,
+        prior: priorPnL.income.total,
+        delta: totalIncDelta,
+        deltaPct: priorPnL.income.total > 0 ? totalIncDelta / priorPnL.income.total : 0,
+        deltaStatus: ValueStatus.sign(totalIncDelta)
+      }
+    };
+  },
+
   // Generate a slug from a category name (lowercase, spaces to hyphens).
   slugify: function(str) {
     return (str || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');

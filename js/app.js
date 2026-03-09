@@ -392,6 +392,7 @@ function _buildLatestAccounts(data) {
 // --- Cash Flow Tab ---
 
 var _cashflowTrailingMonths = 6;
+var _cashflowSelectedMonth = null;
 
 function refreshCashFlow() {
   if (typeof CashFlowRenderer === 'undefined') return;
@@ -400,9 +401,8 @@ function refreshCashFlow() {
 
   // Cash Flow tab uses only actual cashflow entries — no derived data
   var monthlyData = [];
-  var actualMonths = null;
+  var months = [];
   if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
-    actualMonths = CashflowCalculator.getMonthsWithActuals(cashflowEntries);
     var cfMonths = CashflowCalculator.computeAllMonths(cashflowEntries, cashflowCategories, cashflowSubcategories);
     // Map to the shape the renderer expects
     monthlyData = cfMonths.map(function(m) {
@@ -419,6 +419,13 @@ function refreshCashFlow() {
         dataSource: 'actual'
       };
     });
+    months = cfMonths.map(function(m) { return m.month; });
+  }
+
+  // Determine selected month
+  var selectedMonth = _cashflowSelectedMonth;
+  if (!selectedMonth || months.indexOf(selectedMonth) < 0) {
+    selectedMonth = months.length ? months[months.length - 1] : null;
   }
 
   // Budget total for comparison
@@ -430,7 +437,6 @@ function refreshCashFlow() {
   // Goal plan for allocation overlay
   var goalPlan = null;
   if (typeof GoalPlannerCalculator !== 'undefined' && plannerGoalsData && plannerGoalsData.length) {
-    // Use actual cashflow avg expenses, budget as fallback
     var monthlyExpenses = budgetTotal;
     if (monthlyData.length > 0) {
       var n = Math.min(monthlyData.length, _cashflowTrailingMonths || 6);
@@ -447,38 +453,73 @@ function refreshCashFlow() {
     });
   }
 
-  // Waterfall uses actual cashflow data (or null if no data)
-  var waterfall = typeof SavingsCapacityCalculator !== 'undefined' && monthlyData.length
-    ? SavingsCapacityCalculator.computeWaterfall(monthlyData, budgetTotal, goalPlan, _cashflowTrailingMonths)
-    : null;
-  var achievability = waterfall
-    ? SavingsCapacityCalculator.computeAchievability(goalPlan, waterfall.actualSavings)
-    : null;
+  // Month-scoped computations
+  var pnl = null;
+  var budgetVsActual = null;
+  var insights = null;
+  var waterfall = null;
 
-  // Provide modal drill-down data (includes allData for goal funding reality)
-  CashFlowRenderer.setModalData({
-    cashflowEntries: cashflowEntries,
-    categories: cashflowCategories,
-    subcategories: cashflowSubcategories,
-    allData: allData
-  });
+  if (selectedMonth && typeof CashflowCalculator !== 'undefined') {
+    pnl = CashflowCalculator.computeMonthPnL(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories);
+    insights = CashflowCalculator.computeMoMInsights(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories);
 
-  // Compute budget summary for inline display in Cash Flow tab
+    if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
+      budgetVsActual = CashflowCalculator.computePlannedVsActual(cashflowEntries, budgetItems, selectedMonth, cashflowCategories);
+    }
+
+    // Build waterfall from PnL + goal plan for selected month
+    var totalGoalAllocation = 0;
+    var goalAllocations = [];
+    if (goalPlan && goalPlan.goals) {
+      goalPlan.goals.forEach(function(g) {
+        if (g.allocated_monthly > 0) {
+          goalAllocations.push({ name: g.name, allocated: g.allocated_monthly });
+          totalGoalAllocation += g.allocated_monthly;
+        }
+      });
+    }
+    waterfall = {
+      income: pnl.income.total,
+      actualExpenses: pnl.expenses.total,
+      goalAllocations: goalAllocations,
+      unallocated: Math.max(0, pnl.netSavings - totalGoalAllocation)
+    };
+  }
+
+  // Cross-month computations
+  var categoryTrends = null;
+  if (typeof CashflowCalculator !== 'undefined' && cashflowEntries.length) {
+    categoryTrends = CashflowCalculator.computeCategoryTrends(cashflowEntries, 12, cashflowCategories);
+  }
+
   var budgetSummary = null;
   if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
     budgetSummary = BudgetCalculator.computeMonthlyBudget(budgetItems);
   }
 
-  // Budget staleness: compare trailing actual expenses vs budget (delegated to calculator)
   var budgetStale = null;
   if (budgetSummary && budgetSummary.total > 0 && monthlyData.length >= 3) {
     budgetStale = BudgetCalculator.computeStaleness(budgetSummary.total, monthlyData.slice(-3));
   }
 
-  CashFlowRenderer.render(
-    waterfall, monthlyData, achievability, _cashflowTrailingMonths, goalPlan, budgetSummary, budgetStale
-  );
+  CashFlowRenderer.render({
+    monthlyData: monthlyData,
+    months: months,
+    selectedMonth: selectedMonth,
+    pnl: pnl,
+    budgetVsActual: budgetVsActual,
+    insights: insights,
+    waterfall: waterfall,
+    categoryTrends: categoryTrends,
+    budgetSummary: budgetSummary,
+    budgetStale: budgetStale
+  });
 }
+
+window.onCashflowMonthChange = function(month) {
+  _cashflowSelectedMonth = month;
+  refreshCashFlow();
+};
 
 // --- Goals Tab (unified: funding plan + milestones) ---
 

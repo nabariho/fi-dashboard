@@ -1658,6 +1658,9 @@ tr:hover { background: var(--bg); }
 
   .fi-context { font-size: 12px; }
 
+  .cf-pnl { flex-wrap: wrap; gap: 8px; }
+  .cf-pnl .cf-summary-arrow { display: none; }
+  .cf-insights { grid-template-columns: 1fr; }
   .cf-modal { width: 95vw; max-height: 90vh; }
   .cf-modal-grid { grid-template-columns: 1fr; }
   .cf-modal-summary { flex-wrap: wrap; gap: 8px; }
@@ -1685,7 +1688,35 @@ tr:hover { background: var(--bg); }
   .home-year-review th, .home-year-review td { padding: 6px 8px; }
 }
 
-/* === CASH FLOW MODAL === */
+/* === CASH FLOW TAB === */
+
+/* Month selector */
+.cf-month-selector { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.cf-month-selector select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 14px; background: var(--card-bg); color: var(--text); }
+.cf-month-nav-btn { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer; color: var(--text); font-size: 12px; }
+.cf-month-nav-btn:hover { background: var(--bg); }
+
+/* P&L bar (reuses summary item pattern) */
+.cf-pnl { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px; background: var(--bg); border-radius: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+
+/* Expandable expense rows */
+.cf-cat-row { cursor: pointer; }
+.cf-cat-row:hover { background: var(--bg); }
+.cf-cat-chevron { display: inline-block; transition: transform 0.2s; margin-right: 6px; font-size: 10px; }
+.cf-cat-row.expanded .cf-cat-chevron { transform: rotate(90deg); }
+.cf-subcat-row { display: none; }
+.cf-subcat-row.visible { display: table-row; }
+.cf-subcat-row td:first-child { padding-left: 28px; font-size: 13px; color: var(--text-secondary); }
+.cf-subcat-notes { font-size: 12px; color: var(--text-secondary); font-style: italic; }
+
+/* Insights */
+.cf-insights { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+.cf-insight-card { background: var(--card-bg); border-radius: 8px; padding: 16px; border: 1px solid var(--border-light); }
+.cf-insight-card h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.cf-insight-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-light); font-size: 13px; }
+.cf-insight-item:last-child { border-bottom: none; }
+
+/* === CASH FLOW MODAL (legacy, kept for compat) === */
 .cf-modal-overlay {
   position: fixed;
   inset: 0;

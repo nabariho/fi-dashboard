@@ -1,30 +1,32 @@
 // === CASH FLOW RENDERER ===
-// Renders monthly cash flow overview with drill-down modals.
-// Only shows months with actual cashflow entries (no derived data).
-// Layout: metric cards → waterfall → monthly table (clickable) → savings rate trend
-// Modal: full month detail (income, expenses, transfers, goal funding reality)
+// Renders Cash Flow tab with month selector, inline P&L, expandable expenses,
+// budget vs actual, waterfall, category trends, history table, savings rate trend.
+// No modals — all detail is inline, driven by selected month.
 
 var CashFlowRenderer = {
   _waterfallChart: null,
   _trendChart: null,
-  _modalData: null,
+  _categoryTrendsChart: null,
 
-  // Store references for modal drill-down
-  setModalData: function(data) {
-    this._modalData = data;
-  },
-
-  render: function(waterfall, monthlyData, achievability, trailingMonths, goalPlan, budgetSummary, budgetStale) {
+  // Main render entry point. Receives a single renderData object from app.js.
+  render: function(renderData) {
     var el = document.getElementById('cashflowContent');
     if (!el) return;
 
-    // Filter to actual-only months
-    var actualData = (monthlyData || []).filter(function(r) { return r.dataSource === 'actual'; });
+    var monthlyData = renderData.monthlyData || [];
+    var pnl = renderData.pnl;
+    var budgetVsActual = renderData.budgetVsActual;
+    var insights = renderData.insights;
+    var waterfall = renderData.waterfall;
+    var categoryTrends = renderData.categoryTrends;
+    var budgetSummary = renderData.budgetSummary;
+    var budgetStale = renderData.budgetStale;
+    var selectedMonth = renderData.selectedMonth;
+    var months = renderData.months || [];
 
-    if (!actualData.length) {
-      // Even without actual data, show budget summary if available
+    if (!months.length) {
       if (budgetSummary) {
-        el.innerHTML = this._renderBudgetSection(budgetSummary, null) +
+        el.innerHTML = this._renderBudgetOnlySection(budgetSummary) +
           '<div class="empty-state-panel"><div class="empty-state-icon">&#128200;</div>' +
           '<div class="empty-state-title">No cash flow data yet</div>' +
           '<div class="empty-state-desc">Import actual income and expense data via Admin &gt; Cash Flow to see your cash flow analysis and budget-vs-actual comparison.</div></div>';
@@ -38,7 +40,6 @@ var CashFlowRenderer = {
     }
 
     var html = '';
-    var latest = actualData[actualData.length - 1];
 
     // --- Budget staleness alert ---
     if (budgetStale) {
@@ -51,55 +52,350 @@ var CashFlowRenderer = {
       '</div>';
     }
 
-    // --- Metric cards: latest actual month ---
-    html += '<div class="metrics">';
-    html += this._metricCard('Monthly Income', Fmt.currency(latest.income), '');
-    html += this._metricCard('Expenses', Fmt.currency(latest.expenses), '');
-    html += this._metricCard('Net Savings', Fmt.currency(latest.totalContributions),
-      ValueStatus.sign(latest.totalContributions));
-    html += this._metricCard('Savings Rate', Fmt.pct(latest.savingsRate * 100),
-      latest.savingsRateStatus || (latest.savingsRate >= 0.30 ? 'positive' : (latest.savingsRate >= 0.15 ? 'neutral' : 'negative')));
-    html += '</div>';
+    // --- Month Selector ---
+    html += this._renderMonthSelector(months, selectedMonth);
 
-    // --- Budget Summary + Budget vs Actual ---
-    if (budgetSummary) {
-      html += this._renderBudgetSection(budgetSummary, latest);
+    // --- P&L Statement ---
+    if (pnl) {
+      html += this._renderPnL(pnl);
     }
 
-    // --- Waterfall chart ---
-    html += '<div class="chart-container">' +
-      '<div class="chart-header"><h2>Money Flow (' + latest.month + ')</h2></div>' +
-      '<canvas id="waterfallChart"></canvas>' +
-    '</div>';
+    // --- Income Breakdown ---
+    if (pnl && pnl.income.total > 0) {
+      html += this._renderIncomeBreakdown(pnl);
+    }
 
-    // --- Monthly Cash Flow table (clickable rows) ---
-    html += '<div class="table-container"><div class="table-header-row"><h2>Monthly Cash Flow</h2></div>' +
+    // --- Expense Breakdown (expandable) ---
+    if (pnl && pnl.expenses.total > 0) {
+      html += this._renderExpenseBreakdown(pnl);
+    }
+
+    // --- Budget vs Actual (for selected month) ---
+    if (budgetVsActual) {
+      html += this._renderBudgetVsActual(budgetVsActual, selectedMonth);
+    }
+
+    // --- Waterfall Chart ---
+    if (waterfall) {
+      html += '<div class="chart-container">' +
+        '<div class="chart-header"><h2>Money Flow (' + selectedMonth + ')</h2></div>' +
+        '<canvas id="waterfallChart"></canvas>' +
+      '</div>';
+    }
+
+    // --- Insights (MoM changes + top spending) ---
+    if (insights) {
+      html += this._renderInsights(insights);
+    }
+
+    // --- Category Expense Trends (cross-month) ---
+    if (categoryTrends && categoryTrends.months.length > 1) {
+      html += '<div class="chart-container">' +
+        '<div class="chart-header"><h2>Expense Trends (Last 12 Months)</h2></div>' +
+        '<canvas id="categoryTrendsChart"></canvas>' +
+      '</div>';
+    }
+
+    // --- Monthly Cash Flow History (clickable rows) ---
+    html += this._renderHistoryTable(monthlyData, selectedMonth);
+
+    // --- Savings Rate Trend ---
+    if (monthlyData.length > 1) {
+      html += '<div class="chart-container">' +
+        '<div class="chart-header"><h2>Savings Rate Trend</h2></div>' +
+        '<canvas id="savingsRateTrendChart"></canvas>' +
+      '</div>';
+    }
+
+    el.innerHTML = html;
+
+    // Render charts after DOM is set
+    if (waterfall) this._renderWaterfallChart(waterfall);
+    if (categoryTrends && categoryTrends.months.length > 1) this._renderCategoryTrendsChart(categoryTrends);
+    if (monthlyData.length > 1) this._renderSavingsRateTrend(monthlyData);
+
+    // Bind expandable expense rows
+    this._bindExpenseExpand();
+
+    // Bind history row clicks
+    this._bindHistoryRowClicks();
+  },
+
+  // --- Month Selector ---
+  _renderMonthSelector: function(months, selectedMonth) {
+    var html = '<div class="cf-month-selector">';
+    html += '<button class="cf-month-nav-btn" id="cfMonthPrev" title="Previous month">&#9664;</button>';
+    html += '<select id="cfMonthSelect">';
+    for (var i = months.length - 1; i >= 0; i--) {
+      var sel = months[i] === selectedMonth ? ' selected' : '';
+      html += '<option value="' + months[i] + '"' + sel + '>' + this._formatMonthName(months[i]) + '</option>';
+    }
+    html += '</select>';
+    html += '<button class="cf-month-nav-btn" id="cfMonthNext" title="Next month">&#9654;</button>';
+    html += '</div>';
+
+    // Bind after render via setTimeout (DOM not yet available)
+    var self = this;
+    setTimeout(function() {
+      var select = document.getElementById('cfMonthSelect');
+      var prev = document.getElementById('cfMonthPrev');
+      var next = document.getElementById('cfMonthNext');
+      if (select) {
+        select.addEventListener('change', function() {
+          if (window.onCashflowMonthChange) window.onCashflowMonthChange(this.value);
+        });
+      }
+      if (prev) {
+        prev.addEventListener('click', function() {
+          var idx = months.indexOf(selectedMonth);
+          if (idx > 0 && window.onCashflowMonthChange) window.onCashflowMonthChange(months[idx - 1]);
+        });
+      }
+      if (next) {
+        next.addEventListener('click', function() {
+          var idx = months.indexOf(selectedMonth);
+          if (idx < months.length - 1 && window.onCashflowMonthChange) window.onCashflowMonthChange(months[idx + 1]);
+        });
+      }
+    }, 0);
+
+    return html;
+  },
+
+  // --- P&L Statement ---
+  _renderPnL: function(pnl) {
+    var netCls = pnl.netSavingsStatus === 'positive' ? 'cf-summary-positive' :
+      (pnl.netSavingsStatus === 'negative' ? 'cf-summary-negative' : '');
+    var ratePct = (pnl.savingsRate * 100).toFixed(1);
+
+    var html = '<div class="cf-pnl">' +
+      this._summaryItem('Income', pnl.income.total, 'cf-summary-income') +
+      '<div class="cf-summary-arrow">&minus;</div>' +
+      this._summaryItem('Expenses', pnl.expenses.total, 'cf-summary-expenses') +
+      '<div class="cf-summary-arrow">=</div>' +
+      this._summaryItem('Net Savings', pnl.netSavings, netCls,
+        ' (' + ratePct + '%)');
+
+    if (pnl.transfers.total > 0) {
+      html += '<div class="cf-summary-divider"></div>' +
+        this._summaryItem('Transfers', pnl.transfers.total, 'cf-summary-transfers');
+    }
+
+    html += '</div>';
+    return html;
+  },
+
+  _summaryItem: function(label, value, cls, suffix) {
+    return '<div class="cf-summary-item ' + (cls || '') + '">' +
+      '<div class="cf-summary-label">' + label + '</div>' +
+      '<div class="cf-summary-value">' + Fmt.currency(value) + (suffix || '') + '</div>' +
+    '</div>';
+  },
+
+  // --- Income Breakdown ---
+  _renderIncomeBreakdown: function(pnl) {
+    var cats = Object.keys(pnl.income.byCategory).sort(function(a, b) {
+      return pnl.income.byCategory[b] - pnl.income.byCategory[a];
+    });
+
+    var html = '<div class="table-container"><div class="table-header-row"><h2>Income Breakdown</h2></div>' +
+      '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+      '<th>Category</th><th class="text-right">Amount</th><th class="text-right">% of Total</th>' +
+      '</tr></thead><tbody>';
+
+    for (var i = 0; i < cats.length; i++) {
+      var amt = pnl.income.byCategory[cats[i]];
+      var pct = pnl.income.total > 0 ? (amt / pnl.income.total * 100).toFixed(1) : '0.0';
+      html += '<tr><td>' + cats[i] + '</td>' +
+        '<td class="text-right">' + Fmt.currency(amt) + '</td>' +
+        '<td class="text-right">' + pct + '%</td></tr>';
+    }
+
+    html += '<tr class="table-total-row"><td>Total</td>' +
+      '<td class="text-right">' + Fmt.currency(pnl.income.total) + '</td>' +
+      '<td class="text-right">100%</td></tr>';
+
+    html += '</tbody></table></div></div>';
+    return html;
+  },
+
+  // --- Expense Breakdown (expandable subcategories) ---
+  _renderExpenseBreakdown: function(pnl) {
+    var catKeys = Object.keys(pnl.expenses.byCategory).sort(function(a, b) {
+      return pnl.expenses.byCategory[b].total - pnl.expenses.byCategory[a].total;
+    });
+
+    var html = '<div class="table-container"><div class="table-header-row"><h2>Expense Breakdown</h2></div>' +
+      '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+      '<th>Category</th><th class="text-right">Amount</th><th class="text-right">% of Total</th>' +
+      '</tr></thead><tbody>';
+
+    for (var i = 0; i < catKeys.length; i++) {
+      var cat = catKeys[i];
+      var catObj = pnl.expenses.byCategory[cat];
+      var pct = pnl.expenses.total > 0 ? (catObj.total / pnl.expenses.total * 100).toFixed(1) : '0.0';
+      var hasSubcats = Object.keys(catObj.subcategories).length > 0 || catObj.items.length > 1;
+      var chevron = hasSubcats ? '<span class="cf-cat-chevron">&#9654;</span>' : '<span style="display:inline-block;width:16px"></span>';
+
+      html += '<tr class="' + (hasSubcats ? 'cf-cat-row' : '') + '" data-category="' + cat + '">' +
+        '<td>' + chevron + cat + '</td>' +
+        '<td class="text-right">' + Fmt.currency(catObj.total) + '</td>' +
+        '<td class="text-right">' + pct + '%</td></tr>';
+
+      // Subcategory rows (hidden by default)
+      if (hasSubcats) {
+        for (var j = 0; j < catObj.items.length; j++) {
+          var item = catObj.items[j];
+          var subLabel = item.subcategory || '(no subcategory)';
+          var notesHtml = item.notes ? ' <span class="cf-subcat-notes">' + item.notes + '</span>' : '';
+          html += '<tr class="cf-subcat-row" data-parent="' + cat + '">' +
+            '<td>' + subLabel + notesHtml + '</td>' +
+            '<td class="text-right">' + Fmt.currency(item.amount) + '</td>' +
+            '<td class="text-right"></td></tr>';
+        }
+      }
+    }
+
+    html += '<tr class="table-total-row"><td><span style="display:inline-block;width:16px"></span>Total</td>' +
+      '<td class="text-right">' + Fmt.currency(pnl.expenses.total) + '</td>' +
+      '<td class="text-right">100%</td></tr>';
+
+    html += '</tbody></table></div></div>';
+    return html;
+  },
+
+  // --- Bind expandable expense row clicks ---
+  _bindExpenseExpand: function() {
+    var rows = document.querySelectorAll('.cf-cat-row');
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].addEventListener('click', function() {
+        var cat = this.getAttribute('data-category');
+        var isExpanded = this.classList.contains('expanded');
+        this.classList.toggle('expanded');
+        var subRows = document.querySelectorAll('.cf-subcat-row[data-parent="' + cat + '"]');
+        for (var j = 0; j < subRows.length; j++) {
+          if (isExpanded) {
+            subRows[j].classList.remove('visible');
+          } else {
+            subRows[j].classList.add('visible');
+          }
+        }
+      });
+    }
+  },
+
+  // --- Budget vs Actual (for selected month) ---
+  _renderBudgetVsActual: function(bva, selectedMonth) {
+    if (!bva || !bva.byCategory) return '';
+    var cats = Object.keys(bva.byCategory).sort();
+    if (!cats.length) return '';
+
+    var html = '<div class="table-container"><div class="table-header-row">' +
+      '<h2>Budget vs Actual (' + selectedMonth + ')</h2></div>' +
+      '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+      '<th>Category</th><th class="text-right">Planned</th>' +
+      '<th class="text-right">Actual</th><th class="text-right">Delta</th>' +
+      '<th class="text-right">%</th></tr></thead><tbody>';
+
+    for (var i = 0; i < cats.length; i++) {
+      var c = bva.byCategory[cats[i]];
+      html += '<tr><td>' + cats[i] + '</td>' +
+        '<td class="text-right">' + Fmt.currency(c.planned) + '</td>' +
+        '<td class="text-right">' + Fmt.currency(c.actual) + '</td>' +
+        '<td class="text-right ' + c.varianceStatus + '">' +
+          (c.delta >= 0 ? '+' : '') + Fmt.currency(c.delta) + '</td>' +
+        '<td class="text-right ' + c.varianceStatus + '">' +
+          (c.variancePct >= 0 ? '+' : '') + c.variancePct.toFixed(0) + '%</td></tr>';
+    }
+
+    // Totals
+    var t = bva.totals;
+    html += '<tr class="table-total-row">' +
+      '<td>Total</td>' +
+      '<td class="text-right">' + Fmt.currency(t.planned) + '</td>' +
+      '<td class="text-right">' + Fmt.currency(t.actual) + '</td>' +
+      '<td class="text-right ' + t.varianceStatus + '">' +
+        (t.delta >= 0 ? '+' : '') + Fmt.currency(t.delta) + '</td>' +
+      '<td class="text-right ' + t.varianceStatus + '">' +
+        (t.variancePct >= 0 ? '+' : '') + t.variancePct.toFixed(0) + '%</td></tr>';
+
+    html += '</tbody></table></div></div>';
+    return html;
+  },
+
+  // --- Insights (Top Spending + MoM Changes) ---
+  _renderInsights: function(insights) {
+    if (!insights) return '';
+
+    var html = '<div class="cf-insights">';
+
+    // Top Spending
+    if (insights.topExpenseCategories && insights.topExpenseCategories.length) {
+      html += '<div class="cf-insight-card"><h3>Top Spending Categories</h3>';
+      for (var i = 0; i < insights.topExpenseCategories.length; i++) {
+        var tc = insights.topExpenseCategories[i];
+        html += '<div class="cf-insight-item">' +
+          '<span>' + tc.category + '</span>' +
+          '<span>' + Fmt.currency(tc.amount) + ' (' + (tc.pctOfTotal * 100).toFixed(0) + '%)</span>' +
+        '</div>';
+      }
+      html += '</div>';
+    }
+
+    // Month-over-Month Changes
+    if (insights.hasPriorMonth && insights.expenseChanges.length) {
+      html += '<div class="cf-insight-card"><h3>Month-over-Month Changes</h3>';
+      var changes = insights.expenseChanges.slice(0, 5);
+      for (var j = 0; j < changes.length; j++) {
+        var ch = changes[j];
+        var arrow = ch.delta > 0 ? '&#9650;' : (ch.delta < 0 ? '&#9660;' : '&#8212;');
+        html += '<div class="cf-insight-item">' +
+          '<span>' + ch.category + '</span>' +
+          '<span class="' + ch.deltaStatus + '">' + arrow + ' ' +
+            (ch.delta >= 0 ? '+' : '') + Fmt.currency(ch.delta) + '</span>' +
+        '</div>';
+      }
+      html += '</div>';
+    } else if (!insights.hasPriorMonth) {
+      html += '<div class="cf-insight-card"><h3>Month-over-Month Changes</h3>' +
+        '<p class="text-secondary">No prior month for comparison</p></div>';
+    }
+
+    html += '</div>';
+    return html;
+  },
+
+  // --- History Table ---
+  _renderHistoryTable: function(monthlyData, selectedMonth) {
+    if (!monthlyData.length) return '';
+
+    var html = '<div class="table-container"><div class="table-header-row"><h2>Monthly Cash Flow</h2></div>' +
       '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
       '<th>Month</th><th class="text-right">Income</th>' +
       '<th class="text-right">Expenses</th><th class="text-right">Transfers</th>' +
       '<th class="text-right">Net Savings</th><th class="text-right">Rate</th>' +
       '</tr></thead><tbody>';
 
-    for (var i = actualData.length - 1; i >= 0; i--) {
-      var r = actualData[i];
+    for (var i = monthlyData.length - 1; i >= 0; i--) {
+      var r = monthlyData[i];
       var transfers = r.totalTransfers || 0;
-      var rateStatus = r.savingsRateStatus || (r.savingsRate >= 0.30 ? 'positive' : (r.savingsRate >= 0.15 ? 'neutral' : 'negative'));
+      var isSelected = r.month === selectedMonth ? ' style="background:rgba(26,115,232,0.08)"' : '';
 
-      html += '<tr class="cf-row-clickable" data-month="' + r.month + '">' +
+      html += '<tr class="cf-row-clickable" data-month="' + r.month + '"' + isSelected + '>' +
         '<td>' + r.month + '</td>' +
         '<td class="text-right">' + Fmt.currency(r.income) + '</td>' +
         '<td class="text-right">' + Fmt.currency(r.expenses) + '</td>' +
         '<td class="text-right">' + (transfers > 0 ? Fmt.currency(transfers) : '-') + '</td>' +
-        '<td class="text-right ' + ValueStatus.sign(r.totalContributions) + '">' +
+        '<td class="text-right ' + r.savingsRateStatus + '">' +
           Fmt.currency(r.totalContributions) + '</td>' +
-        '<td class="text-right ' + rateStatus + '">' + Fmt.pct(r.savingsRate * 100) + '</td>' +
+        '<td class="text-right ' + r.savingsRateStatus + '">' + Fmt.pct(r.savingsRate * 100) + '</td>' +
       '</tr>';
     }
 
     // Trailing average row
-    if (actualData.length > 1) {
-      var n = Math.min(actualData.length, trailingMonths || 6);
-      var recent = actualData.slice(-n);
+    if (monthlyData.length > 1) {
+      var n = Math.min(monthlyData.length, 6);
+      var recent = monthlyData.slice(-n);
       var avgIncome = recent.reduce(function(s, r) { return s + r.income; }, 0) / n;
       var avgExp = recent.reduce(function(s, r) { return s + r.expenses; }, 0) / n;
       var avgTransfers = recent.reduce(function(s, r) { return s + (r.totalTransfers || 0); }, 0) / n;
@@ -116,135 +412,51 @@ var CashFlowRenderer = {
     }
 
     html += '</tbody></table></div></div>';
-
-    // --- Savings Rate Trend (simple line) ---
-    if (actualData.length > 1) {
-      html += '<div class="chart-container">' +
-        '<div class="chart-header"><h2>Savings Rate Trend</h2></div>' +
-        '<canvas id="savingsRateTrendChart"></canvas>' +
-      '</div>';
-    }
-
-    el.innerHTML = html;
-
-    // Render charts
-    this._renderWaterfallChart(waterfall);
-    if (actualData.length > 1) {
-      this._renderSavingsRateTrend(actualData);
-    }
-
-    // Bind click handlers for modal drill-down
-    this._bindRowClicks(goalPlan);
+    return html;
   },
 
-  // --- Budget Summary + Budget-vs-Actual Section ---
-  _renderBudgetSection: function(budgetSummary, latestActual) {
-    var html = '<div class="table-container"><div class="table-header-row"><h2>Monthly Budget</h2></div>';
+  // --- Bind history row clicks (change month) ---
+  _bindHistoryRowClicks: function() {
+    var rows = document.querySelectorAll('.cf-row-clickable');
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].addEventListener('click', function() {
+        var month = this.getAttribute('data-month');
+        if (window.onCashflowMonthChange) window.onCashflowMonthChange(month);
+      });
+    }
+  },
 
-    // Summary cards row
+  // --- Budget-only section (no actuals yet) ---
+  _renderBudgetOnlySection: function(budgetSummary) {
+    var html = '<div class="table-container"><div class="table-header-row"><h2>Monthly Budget</h2></div>';
     html += '<div class="metrics">';
     html += this._metricCard('Total Budget', Fmt.currency(budgetSummary.total), '');
     html += this._metricCard('Fixed', Fmt.currency(budgetSummary.fixed), '');
     html += this._metricCard('Variable', Fmt.currency(budgetSummary.variable), '');
-    if (latestActual) {
-      var actualExp = latestActual.expenses || 0;
-      var delta = actualExp - budgetSummary.total;
-      var deltaClass = delta <= 0 ? 'positive' : 'negative';
-      html += this._metricCard('Actual (' + latestActual.month + ')', Fmt.currency(actualExp), deltaClass);
-    }
     html += '</div>';
 
-    // Budget-vs-actual table by category (when actual data available)
-    if (latestActual && latestActual.expensesByCategory) {
-      html += this._renderBudgetVsActual(budgetSummary, latestActual);
-    } else {
-      // Budget-only category breakdown
-      html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-        '<th>Category</th><th class="text-right">Fixed</th>' +
-        '<th class="text-right">Variable</th><th class="text-right">Total</th>' +
-        '</tr></thead><tbody>';
-
-      var cats = Object.keys(budgetSummary.byCategory).sort();
-      for (var i = 0; i < cats.length; i++) {
-        var cat = cats[i];
-        var catData = budgetSummary.byCategory[cat];
-        var fixedAmt = 0;
-        var varAmt = 0;
-        for (var j = 0; j < catData.items.length; j++) {
-          if (catData.items[j].type === 'fixed') fixedAmt += catData.items[j].monthly;
-          else varAmt += catData.items[j].monthly;
-        }
-        html += '<tr><td>' + cat + '</td>' +
-          '<td class="text-right">' + (fixedAmt > 0 ? Fmt.currency(fixedAmt) : '-') + '</td>' +
-          '<td class="text-right">' + (varAmt > 0 ? Fmt.currency(varAmt) : '-') + '</td>' +
-          '<td class="text-right">' + Fmt.currency(catData.planned) + '</td></tr>';
-      }
-
-      html += '</tbody></table></div>';
-    }
-
-    html += '</div>';
-    return html;
-  },
-
-  _renderBudgetVsActual: function(budgetSummary, latestActual) {
-    var expByCat = latestActual.expensesByCategory || {};
-
-    // Collect all categories from both budget and actuals
-    var allCats = {};
-    var cats = Object.keys(budgetSummary.byCategory);
-    for (var i = 0; i < cats.length; i++) allCats[cats[i]] = true;
-    var actualCats = Object.keys(expByCat);
-    for (var j = 0; j < actualCats.length; j++) allCats[actualCats[j]] = true;
-
-    var sortedCats = Object.keys(allCats).sort();
-
-    var html = '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th>Category</th><th class="text-right">Planned</th>' +
-      '<th class="text-right">Actual</th><th class="text-right">Delta</th>' +
-      '<th class="text-right">%</th>' +
+    html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
+      '<th>Category</th><th class="text-right">Fixed</th>' +
+      '<th class="text-right">Variable</th><th class="text-right">Total</th>' +
       '</tr></thead><tbody>';
 
-    var totalPlanned = 0;
-    var totalActual = 0;
-
-    for (var k = 0; k < sortedCats.length; k++) {
-      var cat = sortedCats[k];
-      var planned = budgetSummary.byCategory[cat] ? budgetSummary.byCategory[cat].planned : 0;
-      var actual = expByCat[cat] || 0;
-      var delta = actual - planned;
-      var pct = planned > 0 ? (delta / planned * 100) : (actual > 0 ? 100 : 0);
-      var deltaClass = delta <= 0 ? 'positive' : 'negative';
-
-      totalPlanned += planned;
-      totalActual += actual;
-
+    var cats = Object.keys(budgetSummary.byCategory).sort();
+    for (var i = 0; i < cats.length; i++) {
+      var cat = cats[i];
+      var catData = budgetSummary.byCategory[cat];
+      var fixedAmt = 0;
+      var varAmt = 0;
+      for (var j = 0; j < catData.items.length; j++) {
+        if (catData.items[j].type === 'fixed') fixedAmt += catData.items[j].monthly;
+        else varAmt += catData.items[j].monthly;
+      }
       html += '<tr><td>' + cat + '</td>' +
-        '<td class="text-right">' + Fmt.currency(planned) + '</td>' +
-        '<td class="text-right">' + Fmt.currency(actual) + '</td>' +
-        '<td class="text-right ' + deltaClass + '">' +
-          (delta >= 0 ? '+' : '') + Fmt.currency(delta) + '</td>' +
-        '<td class="text-right ' + deltaClass + '">' +
-          (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%</td>' +
-      '</tr>';
+        '<td class="text-right">' + (fixedAmt > 0 ? Fmt.currency(fixedAmt) : '-') + '</td>' +
+        '<td class="text-right">' + (varAmt > 0 ? Fmt.currency(varAmt) : '-') + '</td>' +
+        '<td class="text-right">' + Fmt.currency(catData.planned) + '</td></tr>';
     }
 
-    // Totals row
-    var totalDelta = totalActual - totalPlanned;
-    var totalDeltaClass = totalDelta <= 0 ? 'positive' : 'negative';
-    var totalPct = totalPlanned > 0 ? (totalDelta / totalPlanned * 100) : 0;
-
-    html += '<tr class="table-total-row">' +
-      '<td>Total</td>' +
-      '<td class="text-right">' + Fmt.currency(totalPlanned) + '</td>' +
-      '<td class="text-right">' + Fmt.currency(totalActual) + '</td>' +
-      '<td class="text-right ' + totalDeltaClass + '">' +
-        (totalDelta >= 0 ? '+' : '') + Fmt.currency(totalDelta) + '</td>' +
-      '<td class="text-right ' + totalDeltaClass + '">' +
-        (totalPct >= 0 ? '+' : '') + totalPct.toFixed(0) + '%</td>' +
-    '</tr>';
-
-    html += '</tbody></table></div>';
+    html += '</tbody></table></div></div>';
     return html;
   },
 
@@ -267,11 +479,13 @@ var CashFlowRenderer = {
     values.push(-waterfall.actualExpenses);
     colors.push('#d93025');
 
-    waterfall.goalAllocations.forEach(function(g) {
-      labels.push(g.name);
-      values.push(-g.allocated);
-      colors.push('#e8710a');
-    });
+    if (waterfall.goalAllocations) {
+      waterfall.goalAllocations.forEach(function(g) {
+        labels.push(g.name);
+        values.push(-g.allocated);
+        colors.push('#e8710a');
+      });
+    }
 
     if (waterfall.unallocated > 0) {
       labels.push('Unallocated');
@@ -319,7 +533,51 @@ var CashFlowRenderer = {
     });
   },
 
-  // --- Savings Rate Trend (line only) ---
+  // --- Category Trends Stacked Bar Chart ---
+  _renderCategoryTrendsChart: function(trends) {
+    var canvas = document.getElementById('categoryTrendsChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (this._categoryTrendsChart) this._categoryTrendsChart.destroy();
+
+    var palette = [
+      '#1a73e8', '#d93025', '#0d904f', '#e8710a', '#9334e6',
+      '#00897b', '#c2185b', '#5c6bc0', '#fb8c00', '#43a047'
+    ];
+
+    var datasets = [];
+    for (var i = 0; i < trends.categories.length; i++) {
+      var cat = trends.categories[i];
+      datasets.push({
+        label: cat,
+        data: trends.series[cat],
+        backgroundColor: palette[i % palette.length],
+        borderWidth: 0
+      });
+    }
+
+    this._categoryTrendsChart = new Chart(canvas, {
+      type: 'bar',
+      data: { labels: trends.months, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return ctx.dataset.label + ': ' + Fmt.currency(ctx.raw); }
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true, grid: { display: false } },
+          y: { stacked: true, ticks: { callback: function(v) { return Fmt.currency(v); } } }
+        }
+      }
+    });
+  },
+
+  // --- Savings Rate Trend ---
   _renderSavingsRateTrend: function(actualData) {
     var canvas = document.getElementById('savingsRateTrendChart');
     if (!canvas || typeof Chart === 'undefined') return;
@@ -330,8 +588,7 @@ var CashFlowRenderer = {
 
     var statusColors = { positive: '#0d904f', neutral: '#e8710a', negative: '#d93025' };
     var pointColors = actualData.map(function(r) {
-      var status = r.savingsRateStatus || (r.savingsRate >= 0.30 ? 'positive' : (r.savingsRate >= 0.15 ? 'neutral' : 'negative'));
-      return statusColors[status] || '#e8710a';
+      return statusColors[r.savingsRateStatus] || '#e8710a';
     });
 
     this._trendChart = new Chart(canvas, {
@@ -370,234 +627,6 @@ var CashFlowRenderer = {
         }
       }
     });
-  },
-
-  // --- Row Click → Modal ---
-  _bindRowClicks: function(goalPlan) {
-    var self = this;
-    var rows = document.querySelectorAll('.cf-row-clickable');
-    for (var i = 0; i < rows.length; i++) {
-      rows[i].addEventListener('click', function() {
-        var month = this.getAttribute('data-month');
-        self._openMonthModal(month, goalPlan);
-      });
-    }
-  },
-
-  _openMonthModal: function(month, goalPlan) {
-    var md = this._modalData;
-    if (!md || typeof CashflowCalculator === 'undefined') return;
-
-    var detail = CashflowCalculator.computeMonthDetail(
-      md.cashflowEntries, month, md.categories, md.subcategories
-    );
-
-    // Compute goal funding reality
-    var goalFunding = null;
-    if (goalPlan && goalPlan.goals && goalPlan.goals.length && md.allData) {
-      goalFunding = CashflowCalculator.computeGoalFundingReality(
-        month, md.allData, goalPlan.goals, detail.netSavings
-      );
-    }
-
-    // Build modal HTML
-    var html = '<div class="cf-modal-overlay" id="cfModalOverlay">' +
-      '<div class="cf-modal">' +
-        '<div class="cf-modal-header">' +
-          '<h2>' + this._formatMonthName(month) + ' — Cash Flow Detail</h2>' +
-          '<button class="cf-modal-close" id="cfModalClose">&times;</button>' +
-        '</div>' +
-        '<div class="cf-modal-body">';
-
-    // Summary bar
-    html += this._renderSummaryBar(detail, goalFunding);
-
-    // Sections grid
-    html += '<div class="cf-modal-grid">';
-
-    // Income section
-    html += '<div class="cf-modal-section">' +
-      '<h3>Income</h3>' +
-      this._renderDetailTable(detail.income.items, false) +
-      '<div class="cf-section-total">Total: ' + Fmt.currency(detail.income.total) + '</div>' +
-    '</div>';
-
-    // Expenses section
-    html += '<div class="cf-modal-section">' +
-      '<h3>Expenses</h3>' +
-      this._renderDetailTable(detail.expenses.items, true) +
-      '<div class="cf-section-total">Total: ' + Fmt.currency(detail.expenses.total) + '</div>' +
-    '</div>';
-
-    // Transfers section
-    if (detail.transfers.total > 0) {
-      html += '<div class="cf-modal-section">' +
-        '<h3>Transfers</h3>' +
-        this._renderDetailTable(detail.transfers.items, true) +
-        '<div class="cf-section-total">Total: ' + Fmt.currency(detail.transfers.total) + '</div>' +
-      '</div>';
-    }
-
-    // Goal Funding Reality section
-    if (goalFunding && goalFunding.goals.length) {
-      html += this._renderGoalFundingSection(goalFunding);
-    }
-
-    html += '</div>'; // cf-modal-grid
-    html += '</div>'; // cf-modal-body
-    html += '</div>'; // cf-modal
-    html += '</div>'; // cf-modal-overlay
-
-    // Inject modal
-    var existing = document.getElementById('cfModalOverlay');
-    if (existing) existing.remove();
-    document.body.insertAdjacentHTML('beforeend', html);
-
-    // Bind close
-    var overlay = document.getElementById('cfModalOverlay');
-    document.getElementById('cfModalClose').addEventListener('click', function() {
-      overlay.remove();
-    });
-    overlay.addEventListener('click', function(e) {
-      if (e.target === overlay) overlay.remove();
-    });
-    var escHandler = function(e) {
-      if (e.key === 'Escape') {
-        overlay.remove();
-        document.removeEventListener('keydown', escHandler);
-      }
-    };
-    document.addEventListener('keydown', escHandler);
-  },
-
-  _renderSummaryBar: function(detail, goalFunding) {
-    var netSavings = detail.netSavings;
-    var rate = detail.savingsRate * 100;
-
-    var html = '<div class="cf-modal-summary">' +
-      this._summaryItem('Income', detail.income.total, 'cf-summary-income') +
-      '<div class="cf-summary-arrow">&minus;</div>' +
-      this._summaryItem('Expenses', detail.expenses.total, 'cf-summary-expenses') +
-      '<div class="cf-summary-arrow">=</div>' +
-      this._summaryItem('Net Savings', netSavings, netSavings >= 0 ? 'cf-summary-positive' : 'cf-summary-negative',
-        ' (' + Fmt.pct(rate) + ')');
-
-    if (detail.transfers.total > 0) {
-      html += '<div class="cf-summary-divider"></div>' +
-        this._summaryItem('Transfers', detail.transfers.total, 'cf-summary-transfers');
-    }
-
-    // Overdrawn warning
-    if (goalFunding && goalFunding.overdrawn > 0) {
-      html += '<div class="cf-summary-divider"></div>' +
-        '<div class="cf-summary-item cf-summary-warning">' +
-          '<div class="cf-summary-label">Goal Overdraw</div>' +
-          '<div class="cf-summary-value">' + Fmt.currency(goalFunding.overdrawn) + '</div>' +
-        '</div>';
-    }
-
-    html += '</div>';
-    return html;
-  },
-
-  _summaryItem: function(label, value, cls, suffix) {
-    return '<div class="cf-summary-item ' + cls + '">' +
-      '<div class="cf-summary-label">' + label + '</div>' +
-      '<div class="cf-summary-value">' + Fmt.currency(value) + (suffix || '') + '</div>' +
-    '</div>';
-  },
-
-  _renderGoalFundingSection: function(gf) {
-    var html = '<div class="cf-modal-section cf-modal-section-wide">' +
-      '<h3>Goal Funding Reality</h3>';
-
-    // Explanation
-    if (gf.overdrawn > 0) {
-      html += '<div class="cf-funding-alert cf-funding-alert-warning">' +
-        'You moved ' + Fmt.currency(gf.totalActual) + ' to goal accounts but only saved ' +
-        Fmt.currency(gf.availableSavings) + ' this month. The extra ' +
-        Fmt.currency(gf.overdrawn) + ' came from other reserves.' +
-      '</div>';
-    } else if (gf.totalActual > 0 && gf.availableSavings > gf.totalActual) {
-      html += '<div class="cf-funding-alert cf-funding-alert-ok">' +
-        'Saved ' + Fmt.currency(gf.availableSavings) + ', allocated ' +
-        Fmt.currency(gf.totalActual) + ' to goals. ' +
-        Fmt.currency(gf.availableSavings - gf.totalActual) + ' unallocated.' +
-      '</div>';
-    }
-
-    // Goal table
-    html += '<table class="cf-detail-table"><thead><tr>' +
-      '<th>Goal</th><th>P</th>' +
-      '<th class="text-right">Planned/mo</th>' +
-      '<th class="text-right">Actual</th>' +
-      '<th class="text-right">Delta</th>' +
-      '<th>Status</th>' +
-    '</tr></thead><tbody>';
-
-    gf.goals.forEach(function(g) {
-      var deltaClass = '';
-      var statusLabel = '';
-      var statusClass = '';
-
-      if (g.status === 'withdrawn') {
-        deltaClass = 'negative';
-        statusLabel = 'Withdrawn';
-        statusClass = 'negative';
-      } else if (g.status === 'underfunded') {
-        deltaClass = 'negative';
-        statusLabel = 'Underfunded';
-        statusClass = 'negative';
-      } else if (g.status === 'overfunded') {
-        deltaClass = 'positive';
-        statusLabel = 'Overfunded';
-        statusClass = '';
-      } else {
-        statusLabel = 'On track';
-        statusClass = 'positive';
-      }
-
-      html += '<tr>' +
-        '<td>' + g.name + '</td>' +
-        '<td>P' + g.priority + '</td>' +
-        '<td class="text-right">' + Fmt.currency(g.planned) + '</td>' +
-        '<td class="text-right">' + Fmt.currency(g.actual) + '</td>' +
-        '<td class="text-right ' + deltaClass + '">' +
-          (g.delta >= 0 ? '+' : '') + Fmt.currency(g.delta) + '</td>' +
-        '<td class="' + statusClass + '">' + statusLabel + '</td>' +
-      '</tr>';
-    });
-
-    // Totals row
-    var totalDelta = gf.totalActual - gf.totalPlanned;
-    html += '<tr class="table-total-row">' +
-      '<td colspan="2">Total</td>' +
-      '<td class="text-right">' + Fmt.currency(gf.totalPlanned) + '</td>' +
-      '<td class="text-right">' + Fmt.currency(gf.totalActual) + '</td>' +
-      '<td class="text-right">' + (totalDelta >= 0 ? '+' : '') + Fmt.currency(totalDelta) + '</td>' +
-      '<td></td>' +
-    '</tr>';
-
-    html += '</tbody></table></div>';
-    return html;
-  },
-
-  _renderDetailTable: function(items, showSubcategory) {
-    if (!items.length) return '<p class="text-secondary">No entries</p>';
-
-    var html = '<table class="cf-detail-table"><thead><tr>' +
-      '<th>Category</th>';
-    if (showSubcategory) html += '<th>Subcategory</th>';
-    html += '<th class="text-right">Amount</th></tr></thead><tbody>';
-
-    items.forEach(function(item) {
-      html += '<tr><td>' + item.category + '</td>';
-      if (showSubcategory) html += '<td>' + (item.subcategory || '-') + '</td>';
-      html += '<td class="text-right">' + Fmt.currency(item.amount) + '</td></tr>';
-    });
-
-    html += '</tbody></table>';
-    return html;
   },
 
   _formatMonthName: function(monthStr) {

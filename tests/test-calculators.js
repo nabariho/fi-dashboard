@@ -958,6 +958,88 @@ describe('CashflowCalculator', function() {
     var result = CashflowCalculator.computeIncomeTrend(entries);
     assertEqual(result.growthRate, 0);
   });
+  it('computeMonthPnL groups into nested category/subcategory structure', function() {
+    var entries = [
+      { entry_id: 'p1', month: '2024-01', type: 'income', category: 'Salary', amount: 3200, notes: '' },
+      { entry_id: 'p2', month: '2024-01', type: 'income', category: 'Bonus', amount: 500, notes: '' },
+      { entry_id: 'p3', month: '2024-01', type: 'expense', category: 'Donations', subcategory: 'CruzRoja', amount: 6, notes: 'monthly' },
+      { entry_id: 'p4', month: '2024-01', type: 'expense', category: 'Donations', subcategory: 'Amnistia', amount: 6, notes: '' },
+      { entry_id: 'p5', month: '2024-01', type: 'expense', category: 'Donations', subcategory: 'AECC', amount: 10, notes: '' },
+      { entry_id: 'p6', month: '2024-01', type: 'expense', category: 'Housing', amount: 800, notes: 'rent' }
+    ];
+    var result = CashflowCalculator.computeMonthPnL(entries, '2024-01');
+
+    // Income
+    assertClose(result.income.total, 3700, 0.01);
+    assertEqual(result.income.byCategory['Salary'], 3200);
+    assertEqual(result.income.byCategory['Bonus'], 500);
+
+    // Expenses nested
+    assertClose(result.expenses.total, 822, 0.01);
+    assertEqual(result.expenses.byCategory['Donations'].total, 22);
+    assertEqual(result.expenses.byCategory['Donations'].subcategories['CruzRoja'], 6);
+    assertEqual(result.expenses.byCategory['Donations'].subcategories['AECC'], 10);
+    assertEqual(result.expenses.byCategory['Donations'].items.length, 3);
+    // Items sorted by amount desc
+    assertEqual(result.expenses.byCategory['Donations'].items[0].subcategory, 'AECC');
+    assertEqual(result.expenses.byCategory['Housing'].total, 800);
+
+    // Net savings & status
+    assertClose(result.netSavings, 2878, 0.01);
+    assertEqual(result.netSavingsStatus, 'positive');
+    assert(result.savingsRate > 0.7, 'Savings rate should be > 70%');
+    assertEqual(result.savingsRateStatus, 'positive');
+  });
+
+  it('computeMonthPnL returns zeros for empty month', function() {
+    var result = CashflowCalculator.computeMonthPnL([], '2024-01');
+    assertEqual(result.income.total, 0);
+    assertEqual(result.expenses.total, 0);
+    assertEqual(result.netSavings, 0);
+    assertEqual(result.netSavingsStatus, 'neutral');
+  });
+
+  it('computeMoMInsights computes deltas vs prior month', function() {
+    var entries = [
+      { entry_id: 'm1', month: '2024-01', type: 'income', category: 'Salary', amount: 3000, notes: '' },
+      { entry_id: 'm2', month: '2024-01', type: 'expense', category: 'Housing', amount: 900, notes: '' },
+      { entry_id: 'm3', month: '2024-01', type: 'expense', category: 'Food', amount: 400, notes: '' },
+      { entry_id: 'm4', month: '2024-02', type: 'income', category: 'Salary', amount: 3200, notes: '' },
+      { entry_id: 'm5', month: '2024-02', type: 'expense', category: 'Housing', amount: 900, notes: '' },
+      { entry_id: 'm6', month: '2024-02', type: 'expense', category: 'Food', amount: 500, notes: '' }
+    ];
+    var result = CashflowCalculator.computeMoMInsights(entries, '2024-02');
+
+    assert(result.hasPriorMonth, 'Should have prior month');
+    assertEqual(result.priorMonth, '2024-01');
+
+    // Expense changes: Food went up 100, Housing unchanged
+    var foodChange = result.expenseChanges.find(function(c) { return c.category === 'Food'; });
+    assertClose(foodChange.delta, 100, 0.01);
+    assertEqual(foodChange.deltaStatus, 'negative'); // expenses up = bad
+
+    // Income change
+    var incomeChange = result.totalIncomeChange;
+    assertClose(incomeChange.delta, 200, 0.01);
+    assertEqual(incomeChange.deltaStatus, 'positive'); // income up = good
+
+    // Top expense categories
+    assert(result.topExpenseCategories.length <= 5, 'Should have at most 5 top categories');
+    assertEqual(result.topExpenseCategories[0].category, 'Housing'); // 900 > 500
+  });
+
+  it('computeMoMInsights handles no prior month', function() {
+    var entries = [
+      { entry_id: 'n1', month: '2024-01', type: 'income', category: 'Salary', amount: 3000, notes: '' },
+      { entry_id: 'n2', month: '2024-01', type: 'expense', category: 'Housing', amount: 900, notes: '' }
+    ];
+    var result = CashflowCalculator.computeMoMInsights(entries, '2024-01');
+
+    assert(!result.hasPriorMonth, 'Should not have prior month');
+    assertEqual(result.expenseChanges.length, 0);
+    assertEqual(result.totalExpenseChange, null);
+    assert(result.topExpenseCategories.length > 0, 'Should still have top categories');
+  });
 });
 
 // --- CashflowNormalizationService ---
