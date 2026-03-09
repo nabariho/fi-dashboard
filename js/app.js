@@ -455,16 +455,33 @@ function refreshCashFlow() {
 
   // Month-scoped computations
   var pnl = null;
+  var scorecard = null;
+  var categoryAverages = null;
   var budgetVsActual = null;
+  var budgetVsActualYTD = null;
   var insights = null;
+  var improvementAreas = null;
   var waterfall = null;
+
+  // Derive FI savings rate target from config
+  var fiSavingsRate = 0;
+  if (appConfig.target_savings_rate) {
+    fiSavingsRate = parseFloat(appConfig.target_savings_rate);
+  } else if (appConfig.fi_target && monthlyIncome > 0) {
+    // Rough estimate: if no explicit target, use 50% as default
+    fiSavingsRate = 0.50;
+  }
 
   if (selectedMonth && typeof CashflowCalculator !== 'undefined') {
     pnl = CashflowCalculator.computeMonthPnL(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories);
+    scorecard = CashflowCalculator.computeMonthScorecard(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories, fiSavingsRate, _cashflowTrailingMonths);
+    categoryAverages = CashflowCalculator.computeCategoryAverages(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories, _cashflowTrailingMonths);
     insights = CashflowCalculator.computeMoMInsights(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories);
+    improvementAreas = CashflowCalculator.computeImprovementAreas(cashflowEntries, selectedMonth, cashflowCategories, cashflowSubcategories, budgetItems.length ? budgetItems : null, goalPlan, _cashflowTrailingMonths);
 
     if (typeof BudgetCalculator !== 'undefined' && budgetItems.length) {
       budgetVsActual = CashflowCalculator.computePlannedVsActual(cashflowEntries, budgetItems, selectedMonth, cashflowCategories);
+      budgetVsActualYTD = CashflowCalculator.computeBudgetVsActualYTD(cashflowEntries, budgetItems, selectedMonth, cashflowCategories);
     }
 
     // Build waterfall from PnL + goal plan for selected month
@@ -507,8 +524,12 @@ function refreshCashFlow() {
     months: months,
     selectedMonth: selectedMonth,
     pnl: pnl,
+    scorecard: scorecard,
+    categoryAverages: categoryAverages,
     budgetVsActual: budgetVsActual,
+    budgetVsActualYTD: budgetVsActualYTD,
     insights: insights,
+    improvementAreas: improvementAreas,
     waterfall: waterfall,
     categoryTrends: categoryTrends,
     budgetSummary: budgetSummary,

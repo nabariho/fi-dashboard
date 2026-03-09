@@ -1040,6 +1040,133 @@ describe('CashflowCalculator', function() {
     assertEqual(result.totalExpenseChange, null);
     assert(result.topExpenseCategories.length > 0, 'Should still have top categories');
   });
+
+  // --- Multi-month test data for scorecard/averages/improvements ---
+  var multiMonthEntries = [
+    { entry_id: 'mm1', month: '2024-01', type: 'income', category: 'Salary', amount: 3000, notes: '' },
+    { entry_id: 'mm2', month: '2024-01', type: 'expense', category: 'Housing', amount: 900, notes: '' },
+    { entry_id: 'mm3', month: '2024-01', type: 'expense', category: 'Food', amount: 400, notes: '' },
+    { entry_id: 'mm4', month: '2024-02', type: 'income', category: 'Salary', amount: 3000, notes: '' },
+    { entry_id: 'mm5', month: '2024-02', type: 'expense', category: 'Housing', amount: 900, notes: '' },
+    { entry_id: 'mm6', month: '2024-02', type: 'expense', category: 'Food', amount: 450, notes: '' },
+    { entry_id: 'mm7', month: '2024-03', type: 'income', category: 'Salary', amount: 3200, notes: '' },
+    { entry_id: 'mm8', month: '2024-03', type: 'expense', category: 'Housing', amount: 900, notes: '' },
+    { entry_id: 'mm9', month: '2024-03', type: 'expense', category: 'Food', amount: 500, notes: '' },
+    { entry_id: 'mm10', month: '2024-03', type: 'expense', category: 'Gifts', amount: 200, notes: '' }
+  ];
+
+  it('computeMonthScorecard computes rate comparisons and narrative', function() {
+    var result = CashflowCalculator.computeMonthScorecard(multiMonthEntries, '2024-03', [], [], 0.50);
+
+    assertClose(result.income, 3200, 0.01);
+    assertClose(result.expenses, 1600, 0.01);
+    assertClose(result.netSavings, 1600, 0.01);
+    assertEqual(result.netSavingsStatus, 'positive');
+
+    // Savings rate = 1600/3200 = 0.50
+    assertClose(result.savingsRate, 0.50, 0.001);
+
+    // vs target (50%) = 0pp
+    assertClose(result.savingsRateVsTargetPP, 0, 0.1);
+    assertEqual(result.onTarget, true);
+
+    // vs prior month (2024-02 rate = (3000-1350)/3000 = 0.55) → -5pp
+    assert(result.savingsRateDeltaPP !== null, 'Should have prior delta');
+
+    // Narrative is a non-empty string
+    assert(result.narrative.length > 10, 'Narrative should be meaningful: ' + result.narrative);
+    assert(result.trailingMonthsUsed >= 2, 'Should use multiple trailing months');
+  });
+
+  it('computeMonthScorecard handles first month (no prior)', function() {
+    var result = CashflowCalculator.computeMonthScorecard(multiMonthEntries, '2024-01', [], [], 0.50);
+    assertEqual(result.savingsRateDeltaPP, null);
+    assertEqual(result.priorSavingsRate, null);
+    assert(result.narrative.length > 0, 'Should still have narrative');
+  });
+
+  it('computeCategoryAverages computes trailing avg per category', function() {
+    var result = CashflowCalculator.computeCategoryAverages(multiMonthEntries, '2024-03', [], [], 6);
+
+    // Housing avg of prior months (2024-01: 900, 2024-02: 900) = 900
+    assertClose(result['Housing'].avg, 900, 0.01);
+    assertClose(result['Housing'].current, 900, 0.01);
+    assertClose(result['Housing'].delta, 0, 0.01);
+
+    // Food avg of prior months (2024-01: 400, 2024-02: 450) = 425
+    assertClose(result['Food'].avg, 425, 0.01);
+    assertClose(result['Food'].current, 500, 0.01);
+    assertClose(result['Food'].delta, 75, 0.01);
+    assertEqual(result['Food'].deltaStatus, 'negative'); // expenses up = bad
+
+    // Gifts: not in prior months, avg=0, current=200
+    // Gifts might not have trailing data, but should appear
+    assert(result['Gifts'] !== undefined, 'Should include Gifts');
+  });
+
+  it('computeBudgetVsActualYTD accumulates Jan through selected month', function() {
+    var budgetItems = [
+      { item_id: 'b1', name: 'Rent', type: 'fixed', amount: 950, frequency: 'monthly', category: 'Housing', active: true },
+      { item_id: 'b2', name: 'Groceries', type: 'variable', amount: 400, frequency: 'monthly', category: 'Food', active: true }
+    ];
+    var result = CashflowCalculator.computeBudgetVsActualYTD(multiMonthEntries, budgetItems, '2024-03');
+
+    // Housing: planned = 950*3 = 2850, actual = 900*3 = 2700
+    assertClose(result.byCategory['Housing'].planned, 2850, 0.01);
+    assertClose(result.byCategory['Housing'].actual, 2700, 0.01);
+    assertClose(result.byCategory['Housing'].delta, -150, 0.01);
+    assertEqual(result.byCategory['Housing'].varianceStatus, 'positive'); // under budget
+
+    // Food: planned = 400*3 = 1200, actual = 400+450+500 = 1350
+    assertClose(result.byCategory['Food'].planned, 1200, 0.01);
+    assertClose(result.byCategory['Food'].actual, 1350, 0.01);
+    assertEqual(result.byCategory['Food'].varianceStatus, 'negative'); // over budget
+
+    assertEqual(result.monthCount, 3);
+    assertEqual(result.year, '2024');
+  });
+
+  it('computeImprovementAreas detects trending expenses and new categories', function() {
+    var result = CashflowCalculator.computeImprovementAreas(multiMonthEntries, '2024-03', [], [], null, null, 6);
+
+    // Should detect Food trending up (400 → 450 → 500)
+    var foodTrend = result.find(function(a) { return a.category === 'Food' && a.type === 'trending_up'; });
+    assert(foodTrend !== undefined, 'Should detect Food trending up');
+    assert(foodTrend.annualImpact > 0, 'Should compute annual impact');
+
+    // Should detect Gifts as new category
+    var newGifts = result.find(function(a) { return a.category === 'Gifts' && a.type === 'new_category'; });
+    assert(newGifts !== undefined, 'Should detect Gifts as new category');
+
+    // All items should have required fields
+    result.forEach(function(a) {
+      assert(a.type, 'Should have type: ' + JSON.stringify(a));
+      assert(a.severity, 'Should have severity: ' + JSON.stringify(a));
+      assert(a.title, 'Should have title: ' + JSON.stringify(a));
+      assert(a.detail, 'Should have detail: ' + JSON.stringify(a));
+    });
+
+    // Should be sorted by severity (warnings first)
+    if (result.length >= 2) {
+      var sevOrder = { warning: 1, info: 2, success: 3 };
+      for (var i = 1; i < result.length; i++) {
+        assert(sevOrder[result[i].severity] >= sevOrder[result[i - 1].severity],
+          'Should be sorted by severity');
+      }
+    }
+  });
+
+  it('computeImprovementAreas detects surplus when goals present', function() {
+    var goalPlan = {
+      goals: [{ name: 'Retirement', allocated_monthly: 500 }]
+    };
+    // 2024-03: netSavings = 3200 - 1600 = 1600. Goal alloc = 500. Surplus = 1100.
+    var result = CashflowCalculator.computeImprovementAreas(multiMonthEntries, '2024-03', [], [], null, goalPlan, 6);
+    var surplus = result.find(function(a) { return a.type === 'surplus'; });
+    assert(surplus !== undefined, 'Should detect surplus');
+    assert(surplus.title.indexOf('1.100') >= 0 || surplus.title.indexOf('1,100') >= 0 || surplus.title.indexOf('1100') >= 0,
+      'Should show surplus amount: ' + surplus.title);
+  });
 });
 
 // --- CashflowNormalizationService ---

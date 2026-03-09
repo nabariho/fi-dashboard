@@ -593,6 +593,411 @@ var CashflowCalculator = {
     };
   },
 
+  // Compute monthly scorecard: savings rate vs target/avg/prior, narrative sentence.
+  // fiSavingsRate: the savings rate needed for FI (from config or derived), as decimal (e.g. 0.50)
+  // trailingMonths: how many months to average (default 6)
+  computeMonthScorecard: function(entries, month, categories, subcategories, fiSavingsRate, trailingMonths) {
+    var pnl = this.computeMonthPnL(entries, month, categories, subcategories);
+    var allMonths = this.computeAllMonths(entries, categories, subcategories);
+    var n = trailingMonths || 6;
+
+    // Current month index
+    var monthIdx = -1;
+    for (var i = 0; i < allMonths.length; i++) {
+      if (allMonths[i].month === month) { monthIdx = i; break; }
+    }
+
+    // Prior month
+    var priorSavingsRate = null;
+    var savingsRateDeltaPP = null;
+    if (monthIdx > 0) {
+      priorSavingsRate = allMonths[monthIdx - 1].savingsRate;
+      savingsRateDeltaPP = Math.round((pnl.savingsRate - priorSavingsRate) * 10000) / 100; // pp
+    }
+
+    // Trailing average
+    var trailingStart = Math.max(0, monthIdx - n + 1);
+    var trailingSlice = allMonths.slice(trailingStart, monthIdx + 1);
+    var avgSavingsRate = 0;
+    var avgExpenses = 0;
+    if (trailingSlice.length > 0) {
+      avgSavingsRate = trailingSlice.reduce(function(s, m) { return s + m.savingsRate; }, 0) / trailingSlice.length;
+      avgExpenses = trailingSlice.reduce(function(s, m) { return s + m.totalExpenses; }, 0) / trailingSlice.length;
+    }
+    var savingsRateVsAvgPP = Math.round((pnl.savingsRate - avgSavingsRate) * 10000) / 100;
+
+    // Expense vs trailing average
+    var expenseVsAvgPct = avgExpenses > EPSILON
+      ? Math.round((pnl.expenses.total - avgExpenses) / avgExpenses * 10000) / 100
+      : 0;
+
+    // Target comparison
+    var targetRate = fiSavingsRate || 0;
+    var savingsRateVsTargetPP = targetRate > 0
+      ? Math.round((pnl.savingsRate - targetRate) * 10000) / 100
+      : null;
+    var onTarget = targetRate > 0 ? pnl.savingsRate >= targetRate : null;
+
+    // Generate narrative
+    var narrative = this._buildScorecardNarrative(pnl, expenseVsAvgPct, savingsRateVsTargetPP, onTarget, trailingSlice.length);
+
+    return {
+      month: month,
+      income: pnl.income.total,
+      expenses: pnl.expenses.total,
+      netSavings: pnl.netSavings,
+      netSavingsStatus: pnl.netSavingsStatus,
+      savingsRate: pnl.savingsRate,
+      savingsRateStatus: pnl.savingsRateStatus,
+      targetSavingsRate: targetRate,
+      savingsRateVsTargetPP: savingsRateVsTargetPP,
+      onTarget: onTarget,
+      onTargetStatus: onTarget === null ? 'neutral' : (onTarget ? 'positive' : 'negative'),
+      priorSavingsRate: priorSavingsRate,
+      savingsRateDeltaPP: savingsRateDeltaPP,
+      savingsRateDeltaStatus: savingsRateDeltaPP !== null ? ValueStatus.sign(savingsRateDeltaPP) : 'neutral',
+      avgSavingsRate: avgSavingsRate,
+      savingsRateVsAvgPP: savingsRateVsAvgPP,
+      savingsRateVsAvgStatus: ValueStatus.sign(savingsRateVsAvgPP),
+      avgExpenses: avgExpenses,
+      expenseVsAvgPct: expenseVsAvgPct,
+      expenseVsAvgStatus: ValueStatus.signInverse(expenseVsAvgPct),
+      narrative: narrative,
+      trailingMonthsUsed: trailingSlice.length
+    };
+  },
+
+  _buildScorecardNarrative: function(pnl, expenseVsAvgPct, vsTargetPP, onTarget, trailingCount) {
+    var parts = [];
+
+    // Expense observation
+    if (trailingCount >= 2) {
+      if (expenseVsAvgPct < -5) {
+        parts.push('Expenses ' + Math.abs(expenseVsAvgPct).toFixed(0) + '% below your ' + trailingCount + '-month average.');
+      } else if (expenseVsAvgPct > 10) {
+        parts.push('Expenses ' + expenseVsAvgPct.toFixed(0) + '% above your ' + trailingCount + '-month average.');
+      } else {
+        parts.push('Expenses in line with your recent average.');
+      }
+    }
+
+    // Target comparison
+    if (onTarget === true && vsTargetPP !== null && Math.abs(vsTargetPP) >= 1) {
+      parts.push('Savings rate exceeds your FI target by ' + Math.abs(vsTargetPP).toFixed(0) + 'pp.');
+    } else if (onTarget === true && vsTargetPP !== null) {
+      parts.push('Savings rate meets your FI target.');
+    } else if (onTarget === false && vsTargetPP !== null) {
+      parts.push('Savings rate ' + Math.abs(vsTargetPP).toFixed(0) + 'pp below your FI target.');
+    }
+
+    // Overall tone
+    if (pnl.savingsRate >= 0.50) {
+      parts.unshift('Strong month.');
+    } else if (pnl.savingsRate >= 0.30) {
+      parts.unshift('Solid month.');
+    } else if (pnl.savingsRate >= 0.15) {
+      parts.unshift('Moderate month.');
+    } else if (pnl.savingsRate > 0) {
+      parts.unshift('Tight month.');
+    } else {
+      parts.unshift('Negative savings this month.');
+    }
+
+    return parts.join(' ');
+  },
+
+  // Compute trailing average per expense category.
+  // Returns: { [category]: { avg, months, current, delta, deltaPct, deltaStatus } }
+  computeCategoryAverages: function(entries, month, categories, subcategories, trailingMonths) {
+    var allMonths = this.computeAllMonths(entries, categories, subcategories);
+    var n = trailingMonths || 6;
+
+    // Find month index
+    var monthIdx = -1;
+    for (var i = 0; i < allMonths.length; i++) {
+      if (allMonths[i].month === month) { monthIdx = i; break; }
+    }
+    if (monthIdx < 0) return {};
+
+    // Trailing months BEFORE current (exclusive)
+    var trailingStart = Math.max(0, monthIdx - n);
+    var trailing = allMonths.slice(trailingStart, monthIdx);
+    if (!trailing.length) return {};
+
+    var currentMonth = allMonths[monthIdx];
+
+    // Collect all expense categories across trailing + current
+    var allCats = {};
+    trailing.forEach(function(m) {
+      Object.keys(m.expensesByCategory).forEach(function(c) { allCats[c] = true; });
+    });
+    Object.keys(currentMonth.expensesByCategory).forEach(function(c) { allCats[c] = true; });
+
+    var result = {};
+    Object.keys(allCats).forEach(function(cat) {
+      var sum = 0;
+      var count = 0;
+      trailing.forEach(function(m) {
+        if (m.expensesByCategory[cat] !== undefined) {
+          sum += m.expensesByCategory[cat];
+          count++;
+        }
+      });
+      var avg = count > 0 ? Math.round(sum / count * 100) / 100 : 0;
+      var current = currentMonth.expensesByCategory[cat] || 0;
+      var delta = Math.round((current - avg) * 100) / 100;
+      var deltaPct = avg > EPSILON ? Math.round(delta / avg * 10000) / 100 : (current > 0 ? 100 : 0);
+
+      result[cat] = {
+        avg: avg,
+        months: count,
+        current: current,
+        delta: delta,
+        deltaPct: deltaPct,
+        deltaStatus: ValueStatus.signInverse(delta)
+      };
+    });
+
+    return result;
+  },
+
+  // Compute budget vs actual cumulatively from January of the selected month's year
+  // through the selected month. Returns same shape as computePlannedVsActual but YTD.
+  computeBudgetVsActualYTD: function(entries, budgetItems, month, categories) {
+    var year = month.slice(0, 4);
+    var monthNum = parseInt(month.slice(5), 10);
+    var result = { byCategory: {}, totals: { planned: 0, actual: 0, delta: 0 } };
+
+    // Build monthly planned from budget
+    var planned = {};
+    (budgetItems || []).forEach(function(b) {
+      if (!b.active) return;
+      var cat = b.category || 'Other';
+      var monthly = BudgetCalculator.toMonthly(b.amount, b.frequency);
+      planned[cat] = (planned[cat] || 0) + monthly;
+    });
+
+    // Accumulate actuals from Jan to selected month
+    var actualByCat = {};
+    for (var m = 1; m <= monthNum; m++) {
+      var mm = m < 10 ? '0' + m : '' + m;
+      var monthStr = year + '-' + mm;
+      var monthData = this.computeMonth(entries, monthStr, categories);
+      var cats = Object.keys(monthData.expensesByCategory);
+      for (var i = 0; i < cats.length; i++) {
+        actualByCat[cats[i]] = (actualByCat[cats[i]] || 0) + monthData.expensesByCategory[cats[i]];
+      }
+    }
+
+    // Planned YTD = monthly * monthNum
+    var allCats = {};
+    Object.keys(planned).forEach(function(c) { allCats[c] = true; });
+    Object.keys(actualByCat).forEach(function(c) { allCats[c] = true; });
+
+    Object.keys(allCats).forEach(function(cat) {
+      var p = (planned[cat] || 0) * monthNum;
+      var a = actualByCat[cat] || 0;
+      var delta = a - p;
+      var variancePct = p > EPSILON ? Math.round(delta / p * 10000) / 100 : (a > 0 ? 100 : 0);
+      result.byCategory[cat] = {
+        planned: Math.round(p * 100) / 100,
+        actual: Math.round(a * 100) / 100,
+        delta: Math.round(delta * 100) / 100,
+        variancePct: variancePct,
+        varianceStatus: ValueStatus.signInverse(delta)
+      };
+      result.totals.planned += p;
+      result.totals.actual += a;
+    });
+
+    result.totals.planned = Math.round(result.totals.planned * 100) / 100;
+    result.totals.actual = Math.round(result.totals.actual * 100) / 100;
+    result.totals.delta = Math.round((result.totals.actual - result.totals.planned) * 100) / 100;
+    result.totals.variancePct = result.totals.planned > EPSILON
+      ? Math.round(result.totals.delta / result.totals.planned * 10000) / 100 : 0;
+    result.totals.varianceStatus = ValueStatus.signInverse(result.totals.delta);
+    result.monthCount = monthNum;
+    result.year = year;
+    return result;
+  },
+
+  // Compute prioritized, actionable improvement areas.
+  // Returns: [{ type, severity, category, title, detail, annualImpact, annualImpactStatus }]
+  // Types: 'trending_up', 'new_category', 'budget_buster', 'surplus', 'rate_declining'
+  // Severity: 'warning', 'info', 'success'
+  computeImprovementAreas: function(entries, month, categories, subcategories, budgetItems, goalPlan, trailingMonths) {
+    var areas = [];
+    var allMonths = this.computeAllMonths(entries, categories, subcategories);
+    var n = trailingMonths || 6;
+
+    // Find month index
+    var monthIdx = -1;
+    for (var i = 0; i < allMonths.length; i++) {
+      if (allMonths[i].month === month) { monthIdx = i; break; }
+    }
+    if (monthIdx < 0) return areas;
+
+    var current = allMonths[monthIdx];
+    var trailingStart = Math.max(0, monthIdx - n);
+    var trailing = allMonths.slice(trailingStart, monthIdx);
+
+    // --- 1. Trending expense categories (3-month slope) ---
+    if (trailing.length >= 2) {
+      var recentN = Math.min(trailing.length, 3);
+      var recentSlice = allMonths.slice(Math.max(0, monthIdx - recentN), monthIdx + 1);
+
+      // Collect categories that appear in recent + current
+      var catSet = {};
+      recentSlice.forEach(function(m) {
+        Object.keys(m.expensesByCategory).forEach(function(c) { catSet[c] = true; });
+      });
+
+      Object.keys(catSet).forEach(function(cat) {
+        var values = recentSlice.map(function(m) { return m.expensesByCategory[cat] || 0; });
+        if (values.length < 3) return;
+
+        // Simple: compare first vs last
+        var first = values[0];
+        var last = values[values.length - 1];
+        if (first < EPSILON && last < EPSILON) return;
+
+        var change = last - first;
+        var avgBase = (first + last) / 2;
+        var changePct = avgBase > EPSILON ? change / avgBase : 0;
+
+        if (changePct > 0.10 && change > 20) { // >10% increase and >20€ absolute
+          var annualImpact = Math.round(change * 12 * 100) / 100;
+          areas.push({
+            type: 'trending_up',
+            severity: 'warning',
+            category: cat,
+            title: cat + ' spending trending up',
+            detail: Fmt.currency(first) + ' \u2192 ' + Fmt.currency(last) +
+              ' over last ' + values.length + ' months (' + (changePct > 0 ? '+' : '') +
+              (changePct * 100).toFixed(0) + '%).',
+            annualImpact: annualImpact,
+            annualImpactStatus: ValueStatus.signInverse(annualImpact)
+          });
+        }
+      });
+    }
+
+    // --- 2. New expense categories (not in prior 3 months) ---
+    if (trailing.length >= 1) {
+      var priorCats = {};
+      var lookback = trailing.slice(-3);
+      lookback.forEach(function(m) {
+        Object.keys(m.expensesByCategory).forEach(function(c) { priorCats[c] = true; });
+      });
+
+      Object.keys(current.expensesByCategory).forEach(function(cat) {
+        if (!priorCats[cat] && current.expensesByCategory[cat] > EPSILON) {
+          areas.push({
+            type: 'new_category',
+            severity: 'info',
+            category: cat,
+            title: 'New: ' + cat,
+            detail: Fmt.currency(current.expensesByCategory[cat]) + ' this month. Not seen in prior ' + lookback.length + ' months.',
+            annualImpact: Math.round(current.expensesByCategory[cat] * 12 * 100) / 100,
+            annualImpactStatus: 'neutral'
+          });
+        }
+      });
+    }
+
+    // --- 3. Budget busters (over budget 3+ months in a row) ---
+    if (budgetItems && budgetItems.length && trailing.length >= 2) {
+      var planned = {};
+      budgetItems.forEach(function(b) {
+        if (!b.active) return;
+        var cat = b.category || 'Other';
+        planned[cat] = (planned[cat] || 0) + BudgetCalculator.toMonthly(b.amount, b.frequency);
+      });
+
+      var recentForBudget = allMonths.slice(Math.max(0, monthIdx - 2), monthIdx + 1); // last 3 incl current
+      Object.keys(planned).forEach(function(cat) {
+        var p = planned[cat];
+        if (p < EPSILON) return;
+        var overCount = 0;
+        var totalOver = 0;
+        recentForBudget.forEach(function(m) {
+          var actual = m.expensesByCategory[cat] || 0;
+          if (actual > p + EPSILON) {
+            overCount++;
+            totalOver += actual - p;
+          }
+        });
+        if (overCount >= 3) {
+          var avgOver = Math.round(totalOver / overCount * 100) / 100;
+          areas.push({
+            type: 'budget_buster',
+            severity: 'warning',
+            category: cat,
+            title: cat + ' over budget ' + overCount + ' months running',
+            detail: 'Averaging ' + Fmt.currency(avgOver) + '/mo over the ' +
+              Fmt.currency(p) + ' budget. Consider adjusting budget or spending.',
+            annualImpact: Math.round(avgOver * 12 * 100) / 100,
+            annualImpactStatus: ValueStatus.signInverse(avgOver)
+          });
+        }
+      });
+    }
+
+    // --- 4. Unallocated surplus ---
+    if (goalPlan && goalPlan.goals && current.netSavings > 0) {
+      var totalGoalAlloc = 0;
+      goalPlan.goals.forEach(function(g) {
+        totalGoalAlloc += (g.allocated_monthly || 0);
+      });
+      var surplus = Math.round((current.netSavings - totalGoalAlloc) * 100) / 100;
+      if (surplus > 50) { // > 50€ unallocated
+        areas.push({
+          type: 'surplus',
+          severity: 'success',
+          category: null,
+          title: 'Unallocated savings: ' + Fmt.currency(surplus),
+          detail: 'You saved more than your goal allocations need. Consider increasing contributions or adding a new goal.',
+          annualImpact: Math.round(surplus * 12 * 100) / 100,
+          annualImpactStatus: ValueStatus.sign(surplus)
+        });
+      }
+    }
+
+    // --- 5. Savings rate declining trend ---
+    if (trailing.length >= 2) {
+      var rateSlice = allMonths.slice(Math.max(0, monthIdx - 2), monthIdx + 1);
+      if (rateSlice.length >= 3) {
+        var allDecreasing = true;
+        for (var j = 1; j < rateSlice.length; j++) {
+          if (rateSlice[j].savingsRate >= rateSlice[j - 1].savingsRate - 0.005) {
+            allDecreasing = false;
+            break;
+          }
+        }
+        if (allDecreasing) {
+          var rDrop = Math.round((rateSlice[0].savingsRate - rateSlice[rateSlice.length - 1].savingsRate) * 10000) / 100;
+          areas.push({
+            type: 'rate_declining',
+            severity: 'warning',
+            category: null,
+            title: 'Savings rate declining',
+            detail: 'Down ' + rDrop.toFixed(1) + 'pp over ' + rateSlice.length + ' months. Review expense trends.',
+            annualImpact: null,
+            annualImpactStatus: 'neutral'
+          });
+        }
+      }
+    }
+
+    // Sort: warnings first, then info, then success
+    var severityOrder = { warning: 1, info: 2, success: 3 };
+    areas.sort(function(a, b) {
+      return (severityOrder[a.severity] || 9) - (severityOrder[b.severity] || 9);
+    });
+
+    return areas;
+  },
+
   // Generate a slug from a category name (lowercase, spaces to hyphens).
   slugify: function(str) {
     return (str || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
