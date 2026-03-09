@@ -112,10 +112,8 @@ var MilestoneCalculator = {
     });
   },
 
-  // Helper: months between two YYYY-MM strings
+  // Delegate to DateUtils
   _monthsBetween: function(from, to) {
-    var f = from.split('-');
-    var t = to.split('-');
-    return (parseInt(t[0]) - parseInt(f[0])) * 12 + (parseInt(t[1]) - parseInt(f[1]));
+    return DateUtils.monthsBetween(from, to);
   }
 };

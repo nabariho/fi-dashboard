@@ -10,22 +10,9 @@ var MortgageCalculator = {
     return principal * (monthlyRate * factor) / (factor - 1);
   },
 
-  // Add months to a YYYY-MM string
-  _addMonths: function(dateStr, n) {
-    var parts = dateStr.split('-');
-    var y = parseInt(parts[0]);
-    var m = parseInt(parts[1]) + n;
-    while (m > 12) { m -= 12; y++; }
-    while (m < 1) { m += 12; y--; }
-    return y + '-' + (m < 10 ? '0' : '') + m;
-  },
-
-  // Months between two YYYY-MM strings (b - a)
-  _monthsBetween: function(a, b) {
-    var pa = a.split('-');
-    var pb = b.split('-');
-    return (parseInt(pb[0]) - parseInt(pa[0])) * 12 + (parseInt(pb[1]) - parseInt(pa[1]));
-  },
+  // Delegate to DateUtils for shared date arithmetic
+  _addMonths: function(dateStr, n) { return DateUtils.addMonths(dateStr, n); },
+  _monthsBetween: function(a, b) { return DateUtils.monthsBetween(a, b); },
 
   // Get market value at a given month from sparse valuations
   _getMarketValueAtMonth: function(valuations, month) {
@@ -59,8 +46,8 @@ var MortgageCalculator = {
 
     for (var i = 0; i < totalMonths && balance > 0.005; i++) {
       var month = this._addMonths(startDate, i);
-      var interest = balance * monthlyRate;
-      var principalPart = Math.min(payment - interest, balance);
+      var interest = Math.round(balance * monthlyRate * 100) / 100;
+      var principalPart = Math.min(Math.round((payment - interest) * 100) / 100, balance);
       var monthPayment = interest + principalPart;
 
       // Check for extra payment this month
@@ -81,8 +68,8 @@ var MortgageCalculator = {
       balance = balance - principalPart - extraAmount;
       if (balance < 0.005) balance = 0;
 
-      cumInterest += interest;
-      cumPrincipal += principalPart + extraAmount;
+      cumInterest = Math.round((cumInterest + interest) * 100) / 100;
+      cumPrincipal = Math.round((cumPrincipal + principalPart + extraAmount) * 100) / 100;
 
       schedule.push({
         month: month,
@@ -184,6 +171,21 @@ var MortgageCalculator = {
 
     // After last schedule entry: loan paid off
     return 0;
+  },
+
+  // Aggregate schedule by year for charts and summary tables.
+  // Returns { 'YYYY': { principal, interest, extra, payment } }
+  computeYearlyAggregates: function(schedule) {
+    var byYear = {};
+    schedule.forEach(function(s) {
+      var year = DateUtils.getYear(s.month);
+      if (!byYear[year]) byYear[year] = { principal: 0, interest: 0, extra: 0, payment: 0 };
+      byYear[year].principal = Math.round((byYear[year].principal + s.principal_paid) * 100) / 100;
+      byYear[year].interest = Math.round((byYear[year].interest + s.interest_paid) * 100) / 100;
+      byYear[year].extra = Math.round((byYear[year].extra + s.extra) * 100) / 100;
+      byYear[year].payment = Math.round((byYear[year].payment + s.payment + s.extra) * 100) / 100;
+    });
+    return byYear;
   },
 
   // Compare actual payments vs planned schedule

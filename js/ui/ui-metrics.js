@@ -22,18 +22,12 @@ var MetricsRenderer = {
     var el = document.getElementById('fiProgress');
     if (!el) return;
 
-    // On-track context: if yearsToFI is reasonable, show encouragement
+    // On-track context from FICalculator
     var contextHtml = '';
-    if (yearsToFI !== Infinity && yearsToFI > 0) {
-      var targetYear = new Date().getFullYear() + Math.ceil(yearsToFI);
-      var inflNote = opts.inflationRate > 0 ? ' (inflation-adjusted)' : '';
-      if (yearsToFI <= 10) {
-        contextHtml = '<div class="fi-context"><span class="fi-context-badge on-track">On Track</span> At current pace, FI by ~' + targetYear + inflNote + '</div>';
-      } else if (yearsToFI <= 20) {
-        contextHtml = '<div class="fi-context"><span class="fi-context-badge slow">Steady</span> At current pace, FI by ~' + targetYear + inflNote + '</div>';
-      } else {
-        contextHtml = '<div class="fi-context"><span class="fi-context-badge behind">Long Road</span> At current pace, FI by ~' + targetYear + inflNote + '</div>';
-      }
+    var fiCtx = FICalculator.fiContext(yearsToFI, opts.inflationRate);
+    if (fiCtx.badge) {
+      contextHtml = '<div class="fi-context"><span class="fi-context-badge ' + fiCtx.badgeClass + '">' +
+        fiCtx.badge + '</span> At current pace, ' + fiCtx.message + '</div>';
     }
 
     // Income growth note (only when growth rate is significant)
@@ -49,15 +43,14 @@ var MetricsRenderer = {
     }
     targetHtml += '</div>';
 
-    // Derived FI target warning
+    // Derived FI target warning (divergence check from calculator)
     var derivedWarning = '';
     if (opts.derivedFITarget > 0) {
-      var divergence = Math.abs(opts.derivedFITarget - fiTarget) / fiTarget;
-      if (divergence > 0.10) {
-        var label = opts.derivedFITarget > fiTarget ? 'higher' : 'lower';
+      var divResult = FICalculator.derivedFIDivergence(opts.derivedFITarget, fiTarget);
+      if (divResult.isSignificant) {
         derivedWarning = '<div class="fi-derived-warning">' +
           'Based on your expenses, you need ~' + Fmt.currencyShort(opts.derivedFITarget) +
-          ' (' + label + ' than target)' +
+          ' (' + divResult.label + ' than target)' +
           (opts.taxRate > 0 ? ' incl. ' + (opts.taxRate * 100).toFixed(0) + '% withdrawal tax' : '') +
           '</div>';
       }
@@ -71,14 +64,14 @@ var MetricsRenderer = {
       passiveLabel = 'Passive Income (net)';
     }
 
-    // Passive income coverage (use net income if available)
+    // Passive income coverage (from calculator)
     var coverageStat = '';
-    if (monthlyExpenses > 0) {
-      var coverageIncome = (opts.taxRate > 0 && opts.passiveIncomeNet !== undefined) ? opts.passiveIncomeNet : passiveIncome;
-      var coveragePct = (coverageIncome / monthlyExpenses * 100).toFixed(0);
+    var coverageIncome = (opts.taxRate > 0 && opts.passiveIncomeNet !== undefined) ? opts.passiveIncomeNet : passiveIncome;
+    var covPct = FICalculator.coveragePct(coverageIncome, monthlyExpenses);
+    if (covPct !== null) {
       coverageStat =
         '<div class="fi-stat">' +
-          '<span class="fi-stat-value">' + coveragePct + '%</span>' +
+          '<span class="fi-stat-value">' + covPct.toFixed(0) + '%</span>' +
           '<span class="fi-stat-label">Expenses Covered</span>' +
         '</div>';
     }
@@ -193,23 +186,24 @@ var MetricsRenderer = {
     var mom = current.monthly_return_pct;
     var savingsPct = current.end_value > 0 ? (invested / current.end_value * 100) : 0;
     var marketPct = current.end_value > 0 ? (profit / current.end_value * 100) : 0;
+    var profitStatus = ValueStatus.sign(profit);
 
     document.getElementById('metrics').innerHTML =
       this._card('Portfolio Value', Fmt.currency(current.end_value), '',
-        Fmt.pct(mom) + ' this month', mom >= 0 ? 'positive' : 'negative') +
+        Fmt.pct(mom) + ' this month', current.monthlyReturnStatus) +
       this._card('Your Savings', Fmt.currency(invested), '',
         Fmt.pctShort(savingsPct) + ' of portfolio') +
-      this._card('Market Growth', Fmt.currency(profit), profit >= 0 ? 'positive' : 'negative',
-        Fmt.pctShort(marketPct) + ' of portfolio', profit >= 0 ? 'positive' : 'negative') +
-      this._card('YTD Return', Fmt.pct(ytd), ytd >= 0 ? 'positive' : 'negative',
-        Fmt.pct(mom) + ' this month', mom >= 0 ? 'positive' : 'negative');
+      this._card('Market Growth', Fmt.currency(profit), profitStatus,
+        Fmt.pctShort(marketPct) + ' of portfolio', profitStatus) +
+      this._card('YTD Return', Fmt.pct(ytd), current.ytdReturnStatus,
+        Fmt.pct(mom) + ' this month', current.monthlyReturnStatus);
   },
 
   renderNetWorth: function(current, mom, ytd) {
     var hasMortgage = current.liabilities > 0 || current.house_value > 0;
 
     var html = this._card('Net Worth', Fmt.currency(current.total), '',
-      Fmt.pct(mom.pct) + ' this month', mom.change >= 0 ? 'positive' : 'negative');
+      Fmt.pct(mom.pct) + ' this month', mom.status);
 
     if (hasMortgage) {
       // Show the full breakdown: assets vs liabilities
@@ -224,8 +218,8 @@ var MetricsRenderer = {
       html += this._card('Bank Accounts', Fmt.currency(current.bank));
     }
 
-    html += this._card('YTD Change', Fmt.currency(ytd.change), ytd.change >= 0 ? 'positive' : 'negative',
-      Fmt.pct(ytd.pct), ytd.pct >= 0 ? 'positive' : 'negative');
+    html += this._card('YTD Change', Fmt.currency(ytd.change), ytd.status,
+      Fmt.pct(ytd.pct), ytd.status);
 
     document.getElementById('nwMetrics').innerHTML = html;
   },

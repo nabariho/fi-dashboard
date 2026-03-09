@@ -129,12 +129,24 @@ var CashflowCalculator = {
     Object.keys(allCats).forEach(function(cat) {
       var p = planned[cat] || 0;
       var a = actual.expensesByCategory[cat] || 0;
-      result.byCategory[cat] = { planned: p, actual: a, delta: a - p };
+      var delta = a - p;
+      // For expenses: under budget is positive, over budget is negative
+      var variancePct = p > 0 ? (delta / p * 100) : (a > 0 ? 100 : 0);
+      result.byCategory[cat] = {
+        planned: p,
+        actual: a,
+        delta: delta,
+        variancePct: variancePct,
+        varianceStatus: ValueStatus.signInverse(delta)
+      };
       result.totals.planned += p;
       result.totals.actual += a;
     });
 
     result.totals.delta = result.totals.actual - result.totals.planned;
+    result.totals.variancePct = result.totals.planned > 0
+      ? (result.totals.delta / result.totals.planned * 100) : 0;
+    result.totals.varianceStatus = ValueStatus.signInverse(result.totals.delta);
     return result;
   },
 

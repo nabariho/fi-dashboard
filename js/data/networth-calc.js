@@ -67,18 +67,39 @@ var NetWorthCalculator = {
     var change = current.total - startOfYear;
     var pct = Math.abs(startOfYear) > 0.01 ? (change / Math.abs(startOfYear)) * 100 : 0;
 
-    return { change: change, pct: pct };
+    return { change: change, pct: pct, status: ValueStatus.sign(change) };
   },
 
   // Compute month-over-month change
   computeMoM: function(data) {
-    if (data.length < 2) return { change: 0, pct: 0 };
+    if (data.length < 2) return { change: 0, pct: 0, status: 'neutral' };
 
     var current = data[data.length - 1];
     var prev = data[data.length - 2];
     var change = current.total - prev.total;
-    var pct = Math.abs(prev.total) > 0.01 ? (change / Math.abs(prev.total)) * 100 : 0;
+    var pct = Math.abs(prev.total) > EPSILON ? (change / Math.abs(prev.total)) * 100 : 0;
 
-    return { change: change, pct: pct };
+    return { change: change, pct: pct, status: ValueStatus.sign(change) };
+  },
+
+  // Compute per-account deltas between the two most recent months.
+  // Returns array of { accountId, name, current, previous, delta, deltaStatus }
+  computeAccountDeltas: function(nwData, accountIds) {
+    if (!nwData || nwData.length < 2) return [];
+    var recent = nwData[nwData.length - 1];
+    var prev = nwData[nwData.length - 2];
+    return accountIds.map(function(id) {
+      var cur = recent.accounts[id] || 0;
+      var prv = prev.accounts[id] || 0;
+      var delta = cur - prv;
+      return {
+        accountId: id,
+        name: AccountService.getName(id),
+        current: cur,
+        previous: prv,
+        delta: delta,
+        deltaStatus: ValueStatus.sign(delta)
+      };
+    });
   }
 };

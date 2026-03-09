@@ -22,12 +22,12 @@ var BudgetRenderer = {
       '<div class="metric-card">' +
         '<div class="label">Fixed Expenses</div>' +
         '<div class="value">' + Fmt.currency(budget.fixed) + '</div>' +
-        '<div class="sub">' + (budget.total > 0 ? (budget.fixed / budget.total * 100).toFixed(0) : 0) + '% of total</div>' +
+        '<div class="sub">' + (budget.fixedPct || 0).toFixed(0) + '% of total</div>' +
       '</div>' +
       '<div class="metric-card">' +
         '<div class="label">Variable Expenses</div>' +
         '<div class="value">' + Fmt.currency(budget.variable) + '</div>' +
-        '<div class="sub">' + (budget.total > 0 ? (budget.variable / budget.total * 100).toFixed(0) : 0) + '% of total</div>' +
+        '<div class="sub">' + (budget.variablePct || 0).toFixed(0) + '% of total</div>' +
       '</div>' +
     '</div>';
 

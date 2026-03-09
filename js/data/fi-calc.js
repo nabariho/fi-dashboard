@@ -102,6 +102,42 @@ var FICalculator = {
     return targetYear + '-' + (m < 10 ? '0' : '') + m;
   },
 
+  // Compute FI context badge/message for display. Pre-computed for UI.
+  // Returns { badge, badgeClass, message } or nulls if not applicable.
+  fiContext: function(yearsToFI, inflationRate) {
+    if (yearsToFI === Infinity || yearsToFI <= 0) {
+      return { badge: null, badgeClass: null, message: null };
+    }
+    var targetYear = new Date().getFullYear() + Math.ceil(yearsToFI);
+    var inflNote = inflationRate > 0 ? ' (inflation-adjusted)' : '';
+    if (yearsToFI <= 10) {
+      return { badge: 'On Track', badgeClass: 'on-track', message: 'FI by ~' + targetYear + inflNote };
+    }
+    if (yearsToFI <= 20) {
+      return { badge: 'Steady', badgeClass: 'slow', message: 'FI by ~' + targetYear + inflNote };
+    }
+    return { badge: 'Long Road', badgeClass: 'behind', message: 'FI by ~' + targetYear + inflNote };
+  },
+
+  // Compute expense coverage percentage from passive income.
+  coveragePct: function(passiveIncome, monthlyExpenses) {
+    if (!monthlyExpenses || monthlyExpenses <= 0) return null;
+    return passiveIncome / monthlyExpenses * 100;
+  },
+
+  // Compute divergence between derived FI target and configured FI target.
+  // Returns { divergence (ratio), isSignificant (bool), label ('higher'|'lower'|null) }
+  derivedFIDivergence: function(derivedTarget, fiTarget, threshold) {
+    threshold = threshold || 0.10;
+    if (fiTarget <= 0) return { divergence: 0, isSignificant: false, label: null };
+    var div = Math.abs(derivedTarget - fiTarget) / fiTarget;
+    return {
+      divergence: div,
+      isSignificant: div > threshold,
+      label: derivedTarget > fiTarget ? 'higher' : 'lower'
+    };
+  },
+
   // Sensitivity analysis: how does FI date change with extra savings?
   // Returns array of { extraSavings, yearsToFI, fiDate, yearsSaved }
   sensitivityAnalysis: function(currentNW, monthlySavings, annualReturn, fiTarget, increments) {

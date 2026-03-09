@@ -60,9 +60,9 @@ describe('ReturnsCalculator', function() {
       { month: '2024-01', end_value: 1050, net_contribution: 1000 },
       { month: '2024-02', end_value: 2150, net_contribution: 1000 }
     ];
-    ReturnsCalculator.compute(data);
-    assertEqual(data[0].cum_contribution, 1000);
-    assertEqual(data[1].cum_contribution, 2000);
+    var result = ReturnsCalculator.compute(data);
+    assertEqual(result[0].cum_contribution, 1000);
+    assertEqual(result[1].cum_contribution, 2000);
   });
 
   it('computes Modified Dietz monthly return', function() {
@@ -70,11 +70,11 @@ describe('ReturnsCalculator', function() {
       { month: '2024-01', end_value: 1050, net_contribution: 1000 },
       { month: '2024-02', end_value: 2200, net_contribution: 1000 }
     ];
-    ReturnsCalculator.compute(data);
+    var result = ReturnsCalculator.compute(data);
     // First month: (1050 - 1000) / (0.5 * 1000) * 100 = 10%
-    assertClose(data[0].monthly_return_pct, 10, 0.01);
+    assertClose(result[0].monthly_return_pct, 10, 0.01);
     // Second month: (2200 - 1050 - 1000) / (1050 + 500) * 100 = 150/1550*100 ≈ 9.68%
-    assertClose(data[1].monthly_return_pct, 9.68, 0.01);
+    assertClose(result[1].monthly_return_pct, 9.68, 0.01);
   });
 
   it('resets YTD at January', function() {
@@ -83,9 +83,9 @@ describe('ReturnsCalculator', function() {
       { month: '2024-12', end_value: 10800, net_contribution: 0 },
       { month: '2025-01', end_value: 11000, net_contribution: 0 }
     ];
-    ReturnsCalculator.compute(data);
+    var result = ReturnsCalculator.compute(data);
     // Jan 2025 should have YTD = monthly return (reset)
-    assertClose(data[2].ytd_return_pct, data[2].monthly_return_pct, 0.001);
+    assertClose(result[2].ytd_return_pct, result[2].monthly_return_pct, 0.001);
   });
 
   it('groupByYear organizes data correctly', function() {
@@ -1111,5 +1111,193 @@ describe('MilestoneCalculator', function() {
     assertEqual(results.length, 1);
     assertEqual(results[0].goal_id, 'ms1');
     assertClose(results[0].progressPct, 60, 0.1);
+  });
+});
+
+// --- DateUtils ---
+
+describe('DateUtils', function() {
+  it('monthsBetween computes correctly', function() {
+    assertEqual(DateUtils.monthsBetween('2024-01', '2024-06'), 5);
+    assertEqual(DateUtils.monthsBetween('2024-06', '2025-01'), 7);
+    assertEqual(DateUtils.monthsBetween('2025-03', '2024-01'), -14);
+  });
+
+  it('addMonths handles year wraparound', function() {
+    assertEqual(DateUtils.addMonths('2024-11', 3), '2025-02');
+    assertEqual(DateUtils.addMonths('2025-02', -3), '2024-11');
+    assertEqual(DateUtils.addMonths('2024-01', 12), '2025-01');
+  });
+
+  it('prevMonth and nextMonth work', function() {
+    assertEqual(DateUtils.prevMonth('2024-01'), '2023-12');
+    assertEqual(DateUtils.nextMonth('2024-12'), '2025-01');
+  });
+
+  it('getYear and getMonthIndex extract correctly', function() {
+    assertEqual(DateUtils.getYear('2024-06'), '2024');
+    assertEqual(DateUtils.getMonthIndex('2024-06'), 5);
+  });
+});
+
+// --- ValueStatus ---
+
+describe('ValueStatus', function() {
+  it('sign classifies positive/negative/neutral', function() {
+    assertEqual(ValueStatus.sign(100), 'positive');
+    assertEqual(ValueStatus.sign(-100), 'negative');
+    assertEqual(ValueStatus.sign(0), 'neutral');
+    assertEqual(ValueStatus.sign(0.005), 'neutral'); // within EPSILON
+  });
+
+  it('signInverse inverts classification', function() {
+    assertEqual(ValueStatus.signInverse(100), 'negative');
+    assertEqual(ValueStatus.signInverse(-100), 'positive');
+    assertEqual(ValueStatus.signInverse(0), 'neutral');
+  });
+});
+
+// --- ReturnsCalculator idempotency ---
+
+describe('ReturnsCalculator (idempotency)', function() {
+  it('compute does not mutate input array', function() {
+    var input = [
+      { month: '2024-01', end_value: 1050, net_contribution: 1000 },
+      { month: '2024-02', end_value: 2200, net_contribution: 1000 }
+    ];
+    var result = ReturnsCalculator.compute(input);
+    // Input should NOT have cum_contribution added
+    assert(input[0].cum_contribution === undefined, 'Input should not be mutated');
+    // Result should have it
+    assertEqual(result[0].cum_contribution, 1000);
+  });
+
+  it('compute returns same results when called twice', function() {
+    var input = [
+      { month: '2024-01', end_value: 1050, net_contribution: 1000 },
+      { month: '2024-02', end_value: 2200, net_contribution: 1000 }
+    ];
+    var result1 = ReturnsCalculator.compute(input);
+    var result2 = ReturnsCalculator.compute(input);
+    assertClose(result1[0].monthly_return_pct, result2[0].monthly_return_pct, 0.001);
+    assertClose(result1[1].ytd_return_pct, result2[1].ytd_return_pct, 0.001);
+  });
+
+  it('compute includes status fields', function() {
+    var input = [
+      { month: '2024-01', end_value: 1050, net_contribution: 1000 },
+      { month: '2024-02', end_value: 2200, net_contribution: 1000 }
+    ];
+    var result = ReturnsCalculator.compute(input);
+    assertEqual(result[0].monthlyReturnStatus, 'positive');
+    assertEqual(result[0].ytdReturnStatus, 'positive');
+  });
+
+  it('compareAccounts includes pre-computed totals', function() {
+    var data = [
+      { month: '2024-01', account_id: 'BROKER_A', end_value: 10500, net_contribution: 10000 },
+      { month: '2024-02', account_id: 'BROKER_A', end_value: 11000, net_contribution: 0 }
+    ];
+    var result = ReturnsCalculator.compareAccounts(data, ['BROKER_A']);
+    assert(result.totals !== undefined, 'Should have totals');
+    assertEqual(result.totals.totalInvested, 10000);
+    assertClose(result.totals.currentValue, 11000, 0.01);
+    assertClose(result.totals.profit, 1000, 0.01);
+    assertEqual(result.totals.profitStatus, 'positive');
+  });
+});
+
+// --- BudgetCalculator precision ---
+
+describe('BudgetCalculator (precision)', function() {
+  it('toMonthly rounds to 2 decimals', function() {
+    // 1000 / 12 = 83.333... should round to 83.33
+    assertClose(BudgetCalculator.toMonthly(1000, 'yearly'), 83.33, 0.001);
+    // 100 / 4 = 25 exactly
+    assertEqual(BudgetCalculator.toMonthly(100, 'quarterly'), 25);
+  });
+
+  it('computeMonthlyBudget includes fixedPct and variablePct', function() {
+    var items = [
+      { item_id: '1', name: 'Rent', type: 'fixed', amount: 1000, frequency: 'monthly', category: 'Housing', active: true },
+      { item_id: '2', name: 'Food', type: 'variable', amount: 300, frequency: 'monthly', category: 'Food', active: true }
+    ];
+    var result = BudgetCalculator.computeMonthlyBudget(items);
+    assertClose(result.fixedPct, 76.9, 0.1);
+    assertClose(result.variablePct, 23.1, 0.1);
+  });
+
+  it('computeStaleness detects stale budget', function() {
+    var recentMonths = [
+      { impliedExpenses: 2000 },
+      { impliedExpenses: 2100 },
+      { impliedExpenses: 1900 }
+    ];
+    // Budget is 1500, avg actual is 2000 → 33% deviation > 15%
+    var result = BudgetCalculator.computeStaleness(1500, recentMonths);
+    assert(result !== null, 'Should detect stale budget');
+    assertClose(result.avgActual, 2000, 0.01);
+    assertClose(result.deviation, 0.333, 0.01);
+  });
+
+  it('computeStaleness returns null when not stale', function() {
+    var recentMonths = [
+      { impliedExpenses: 1480 },
+      { impliedExpenses: 1520 },
+      { impliedExpenses: 1500 }
+    ];
+    var result = BudgetCalculator.computeStaleness(1500, recentMonths);
+    assertEqual(result, null);
+  });
+});
+
+// --- FICalculator new methods ---
+
+describe('FICalculator (new methods)', function() {
+  it('fiContext returns on-track for short horizon', function() {
+    var ctx = FICalculator.fiContext(8, 0.02);
+    assertEqual(ctx.badge, 'On Track');
+    assertEqual(ctx.badgeClass, 'on-track');
+    assert(ctx.message.indexOf('inflation-adjusted') > -1);
+  });
+
+  it('fiContext returns null for Infinity', function() {
+    var ctx = FICalculator.fiContext(Infinity, 0);
+    assertEqual(ctx.badge, null);
+  });
+
+  it('coveragePct computes correctly', function() {
+    assertClose(FICalculator.coveragePct(2000, 4000), 50, 0.01);
+    assertEqual(FICalculator.coveragePct(0, 0), null);
+  });
+
+  it('derivedFIDivergence detects significant divergence', function() {
+    var result = FICalculator.derivedFIDivergence(1200000, 1000000);
+    assert(result.isSignificant, 'Should be significant at 20%');
+    assertEqual(result.label, 'higher');
+  });
+
+  it('derivedFIDivergence detects non-significant divergence', function() {
+    var result = FICalculator.derivedFIDivergence(1050000, 1000000);
+    assert(!result.isSignificant, 'Should not be significant at 5%');
+  });
+});
+
+// --- GoalsCalculator.findByIdPattern ---
+
+describe('GoalsCalculator.findByIdPattern', function() {
+  it('finds emergency goal by pattern', function() {
+    var goals = [
+      { goal_id: 'house_downpayment', name: 'House' },
+      { goal_id: 'emergency_fund', name: 'Emergency Fund' }
+    ];
+    var found = GoalsCalculator.findByIdPattern(goals, 'emergency');
+    assertEqual(found.goal_id, 'emergency_fund');
+  });
+
+  it('returns null when not found', function() {
+    var goals = [{ goal_id: 'house', name: 'House' }];
+    var found = GoalsCalculator.findByIdPattern(goals, 'emergency');
+    assertEqual(found, null);
   });
 });

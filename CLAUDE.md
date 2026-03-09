@@ -16,6 +16,14 @@
 - Spanish locale (es-ES) for number formatting
 - See `docs/architecture.md` for full module map, data flows, and security model
 
+## SOLID Principles (MANDATORY)
+- **UI renderers MUST NOT** perform calculations, percentage computations, status determination (positive/negative), data aggregation, or arithmetic on financial values. Use pre-computed fields from calculators.
+- **Calculators MUST** return status fields (using `ValueStatus.sign()`) alongside numeric values that will be color-coded in UI.
+- **All functions MUST be idempotent**: return new objects/arrays, never mutate inputs. Use `Object.assign({}, r)` or `.map()` to clone.
+- **Financial precision**: Round intermediate currency values to 2 decimals (`Math.round(x * 100) / 100`). Use `EPSILON` (0.01) for zero comparisons.
+- **Date arithmetic**: Use `DateUtils.monthsBetween()`, `DateUtils.addMonths()`, etc. from `js/lib/date-utils.js`. Never duplicate month math.
+- **No hardcoded thresholds** in UI: Business rule thresholds (e.g., savings rate 30%/15%, budget staleness 15%) belong in calculators or config.
+
 ## Storage modes
 - **File mode**: encrypted `.fjson` files via File API / iCloud Drive sync
 - **DB mode**: Supabase zero-knowledge backend -- all data encrypted client-side with AES-256-GCM before sending to server. Server sees only opaque hashes and ciphertext.

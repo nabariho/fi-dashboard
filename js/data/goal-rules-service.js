@@ -71,10 +71,13 @@ var GoalRulesService = {
         g.projected_completion = asOfMonth;
       } else if (g.allocated_monthly > 0) {
         var monthsNeeded = Math.ceil(g.remaining / g.allocated_monthly);
-        g.projected_completion = GoalAllocationService.addMonths(asOfMonth, monthsNeeded);
+        g.projected_completion = DateUtils.addMonths(asOfMonth, monthsNeeded);
       } else {
         g.projected_completion = null;
       }
+
+      // Pre-computed progress percentage for UI (capped at 100)
+      g.progressPct = g.target_amount > 0 ? Math.min((g.current_amount / g.target_amount) * 100, 100) : 0;
 
       // Confidence heuristic based on budget allocation
       if (g.status === 'funded') {
@@ -127,5 +130,24 @@ var GoalRulesService = {
       conflicts: conflicts,
       account_ledger: funding.accountLedger || {}
     };
+  },
+
+  // Enrich goal confidence from actual funding history.
+  // Mutates goals array in place (adds/updates g.confidence).
+  enrichConfidenceFromFunding: function(goals, fundingHistory) {
+    if (!fundingHistory || !fundingHistory.goals || !goals) return;
+    var fundingByGoal = {};
+    fundingHistory.goals.forEach(function(fg) { fundingByGoal[fg.goal_id] = fg; });
+    goals.forEach(function(g) {
+      var fh = fundingByGoal[g.goal_id];
+      if (!fh || g.status === 'funded') return;
+      if (fh.avgActual >= g.required_monthly * 0.95) {
+        g.confidence = 'high';
+      } else if (fh.avgActual >= g.required_monthly * 0.5) {
+        g.confidence = 'medium';
+      } else {
+        g.confidence = 'low';
+      }
+    });
   }
 };

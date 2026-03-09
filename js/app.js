@@ -100,7 +100,7 @@ function refreshHome() {
     var progressPct = FICalculator.progress(current.total, fiTarget);
 
     // Annual summaries for year-over-year review
-    var annualSummaries = SummaryCalculator.computeAnnualSummaries(nwData, allData, cashflowEntries);
+    var annualSummaries = SummaryCalculator.computeAnnualSummaries(nwData, allData, cashflowEntries, cashflowCategories);
 
     HomeRenderer.render(summary, _cachedGoalPlan, actions, savingsRateTrend, fiImpact, progressPct, annualSummaries);
   } catch (e) {
@@ -282,16 +282,9 @@ function _computeEFData() {
 
     var latestAccounts = nwData[nwData.length - 1].accounts;
 
-    var efPlannerGoal = null;
-    if (_cachedGoalPlan && _cachedGoalPlan.goals) {
-      for (var g = 0; g < _cachedGoalPlan.goals.length; g++) {
-        var gid = (_cachedGoalPlan.goals[g].goal_id || '').toLowerCase();
-        if (gid.indexOf('emergency') !== -1) {
-          efPlannerGoal = _cachedGoalPlan.goals[g];
-          break;
-        }
-      }
-    }
+    var efPlannerGoal = GoalsCalculator.findByIdPattern(
+      _cachedGoalPlan && _cachedGoalPlan.goals, 'emergency'
+    );
 
     var status = EmergencyCalculator.computeStatus(latestAccounts, appConfig, efPlannerGoal);
     var history = EmergencyCalculator.computeHistory(allData, accountIds, target);
@@ -426,21 +419,11 @@ function refreshCashFlow() {
     budgetSummary = BudgetCalculator.computeMonthlyBudget(budgetItems);
   }
 
-  // Budget staleness: compare trailing actual expenses vs budget
+  // Budget staleness: compare trailing actual expenses vs budget (delegated to calculator)
   var budgetStale = null;
   if (budgetSummary && budgetSummary.total > 0 && actualMonths && actualMonths.size >= 3) {
     var recentActualMonths = monthlyData.filter(function(r) { return r.dataSource === 'actual'; }).slice(-3);
-    if (recentActualMonths.length >= 3) {
-      var avgActualExpenses = recentActualMonths.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / recentActualMonths.length;
-      var deviation = Math.abs(avgActualExpenses - budgetSummary.total) / budgetSummary.total;
-      if (deviation > 0.15) {
-        budgetStale = {
-          avgActual: avgActualExpenses,
-          planned: budgetSummary.total,
-          deviation: deviation
-        };
-      }
-    }
+    budgetStale = BudgetCalculator.computeStaleness(budgetSummary.total, recentActualMonths);
   }
 
   CashFlowRenderer.render(
@@ -480,23 +463,9 @@ function refreshGoalsTab() {
     }
   }
 
-  // Enrich goal confidence with actual funding data
-  if (fundingHistory && fundingHistory.goals && _cachedGoalPlan && _cachedGoalPlan.goals) {
-    var fundingByGoal = {};
-    fundingHistory.goals.forEach(function(fg) { fundingByGoal[fg.goal_id] = fg; });
-    _cachedGoalPlan.goals.forEach(function(g) {
-      var fh = fundingByGoal[g.goal_id];
-      if (!fh) return;
-      // Override confidence based on trailing actual funding vs required
-      if (g.status === 'funded') return; // already high
-      if (fh.avgActual >= g.required_monthly * 0.95) {
-        g.confidence = 'high';
-      } else if (fh.avgActual >= g.required_monthly * 0.5) {
-        g.confidence = 'medium';
-      } else {
-        g.confidence = 'low';
-      }
-    });
+  // Enrich goal confidence with actual funding data (delegated to service)
+  if (fundingHistory && _cachedGoalPlan && _cachedGoalPlan.goals) {
+    GoalRulesService.enrichConfidenceFromFunding(_cachedGoalPlan.goals, fundingHistory);
   }
 
   // Compute recommended actions
@@ -561,8 +530,8 @@ function refreshInvestments() {
     if (account !== 'ALL') return id === account;
     return AccountService.isPerformance(id);
   });
-  var monthly = DataService.aggregateByMonth(filtered);
-  ReturnsCalculator.compute(monthly);
+  var monthlyRaw = DataService.aggregateByMonth(filtered);
+  var monthly = ReturnsCalculator.compute(monthlyRaw);
   var data = DataService.applyTimeRange(monthly, rangeMonths);
 
   if (!data.length) {

@@ -100,15 +100,8 @@ var MortgageRenderer = {
       this._chartInstance = null;
     }
 
-    // Aggregate by year for readability (monthly bars are too dense for 30yr mortgage)
-    var yearData = {};
-    schedule.forEach(function(s) {
-      var year = s.month.substring(0, 4);
-      if (!yearData[year]) yearData[year] = { principal: 0, interest: 0, extra: 0 };
-      yearData[year].principal += s.principal_paid;
-      yearData[year].interest += s.interest_paid;
-      yearData[year].extra += s.extra;
-    });
+    // Aggregate by year using calculator (no inline aggregation)
+    var yearData = MortgageCalculator.computeYearlyAggregates(schedule);
 
     var labels = Object.keys(yearData).sort();
     var principalData = labels.map(function(y) { return yearData[y].principal; });
@@ -205,13 +198,14 @@ var MortgageRenderer = {
   _renderAmortizationTable: function(schedule) {
     if (!schedule.length) return '';
 
-    // Group by year for subtotals
+    // Group by year for subtotals (grouping for row display + pre-computed aggregates for totals)
     var years = {};
     schedule.forEach(function(s) {
       var year = s.month.substring(0, 4);
       if (!years[year]) years[year] = [];
       years[year].push(s);
     });
+    var yearAggregates = MortgageCalculator.computeYearlyAggregates(schedule);
 
     var html = '<div class="table-container">' +
       '<div class="table-header-row"><h2>Amortization Schedule</h2></div>' +
@@ -226,14 +220,9 @@ var MortgageRenderer = {
     var yearKeys = Object.keys(years).sort();
     yearKeys.forEach(function(year) {
       var rows = years[year];
-      var yearPrincipal = 0, yearInterest = 0, yearExtra = 0, yearPayment = 0;
+      var agg = yearAggregates[year] || { principal: 0, interest: 0, extra: 0, payment: 0 };
 
       rows.forEach(function(s) {
-        yearPrincipal += s.principal_paid;
-        yearInterest += s.interest_paid;
-        yearExtra += s.extra;
-        yearPayment += s.payment + s.extra;
-
         var hasExtra = s.extra > 0;
         html += '<tr class="' + (hasExtra ? 'extra-payment-row' : '') + '">' +
           '<td>' + s.month + '</td>' +
@@ -245,13 +234,13 @@ var MortgageRenderer = {
           '</tr>';
       });
 
-      // Year subtotal row
+      // Year subtotal row (from pre-computed aggregates)
       html += '<tr class="amort-year-row">' +
         '<td><strong>' + year + ' Total</strong></td>' +
-        '<td class="text-right"><strong>' + Fmt.currency(yearPayment) + '</strong></td>' +
-        '<td class="text-right"><strong>' + Fmt.currency(yearPrincipal) + '</strong></td>' +
-        '<td class="text-right"><strong>' + Fmt.currency(yearInterest) + '</strong></td>' +
-        '<td class="text-right"><strong>' + (yearExtra > 0 ? Fmt.currency(yearExtra) : '') + '</strong></td>' +
+        '<td class="text-right"><strong>' + Fmt.currency(agg.payment) + '</strong></td>' +
+        '<td class="text-right"><strong>' + Fmt.currency(agg.principal) + '</strong></td>' +
+        '<td class="text-right"><strong>' + Fmt.currency(agg.interest) + '</strong></td>' +
+        '<td class="text-right"><strong>' + (agg.extra > 0 ? Fmt.currency(agg.extra) : '') + '</strong></td>' +
         '<td class="text-right"></td>' +
         '</tr>';
     });
@@ -271,7 +260,7 @@ var MortgageRenderer = {
       '</tr></thead><tbody>';
 
     comparison.forEach(function(c) {
-      var diffClass = c.diff > 0.01 ? 'positive' : (c.diff < -0.01 ? 'negative' : '');
+      var diffClass = ValueStatus.sign(c.diff);
       html += '<tr>' +
         '<td>' + c.month + '</td>' +
         '<td class="text-right">' + Fmt.currency(c.planned_payment) + '</td>' +

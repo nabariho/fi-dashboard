@@ -42,6 +42,9 @@ var SavingsCapacityCalculator = {
       var impliedExpenses = income > 0 ? Math.max(0, income - totalContrib) : 0;
       var savingsRate = income > 0 ? totalContrib / income : 0;
 
+      // Savings rate status: >=30% positive, >=15% neutral, else negative
+      var savingsRateStatus = savingsRate >= 0.30 ? 'positive' : (savingsRate >= 0.15 ? 'neutral' : 'negative');
+
       return {
         month: m,
         income: income,
@@ -49,7 +52,8 @@ var SavingsCapacityCalculator = {
         savingsContributions: savingsContrib,
         transactionalContributions: transactionalContrib,
         impliedExpenses: impliedExpenses,
-        savingsRate: savingsRate
+        savingsRate: savingsRate,
+        savingsRateStatus: savingsRateStatus
       };
     });
   },
@@ -135,11 +139,13 @@ var SavingsCapacityCalculator = {
     var totalGoalAllocation = goalAllocations.reduce(function(sum, g) { return sum + g.allocated; }, 0);
     var unallocated = Math.max(0, actualSavings - totalGoalAllocation);
 
+    var expenseGap = (budgetTotal || 0) - actualExpenses;
     return {
       income: income,
       estimatedExpenses: budgetTotal || 0,
       actualExpenses: actualExpenses,
-      expenseGap: (budgetTotal || 0) - actualExpenses,
+      expenseGap: expenseGap,
+      expenseGapStatus: ValueStatus.sign(expenseGap),
       actualSavings: actualSavings,
       goalAllocations: goalAllocations,
       totalGoalAllocation: totalGoalAllocation,

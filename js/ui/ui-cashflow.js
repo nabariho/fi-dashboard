@@ -56,10 +56,9 @@ var CashFlowRenderer = {
     html += this._metricCard('Monthly Income', Fmt.currency(latest.income), '');
     html += this._metricCard('Expenses', Fmt.currency(latest.impliedExpenses), '');
     html += this._metricCard('Net Savings', Fmt.currency(latest.totalContributions),
-      latest.totalContributions >= 0 ? 'positive' : 'negative');
-    var rateVal = latest.savingsRate * 100;
-    var rateClass = rateVal >= 30 ? 'positive' : (rateVal >= 15 ? '' : 'negative');
-    html += this._metricCard('Savings Rate', Fmt.pct(rateVal), rateClass);
+      ValueStatus.sign(latest.totalContributions));
+    html += this._metricCard('Savings Rate', Fmt.pct(latest.savingsRate * 100),
+      latest.savingsRateStatus || (latest.savingsRate >= 0.30 ? 'positive' : (latest.savingsRate >= 0.15 ? 'neutral' : 'negative')));
     html += '</div>';
 
     // --- Budget Summary + Budget vs Actual ---
@@ -83,18 +82,17 @@ var CashFlowRenderer = {
 
     for (var i = actualData.length - 1; i >= 0; i--) {
       var r = actualData[i];
-      var rate = r.savingsRate * 100;
-      var rc = rate >= 30 ? 'positive' : (rate >= 15 ? '' : 'negative');
       var transfers = r.totalTransfers || 0;
+      var rateStatus = r.savingsRateStatus || (r.savingsRate >= 0.30 ? 'positive' : (r.savingsRate >= 0.15 ? 'neutral' : 'negative'));
 
       html += '<tr class="cf-row-clickable" data-month="' + r.month + '">' +
         '<td>' + r.month + '</td>' +
         '<td class="text-right">' + Fmt.currency(r.income) + '</td>' +
         '<td class="text-right">' + Fmt.currency(r.impliedExpenses) + '</td>' +
         '<td class="text-right">' + (transfers > 0 ? Fmt.currency(transfers) : '-') + '</td>' +
-        '<td class="text-right ' + (r.totalContributions >= 0 ? 'positive' : 'negative') + '">' +
+        '<td class="text-right ' + ValueStatus.sign(r.totalContributions) + '">' +
           Fmt.currency(r.totalContributions) + '</td>' +
-        '<td class="text-right ' + rc + '">' + Fmt.pct(rate) + '</td>' +
+        '<td class="text-right ' + rateStatus + '">' + Fmt.pct(r.savingsRate * 100) + '</td>' +
       '</tr>';
     }
 
@@ -330,8 +328,10 @@ var CashFlowRenderer = {
     var labels = actualData.map(function(r) { return r.month; });
     var data = actualData.map(function(r) { return r.savingsRate * 100; });
 
-    var pointColors = data.map(function(v) {
-      return v >= 30 ? '#0d904f' : (v >= 15 ? '#e8710a' : '#d93025');
+    var statusColors = { positive: '#0d904f', neutral: '#e8710a', negative: '#d93025' };
+    var pointColors = actualData.map(function(r) {
+      var status = r.savingsRateStatus || (r.savingsRate >= 0.30 ? 'positive' : (r.savingsRate >= 0.15 ? 'neutral' : 'negative'));
+      return statusColors[status] || '#e8710a';
     });
 
     this._trendChart = new Chart(canvas, {

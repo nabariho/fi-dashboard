@@ -2,11 +2,11 @@
 // Computes monthly budget totals from BudgetItems. Pure math, no DOM access.
 
 var BudgetCalculator = {
-  // Convert an amount to its monthly equivalent
+  // Convert an amount to its monthly equivalent (rounded to 2 decimals for precision)
   toMonthly: function(amount, frequency) {
     switch (frequency) {
-      case 'yearly': return amount / 12;
-      case 'quarterly': return amount / 4;
+      case 'yearly': return Math.round(amount / 12 * 100) / 100;
+      case 'quarterly': return Math.round(amount / 4 * 100) / 100;
       case 'monthly':
       default: return amount;
     }
@@ -50,7 +50,23 @@ var BudgetCalculator = {
       }
     }
 
+    // Pre-computed percentages for UI
+    result.fixedPct = result.total > 0 ? (result.fixed / result.total * 100) : 0;
+    result.variablePct = result.total > 0 ? (result.variable / result.total * 100) : 0;
+
     return result;
+  },
+
+  // Detect budget staleness: returns null if OK, or { avgActual, planned, deviation } if stale.
+  // recentActualMonths: array of monthly rows with dataSource==='actual'
+  // threshold: deviation ratio (default 0.15 = 15%)
+  computeStaleness: function(budgetTotal, recentActualMonths, threshold) {
+    threshold = threshold || 0.15;
+    if (budgetTotal <= 0 || !recentActualMonths || recentActualMonths.length < 3) return null;
+    var avgActual = recentActualMonths.reduce(function(s, r) { return s + r.impliedExpenses; }, 0) / recentActualMonths.length;
+    var deviation = Math.abs(avgActual - budgetTotal) / budgetTotal;
+    if (deviation <= threshold) return null;
+    return { avgActual: avgActual, planned: budgetTotal, deviation: deviation };
   },
 
   // Compute operating reserve (total monthly budget) for goals calculations

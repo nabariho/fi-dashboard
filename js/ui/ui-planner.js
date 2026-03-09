@@ -147,7 +147,7 @@ var PlannerRenderer = {
 
   _renderGoalCard: function(goal, milestone, funding) {
     var color = this._statusColor(goal.status);
-    var pct = goal.target_amount > 0 ? Math.min((goal.current_amount / goal.target_amount) * 100, 100) : 0;
+    var pct = goal.progressPct !== undefined ? goal.progressPct : (goal.target_amount > 0 ? Math.min((goal.current_amount / goal.target_amount) * 100, 100) : 0);
     var cardId = 'goal-card-' + (goal.goal_id || '').replace(/[^a-zA-Z0-9]/g, '_');
     var isEF = (goal.goal_id || '').toLowerCase().indexOf('emergency') !== -1;
 
@@ -319,7 +319,7 @@ var PlannerRenderer = {
       if (g.status === 'funded') {
         events.push({ label: g.name, date: 'Funded', monthsFromNow: -1, status: 'funded' });
       } else if (g.projected_completion) {
-        var months = PlannerRenderer._monthsBetween(nowStr, g.projected_completion);
+        var months = DateUtils.monthsBetween(nowStr, g.projected_completion);
         var delayed = g.target_date && g.projected_completion > g.target_date;
         events.push({ label: g.name, date: g.projected_completion, monthsFromNow: months, status: delayed ? 'delayed' : 'on_track' });
       }
@@ -368,10 +368,9 @@ var PlannerRenderer = {
     return html;
   },
 
+  // Delegate to DateUtils
   _monthsBetween: function(from, to) {
-    var fp = from.split('-');
-    var tp = to.split('-');
-    return (parseInt(tp[0]) - parseInt(fp[0])) * 12 + (parseInt(tp[1]) - parseInt(fp[1]));
+    return DateUtils.monthsBetween(from, to);
   },
 
   // --- FI Timeline details ---

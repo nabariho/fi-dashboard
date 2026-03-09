@@ -35,7 +35,7 @@ var EmergencyRenderer = {
 
   _renderStatusCards: function(status, coverage, roles) {
     var statusLabels = { green: 'Fully Funded', yellow: 'Partially Funded', red: 'Underfunded' };
-    var effective = status.status === 'green' ? status.dedicated : status.available;
+    var effective = status.effectiveBalance !== undefined ? status.effectiveBalance : (status.status === 'green' ? status.dedicated : status.available);
 
     var html = '<div class="ef-status-cards">';
 
@@ -82,11 +82,12 @@ var EmergencyRenderer = {
       '</div>';
     }
 
-    // Shortfall / surplus card
+    // Shortfall / surplus card — use pre-computed values from calculator
     var diff = status.available - status.target;
+    var diffStatus = status.surplusStatus || ValueStatus.sign(diff);
     html += '<div class="ef-card">' +
       '<div class="ef-card-label">' + (diff >= 0 ? 'Surplus' : 'Shortfall') + '</div>' +
-      '<div class="ef-card-value ' + (diff >= 0 ? 'positive' : 'negative') + '">' +
+      '<div class="ef-card-value ' + diffStatus + '">' +
         (diff >= 0 ? '+' : '') + Fmt.currency(diff) +
       '</div>' +
       '<div class="ef-card-sub">' + (diff >= 0 ? 'above target' : 'below target') + '</div>' +

@@ -128,13 +128,21 @@ var EmergencyCalculator = {
     var effective = status === 'green' ? dedicated : available;
     var pct = target > 0 ? Math.min((effective / target) * 100, 100) : 0;
 
+    var surplus = Math.max(0, available - target);
+    var shortfall = Math.max(0, target - available);
+
     return {
       dedicated: dedicated,
       backup: backup,
       available: available,
       target: target,
       pct: pct,
-      status: status
+      status: status,
+      // Pre-computed for UI — avoids arithmetic and conditionals in renderers
+      effectiveBalance: effective,
+      surplus: surplus,
+      shortfall: shortfall,
+      surplusStatus: ValueStatus.sign(available - target)
     };
   },
 

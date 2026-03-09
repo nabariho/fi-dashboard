@@ -1,3 +1,21 @@
+// === ACCOUNTING CONSTANTS ===
+// Epsilon for floating-point comparisons in financial calculations.
+// Values within EPSILON of zero are treated as zero.
+var EPSILON = 0.01;
+
+// === VALUE STATUS HELPER ===
+// Returns 'positive', 'negative', or 'neutral' for a numeric value.
+// Used by calculators to pre-compute display status so UI never classifies values.
+var ValueStatus = {
+  sign: function(val) {
+    return val > EPSILON ? 'positive' : (val < -EPSILON ? 'negative' : 'neutral');
+  },
+  // For values where lower is better (e.g. expenses)
+  signInverse: function(val) {
+    return val < -EPSILON ? 'positive' : (val > EPSILON ? 'negative' : 'neutral');
+  }
+};
+
 // === GLOBAL STATE ===
 var appConfig = {};
 var accountsConfig = [];

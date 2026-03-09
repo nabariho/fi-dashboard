@@ -21,8 +21,8 @@ var ChartRenderer = {
     var ctx = document.getElementById(canvasId).getContext('2d');
     if (investChart) investChart.destroy();
 
-    // Compute gains = value - cumulative contribution (floored at 0)
-    var gains = values.map(function(v, i) { return Math.max(v - contributions[i], 0); });
+    // Use pre-computed gains from calculator
+    var gains = ReturnsCalculator.computeGains(values, contributions);
 
     investChart = new Chart(ctx, {
       type: 'line',

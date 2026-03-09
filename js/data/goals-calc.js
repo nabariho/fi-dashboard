@@ -76,5 +76,16 @@ var GoalsCalculator = {
       } : null,
       all: goals
     };
+  },
+
+  // Find a goal by ID pattern from planner goals array.
+  // pattern: string to match (case-insensitive) against goal_id.
+  findByIdPattern: function(planGoals, pattern) {
+    if (!planGoals) return null;
+    var lc = pattern.toLowerCase();
+    for (var i = 0; i < planGoals.length; i++) {
+      if ((planGoals[i].goal_id || '').toLowerCase().indexOf(lc) !== -1) return planGoals[i];
+    }
+    return null;
   }
 };

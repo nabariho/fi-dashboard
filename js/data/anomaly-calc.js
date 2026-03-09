@@ -116,10 +116,6 @@ var AnomalyCalculator = {
   },
 
   _prevMonth: function(monthStr) {
-    var parts = monthStr.split('-');
-    var y = parseInt(parts[0]);
-    var m = parseInt(parts[1]) - 1;
-    if (m < 1) { m = 12; y--; }
-    return y + '-' + (m < 10 ? '0' : '') + m;
+    return DateUtils.prevMonth(monthStr);
   }
 };

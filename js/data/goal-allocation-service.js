@@ -3,26 +3,13 @@
 // Pure functions, no DOM side effects.
 
 var GoalAllocationService = {
-  monthsBetween: function(from, to) {
-    var f = (from || '').split('-');
-    var t = (to || '').split('-');
-    if (f.length !== 2 || t.length !== 2) return 0;
-    return (parseInt(t[0]) - parseInt(f[0])) * 12 + (parseInt(t[1]) - parseInt(f[1]));
-  },
-
-  addMonths: function(monthStr, n) {
-    var parts = (monthStr || new Date().toISOString().slice(0, 7)).split('-');
-    var y = parseInt(parts[0]) || 2025;
-    var m = parseInt(parts[1]) || 1;
-    m += n;
-    while (m > 12) { m -= 12; y++; }
-    while (m < 1) { m += 12; y--; }
-    return y + '-' + (m < 10 ? '0' : '') + m;
-  },
+  // Delegate to DateUtils for shared date arithmetic
+  monthsBetween: function(from, to) { return DateUtils.monthsBetween(from, to); },
+  addMonths: function(monthStr, n) { return DateUtils.addMonths(monthStr, n); },
 
   buildNeed: function(goal, asOfMonth) {
     var remaining = Math.max(0, (goal.target_amount || 0) - (goal.current_amount || 0));
-    var monthsLeft = Math.max(0, GoalAllocationService.monthsBetween(asOfMonth, goal.target_date));
+    var monthsLeft = Math.max(0, DateUtils.monthsBetween(asOfMonth, goal.target_date));
     var requiredMonthly;
     if (remaining <= 0) {
       requiredMonthly = 0;

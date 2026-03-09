@@ -40,7 +40,7 @@ var HomeRenderer = {
   },
 
   _renderHeadline: function(summary) {
-    var cls = summary.nwChange >= 0 ? 'positive' : 'negative';
+    var cls = summary.nwChangeStatus || ValueStatus.sign(summary.nwChange);
     var sign = summary.nwChange >= 0 ? '+' : '';
     return '<div class="home-headline">' +
       '<div class="home-headline-label">Net Worth Change in ' + SummaryCalculator._monthName(summary.month) + '</div>' +
@@ -53,14 +53,14 @@ var HomeRenderer = {
     var items = [];
 
     if (summary.contributions !== 0) {
-      var savCls = summary.contributions >= 0 ? 'positive' : 'negative';
+      var savCls = summary.contributionsStatus || ValueStatus.sign(summary.contributions);
       var savSign = summary.contributions >= 0 ? '+' : '';
       items.push('<div class="home-attr-item"><span class="home-attr-label">Savings</span>' +
         '<span class="home-attr-value ' + savCls + '">' + savSign + Fmt.currencyShort(summary.contributions) + '</span></div>');
     }
 
     if (summary.marketChange !== 0) {
-      var mktCls = summary.marketChange >= 0 ? 'positive' : 'negative';
+      var mktCls = summary.marketChangeStatus || ValueStatus.sign(summary.marketChange);
       var mktSign = summary.marketChange >= 0 ? '+' : '';
       items.push('<div class="home-attr-item"><span class="home-attr-label">Market</span>' +
         '<span class="home-attr-value ' + mktCls + '">' + mktSign + Fmt.currencyShort(summary.marketChange) + '</span></div>');
@@ -75,7 +75,7 @@ var HomeRenderer = {
     var activeGoals = goals.filter(function(g) { return g.active !== false; });
 
     activeGoals.forEach(function(g) {
-      var pct = g.target_amount > 0 ? Math.min((g.current_amount / g.target_amount) * 100, 100) : 0;
+      var pct = g.progressPct !== undefined ? g.progressPct : (g.target_amount > 0 ? Math.min((g.current_amount / g.target_amount) * 100, 100) : 0);
       var statusCls = g.status === 'funded' ? 'funded' : (g.status === 'on_track' ? 'on-track' : 'at-risk');
 
       html += '<div class="home-goal-row">' +
@@ -201,9 +201,8 @@ var HomeRenderer = {
 
   _yoyRow: function(label, prev, curr, isPct) {
     var delta = curr - prev;
-    var deltaClass = delta >= 0 ? 'positive' : 'negative';
     // For expense row, lower is better
-    if (label === 'Expenses') deltaClass = delta <= 0 ? 'positive' : 'negative';
+    var deltaClass = label === 'Expenses' ? ValueStatus.signInverse(delta) : ValueStatus.sign(delta);
 
     var fmt = isPct ? Fmt.pct : Fmt.currency;
     var deltaFmt = isPct

@@ -118,7 +118,11 @@ var SummaryCalculator = {
       accountChanges: accountChanges,
       goals: goalsSummary,
       milestones: milestoneSummary,
-      mortgage: mortgageSummary
+      mortgage: mortgageSummary,
+      // Pre-computed status for UI — avoids sign checks in renderers
+      nwChangeStatus: ValueStatus.sign(nwChange),
+      contributionsStatus: ValueStatus.sign(monthContributions),
+      marketChangeStatus: ValueStatus.sign(marketChange)
     };
   },
 
@@ -205,7 +209,7 @@ var SummaryCalculator = {
   // cashflowEntries: optional actual income/expense entries
   // Returns: array of { year, startNW, endNW, nwChange, nwChangePct, totalSaved,
   //   marketReturns, debtReduction, houseValueChange, savingsRate, totalIncome, totalExpenses }
-  computeAnnualSummaries: function(nwData, allData, cashflowEntries) {
+  computeAnnualSummaries: function(nwData, allData, cashflowEntries, categories) {
     if (!nwData || nwData.length < 2) return [];
 
     // Group NW data by year
@@ -226,7 +230,7 @@ var SummaryCalculator = {
     // Group cashflow by year — use CashflowCalculator for proper classification
     var cfByYear = {};
     if (cashflowEntries && cashflowEntries.length && typeof CashflowCalculator !== 'undefined') {
-      var allMonths = CashflowCalculator.computeAllMonths(cashflowEntries);
+      var allMonths = CashflowCalculator.computeAllMonths(cashflowEntries, categories);
       allMonths.forEach(function(m) {
         var year = m.month.split('-')[0];
         if (!cfByYear[year]) cfByYear[year] = { income: 0, expenses: 0 };

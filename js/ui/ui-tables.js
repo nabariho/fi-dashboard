@@ -20,8 +20,7 @@ var TableRenderer = {
         if (!r) {
           cells += '<td class="empty"></td>';
         } else if (viewMode === 'pct') {
-          var cls = r.monthly_return_pct >= 0 ? 'positive' : 'negative';
-          cells += '<td class="' + cls + '">' + TableRenderer._fmtPctES(r.monthly_return_pct) + '</td>';
+          cells += '<td class="' + (r.monthlyReturnStatus || ValueStatus.sign(r.monthly_return_pct)) + '">' + TableRenderer._fmtPctES(r.monthly_return_pct) + '</td>';
         } else {
           cells += '<td>' + Fmt.currency(r.end_value) + '</td>';
         }
@@ -32,8 +31,7 @@ var TableRenderer = {
       var last = months[lastM];
       var ytd;
       if (viewMode === 'pct') {
-        var cls2 = last.ytd_return_pct >= 0 ? 'positive' : 'negative';
-        ytd = '<td class="' + cls2 + '">' + TableRenderer._fmtPctES(last.ytd_return_pct) + '</td>';
+        ytd = '<td class="' + (last.ytdReturnStatus || ValueStatus.sign(last.ytd_return_pct)) + '">' + TableRenderer._fmtPctES(last.ytd_return_pct) + '</td>';
       } else {
         ytd = '<td>' + Fmt.currency(last.end_value) + '</td>';
       }
@@ -47,14 +45,12 @@ var TableRenderer = {
     var ids = Object.keys(comparison.accounts);
     if (!ids.length) return;
 
-    // Compute totals for the summary row
-    var totalValue = 0, totalInvested = 0;
-    ids.forEach(function(id) {
-      totalValue += comparison.accounts[id].currentValue;
-      totalInvested += comparison.accounts[id].totalInvested;
-    });
-    var totalProfit = totalValue - totalInvested;
-    var totalMarketPct = totalValue > 0 ? (totalProfit / totalValue * 100) : 0;
+    // Use pre-computed totals from calculator
+    var totals = comparison.totals || {};
+    var totalValue = totals.currentValue || 0;
+    var totalInvested = totals.totalInvested || 0;
+    var totalProfit = totals.profit || 0;
+    var totalMarketPct = totals.marketPct || 0;
 
     var html = '<table class="returns-table"><thead><tr>' +
       '<th>Account</th><th class="text-right">Value</th><th class="text-right">Invested</th>' +
@@ -64,12 +60,12 @@ var TableRenderer = {
 
     ids.forEach(function(id) {
       var a = comparison.accounts[id];
-      var profitCls = a.profit >= 0 ? 'positive' : 'negative';
-      var momCls = a.monthly >= 0 ? 'positive' : 'negative';
-      var ytdCls = a.ytd >= 0 ? 'positive' : 'negative';
-      var cumCls = a.cumReturn >= 0 ? 'positive' : 'negative';
+      var profitCls = a.profitStatus || ValueStatus.sign(a.profit);
+      var momCls = a.monthlyStatus || ValueStatus.sign(a.monthly);
+      var ytdCls = a.ytdStatus || ValueStatus.sign(a.ytd);
+      var cumCls = a.cumReturnStatus || ValueStatus.sign(a.cumReturn);
       var marketPct = a.currentValue > 0 ? (a.profit / a.currentValue * 100) : 0;
-      var marketPctCls = marketPct >= 0 ? 'positive' : 'negative';
+      var marketPctCls = ValueStatus.sign(marketPct);
 
       html += '<tr>' +
         '<td>' + AccountService.getName(id) + '</td>' +
@@ -84,8 +80,8 @@ var TableRenderer = {
     });
 
     // Total row
-    var totalProfitCls = totalProfit >= 0 ? 'positive' : 'negative';
-    var totalMarketCls = totalMarketPct >= 0 ? 'positive' : 'negative';
+    var totalProfitCls = totals.profitStatus || ValueStatus.sign(totalProfit);
+    var totalMarketCls = totals.marketPctStatus || ValueStatus.sign(totalMarketPct);
     html += '<tr class="total-row">' +
       '<td>TOTAL</td>' +
       '<td class="text-right">' + Fmt.currency(totalValue) + '</td>' +
@@ -199,10 +195,9 @@ var TableRenderer = {
   },
 
   _deltaCell: function(delta) {
-    if (delta === 0) return '<td class="delta-cell">-</td>';
-    var cls = delta >= 0 ? 'positive' : 'negative';
+    if (Math.abs(delta) < EPSILON) return '<td class="delta-cell">-</td>';
     var sign = delta >= 0 ? '+' : '';
-    return '<td class="delta-cell ' + cls + '">' + sign + Fmt.currencyShort(delta) + '</td>';
+    return '<td class="delta-cell ' + ValueStatus.sign(delta) + '">' + sign + Fmt.currencyShort(delta) + '</td>';
   },
 
   _sectionRow: function(label, colCount) {

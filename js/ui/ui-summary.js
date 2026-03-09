@@ -33,20 +33,21 @@ var SummaryRenderer = {
       'NW Change',
       summary.nwChange,
       Fmt.pctShort(summary.nwChangePct),
-      summary.nwChange >= 0
+      summary.nwChangeStatus !== 'negative'
     );
     html += this._card(
       'Savings',
       summary.contributions,
       'contributed',
-      summary.contributions >= 0
+      summary.contributionsStatus !== 'negative'
     );
     if (summary.best) {
+      var bestStatus = ValueStatus.sign(summary.best.change);
       html += this._cardText(
         'Top Performer',
         summary.best.name,
-        (summary.best.change >= 0 ? '+' : '') + Fmt.currency(summary.best.change),
-        summary.best.change >= 0
+        (bestStatus !== 'negative' ? '+' : '') + Fmt.currency(summary.best.change),
+        bestStatus !== 'negative'
       );
     }
     if (summary.worst) {
@@ -61,7 +62,7 @@ var SummaryRenderer = {
         'Market Returns',
         summary.marketChange,
         'this month',
-        summary.marketChange >= 0
+        summary.marketChangeStatus !== 'negative'
       );
     }
     html += '</div>';
