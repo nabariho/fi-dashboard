@@ -516,6 +516,13 @@ function refreshCashFlow() {
       );
     }
 
+    // Money flow statement
+    var moneyFlow = CashflowCalculator.computeMoneyFlow(
+      cashflowEntries, selectedMonth, allData,
+      (goalPlan && goalPlan.goals) ? goalPlan.goals : [],
+      accountsConfig, cashflowCategories, cashflowSubcategories
+    );
+
     // What-if scenarios (10%, 25%, 50% cuts to discretionary)
     var whatIfScenarios = null;
     if (spendingSplit && (spendingSplit.discretionary.total + spendingSplit.unclassified.total) > 0) {
@@ -585,6 +592,7 @@ function refreshCashFlow() {
     goalFundingReality: goalFundingReality,
     yoyComparison: yoyComparison,
     whatIfScenarios: whatIfScenarios,
+    moneyFlow: moneyFlow,
     trailingMonths: _cashflowTrailingMonths
   });
 }

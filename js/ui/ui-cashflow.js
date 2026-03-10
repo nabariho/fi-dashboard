@@ -1,17 +1,14 @@
 // === CASH FLOW RENDERER ===
 // Renders Cash Flow tab organized by user questions:
 // 1. "How did I do?" — Scorecard with narrative + spending split + income stability
-// 2. "Where did the money go?" — Side-by-side income/expense detail with volatility badges
+// 2. "Where does every cent go?" — Money Flow Statement (P&L → deployments → residual)
 // 3. "Am I on budget?" — Budget vs Actual (month + YTD toggle)
 // 4. "What should I improve?" — Improvement areas + FI impact per category
-// 5. "Goal funding" — Per-goal planned vs actual contributions
-// 6. "Money flow" — Waterfall chart
-// 7. "How am I trending?" — Charts (expense trends, income vs expenses, savings rate)
-// 8. "Year-over-year" — Same month last year comparison
-// 9. "History" — Clickable monthly table
+// 5. "How am I trending?" — Charts (expense trends, income vs expenses, savings rate)
+// 6. "Year-over-year" — Same month last year comparison
+// 7. "History" — Clickable monthly table
 
 var CashFlowRenderer = {
-  _waterfallChart: null,
   _trendChart: null,
   _categoryTrendsChart: null,
   _incExpChart: null,
@@ -77,9 +74,10 @@ var CashFlowRenderer = {
       html += this._renderScorecard(scorecard, spendingSplit, incomeStability);
     }
 
-    // 3. Side-by-side Income + Expense detail — "Where did the money go?"
-    if (pnl) {
-      html += this._renderPnLDetail(pnl, categoryAverages, expenseVolatility);
+    // 3. Money Flow Statement — "Where does every cent go?"
+    var moneyFlow = renderData.moneyFlow;
+    if (moneyFlow) {
+      html += this._renderMoneyFlowStatement(moneyFlow, categoryAverages, expenseVolatility);
     }
 
     // 4. Budget vs Actual — "Am I on budget?"
@@ -98,19 +96,7 @@ var CashFlowRenderer = {
       html += this._renderWhatIf(renderData.whatIfScenarios);
     }
 
-    // 6. Goal Funding Reality
-    if (goalFundingReality && goalFundingReality.goals.length) {
-      html += this._renderGoalFundingReality(goalFundingReality);
-    }
-
-    // 7. Waterfall — "Money flow"
-    if (waterfall) {
-      html += '<div class="chart-container">' +
-        '<div class="chart-header"><h2>Money Flow (' + selectedMonth + ')</h2></div>' +
-        '<canvas id="waterfallChart"></canvas></div>';
-    }
-
-    // 8. Charts — "How am I trending?"
+    // 6. Charts — "How am I trending?"
     if (monthlyData.length > 1) {
       html += '<div class="chart-container">' +
         '<div class="chart-header"><h2>Income vs Expenses</h2></div>' +
@@ -129,23 +115,23 @@ var CashFlowRenderer = {
         '<canvas id="savingsRateTrendChart"></canvas></div>';
     }
 
-    // 9. YoY Comparison
+    // 7. YoY Comparison
     if (yoyComparison && yoyComparison.hasPriorYear) {
       html += this._renderYoYComparison(yoyComparison, selectedMonth);
     }
 
-    // 10. History table
+    // 8. History table
     html += this._renderHistoryTable(monthlyData, selectedMonth);
 
     el.innerHTML = html;
 
     // Render charts
-    if (waterfall) this._renderWaterfallChart(waterfall);
     if (monthlyData.length > 1) this._renderIncExpChart(monthlyData);
     if (categoryTrends && categoryTrends.months.length > 1) this._renderCategoryTrendsChart(categoryTrends);
     if (monthlyData.length > 1) this._renderSavingsRateTrend(monthlyData);
 
     // Bind interactions
+    this._bindMoneyFlowCollapsibles();
     this._bindExpenseExpand();
     this._bindHistoryRowClicks();
     this._bindBudgetToggle(budgetVsActual, budgetVsActualYTD, selectedMonth);
@@ -317,112 +303,205 @@ var CashFlowRenderer = {
       '<div class="cf-summary-value">' + Fmt.currency(value) + (suffix || '') + '</div></div>';
   },
 
-  // --- Side-by-side P&L Detail ---
-  _renderPnLDetail: function(pnl, categoryAverages, expenseVolatility) {
-    var html = '<div class="cf-pnl-detail">';
+  // --- Money Flow Statement ---
+  _renderMoneyFlowStatement: function(mf, categoryAverages, expenseVolatility) {
+    var html = '<div class="table-container cf-money-flow">' +
+      '<div class="table-header-row"><h2>Money Flow Statement</h2></div>';
 
-    // Income panel (left)
-    html += '<div class="table-container"><div class="table-header-row"><h2>Income</h2></div>';
-    html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th>Category</th><th class="text-right">Amount</th><th class="text-right">%</th>' +
-      '</tr></thead><tbody>';
+    // Balance verdict banner
+    html += '<div class="cf-mf-verdict cf-mf-verdict-' + mf.balanceVerdictStatus + '">' +
+      mf.balanceVerdict + '</div>';
 
-    var incCats = Object.keys(pnl.income.byCategory).sort(function(a, b) {
-      return pnl.income.byCategory[b] - pnl.income.byCategory[a];
+    // --- INCOME section (collapsible) ---
+    html += '<div class="cf-mf-section">';
+    html += '<div class="cf-mf-section-header cf-mf-collapsible" data-section="mf-income">' +
+      '<span class="cf-mf-chevron">&#9660;</span>' +
+      '<span class="cf-mf-section-title">INCOME</span>' +
+      '<span class="cf-mf-section-total">' + Fmt.currency(mf.income.total) + '</span></div>';
+    html += '<div class="cf-mf-section-body" id="mf-income">';
+
+    var incCats = Object.keys(mf.income.byCategory).sort(function(a, b) {
+      return mf.income.byCategory[b] - mf.income.byCategory[a];
     });
     for (var i = 0; i < incCats.length; i++) {
-      var amt = pnl.income.byCategory[incCats[i]];
-      var pct = pnl.income.total > 0 ? (amt / pnl.income.total * 100).toFixed(0) : '0';
-      html += '<tr><td>' + incCats[i] + '</td>' +
-        '<td class="text-right">' + Fmt.currency(amt) + '</td>' +
-        '<td class="text-right">' + pct + '%</td></tr>';
+      var amt = mf.income.byCategory[incCats[i]];
+      html += '<div class="cf-mf-line cf-mf-line-indent">' +
+        '<span class="cf-mf-line-label">' + incCats[i] + '</span>' +
+        '<span class="cf-mf-line-amount">' + Fmt.currency(amt) + '</span></div>';
     }
-    html += '<tr class="table-total-row"><td>Total</td>' +
-      '<td class="text-right">' + Fmt.currency(pnl.income.total) + '</td>' +
-      '<td class="text-right"></td></tr>';
-    html += '</tbody></table></div></div>';
+    html += '</div></div>';
 
-    // Expense panel (right)
-    html += '<div class="table-container"><div class="table-header-row"><h2>Expenses</h2></div>';
-    html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th>Category</th><th class="text-right">Amount</th>';
-    if (categoryAverages && Object.keys(categoryAverages).length) {
-      html += '<th class="text-right">6-mo Avg</th><th class="text-right">vs Avg</th>';
-    } else {
-      html += '<th class="text-right">%</th>';
-    }
-    html += '</tr></thead><tbody>';
+    // --- EXPENSES section (collapsible, with expandable subcategories) ---
+    html += '<div class="cf-mf-section">';
+    html += '<div class="cf-mf-section-header cf-mf-collapsible" data-section="mf-expenses">' +
+      '<span class="cf-mf-chevron">&#9660;</span>' +
+      '<span class="cf-mf-section-title">EXPENSES</span>' +
+      '<span class="cf-mf-section-total cf-mf-negative">&minus;' + Fmt.currency(mf.expenses.total) + '</span></div>';
+    html += '<div class="cf-mf-section-body" id="mf-expenses">';
 
-    var expCats = Object.keys(pnl.expenses.byCategory).sort(function(a, b) {
-      return pnl.expenses.byCategory[b].total - pnl.expenses.byCategory[a].total;
+    var expCats = Object.keys(mf.expenses.byCategory).sort(function(a, b) {
+      return mf.expenses.byCategory[b].total - mf.expenses.byCategory[a].total;
     });
 
     var hasAvgs = categoryAverages && Object.keys(categoryAverages).length;
     for (var j = 0; j < expCats.length; j++) {
       var cat = expCats[j];
-      var catObj = pnl.expenses.byCategory[cat];
+      var catObj = mf.expenses.byCategory[cat];
       var hasSubcats = Object.keys(catObj.subcategories).length > 0 || catObj.items.length > 1;
-      var chevron = hasSubcats ? '<span class="cf-cat-chevron">&#9654;</span>' : '<span style="display:inline-block;width:16px"></span>';
+      var pctOfTotal = mf.expenses.total > 0 ? (catObj.total / mf.expenses.total * 100).toFixed(0) : '0';
 
-      // Anomaly flag: if >20% above 6-mo avg
-      var anomalyFlag = '';
+      // Anomaly + volatility badges
+      var badges = '';
       var avgData = hasAvgs && categoryAverages[cat] ? categoryAverages[cat] : null;
       if (avgData && avgData.months >= 2 && avgData.deltaPct > 20) {
-        anomalyFlag = ' <span class="cf-anomaly-flag" title="' + avgData.deltaPct.toFixed(0) + '% above average">&#9888;</span>';
+        badges += ' <span class="cf-anomaly-flag" title="' + avgData.deltaPct.toFixed(0) + '% above average">&#9888;</span>';
       }
-
-      // Volatility badge
-      var volBadge = '';
       if (expenseVolatility && expenseVolatility[cat] && expenseVolatility[cat].isVolatile) {
-        volBadge = ' <span class="cf-volatility-badge" title="High variability (CV: ' +
+        badges += ' <span class="cf-volatility-badge" title="High variability (CV: ' +
           expenseVolatility[cat].cv.toFixed(0) + '%)">~</span>';
       }
 
-      html += '<tr class="' + (hasSubcats ? 'cf-cat-row' : '') + '" data-category="' + cat + '">' +
-        '<td>' + chevron + cat + anomalyFlag + volBadge + '</td>' +
-        '<td class="text-right">' + Fmt.currency(catObj.total) + '</td>';
+      var chevron = hasSubcats ? '<span class="cf-cat-chevron">&#9654;</span>' : '';
+      var rowCls = hasSubcats ? ' cf-cat-row' : '';
 
-      if (hasAvgs) {
-        if (avgData && avgData.months >= 1) {
-          var dSign = avgData.delta >= 0 ? '+' : '';
-          html += '<td class="text-right text-secondary">' + Fmt.currency(avgData.avg) + '</td>' +
-            '<td class="text-right ' + avgData.deltaStatus + '">' + dSign + Fmt.currency(avgData.delta) + '</td>';
-        } else {
-          html += '<td class="text-right text-secondary">-</td><td class="text-right">-</td>';
-        }
-      } else {
-        var pctVal = pnl.expenses.total > 0 ? (catObj.total / pnl.expenses.total * 100).toFixed(0) : '0';
-        html += '<td class="text-right">' + pctVal + '%</td>';
-      }
-      html += '</tr>';
+      html += '<div class="cf-mf-line cf-mf-line-indent' + rowCls + '" data-category="' + cat + '">' +
+        '<span class="cf-mf-line-label">' + chevron + cat + badges +
+        ' <span class="cf-mf-pct">' + pctOfTotal + '%</span></span>' +
+        '<span class="cf-mf-line-amount">' + Fmt.currency(catObj.total) + '</span></div>';
 
-      // Subcategory rows
+      // Subcategory rows (hidden, expandable)
       if (hasSubcats) {
         for (var k = 0; k < catObj.items.length; k++) {
           var item = catObj.items[k];
           var subLabel = item.subcategory || '(no subcategory)';
           var notesHtml = item.notes ? ' <span class="cf-subcat-notes">' + item.notes + '</span>' : '';
-          var colSpan = hasAvgs ? 3 : 2;
-          html += '<tr class="cf-subcat-row" data-parent="' + cat + '">' +
-            '<td>' + subLabel + notesHtml + '</td>' +
-            '<td class="text-right">' + Fmt.currency(item.amount) + '</td>' +
-            '<td class="text-right" colspan="' + (colSpan - 1) + '"></td></tr>';
+          html += '<div class="cf-mf-line cf-mf-line-subcat cf-subcat-row" data-parent="' + cat + '">' +
+            '<span class="cf-mf-line-label">' + subLabel + notesHtml + '</span>' +
+            '<span class="cf-mf-line-amount text-secondary">' + Fmt.currency(item.amount) + '</span></div>';
         }
       }
     }
+    html += '</div></div>';
 
-    html += '<tr class="table-total-row"><td><span style="display:inline-block;width:16px"></span>Total</td>' +
-      '<td class="text-right">' + Fmt.currency(pnl.expenses.total) + '</td>';
-    if (hasAvgs) {
-      html += '<td class="text-right"></td><td class="text-right"></td>';
-    } else {
-      html += '<td class="text-right"></td>';
+    // --- NET SAVINGS divider ---
+    html += '<div class="cf-mf-divider"></div>';
+    var netCls = mf.netSavings >= 0 ? 'cf-mf-positive' : 'cf-mf-negative';
+    var ratePct = (mf.savingsRate * 100).toFixed(1);
+    html += '<div class="cf-mf-line cf-mf-total">' +
+      '<span class="cf-mf-line-label">NET SAVINGS <span class="cf-mf-pct">' + ratePct + '% savings rate</span></span>' +
+      '<span class="cf-mf-line-amount ' + netCls + '">' + Fmt.currency(mf.netSavings) + '</span></div>';
+
+    // --- DEPLOYED TO GOALS section (collapsible) ---
+    if (mf.deployments.length > 0) {
+      html += '<div class="cf-mf-section">';
+      html += '<div class="cf-mf-section-header cf-mf-collapsible" data-section="mf-deployments">' +
+        '<span class="cf-mf-chevron">&#9660;</span>' +
+        '<span class="cf-mf-section-title">DEPLOYED TO GOALS</span>' +
+        '<span class="cf-mf-section-total cf-mf-negative">&minus;' + Fmt.currency(mf.totalDeployed) + '</span></div>';
+      html += '<div class="cf-mf-section-body" id="mf-deployments">';
+
+      for (var g = 0; g < mf.deployments.length; g++) {
+        var dep = mf.deployments[g];
+        var statusCls = (dep.status === 'on_track' || dep.status === 'overfunded') ? 'positive' :
+          (dep.status === 'underfunded' || dep.status === 'withdrawn') ? 'negative' : 'neutral';
+        var statusIcon = dep.status === 'on_track' ? '&#10003;' :
+          (dep.status === 'underfunded' ? '&#9888;' :
+          (dep.status === 'overfunded' ? '&#9650;' : '&#9660;'));
+
+        // Goal line
+        html += '<div class="cf-mf-line cf-mf-line-indent">' +
+          '<span class="cf-mf-line-label">' + dep.goal + '</span>' +
+          '<span class="cf-mf-line-amount">' + Fmt.currency(dep.actual) + '</span></div>';
+
+        // Planned vs actual detail
+        html += '<div class="cf-mf-line cf-mf-line-detail">' +
+          '<span class="cf-mf-line-label text-secondary">planned ' + Fmt.currency(dep.planned) +
+          ' &rarr; actual ' + Fmt.currency(dep.actual) +
+          ' <span class="' + statusCls + '">' + statusIcon + ' ' + dep.statusLabel + '</span></span></div>';
+
+        // Inline account detail
+        if (dep.accounts.length > 0) {
+          for (var da = 0; da < dep.accounts.length; da++) {
+            var acct = dep.accounts[da];
+            html += '<div class="cf-mf-line cf-mf-line-account">' +
+              '<span class="cf-mf-line-label text-muted">' + acct.name + '</span>' +
+              '<span class="cf-mf-line-amount text-muted">' + Fmt.currency(acct.net_contribution) + '</span></div>';
+          }
+        }
+      }
+      html += '</div></div>';
     }
-    html += '</tr>';
-    html += '</tbody></table></div></div>';
 
-    html += '</div>'; // cf-pnl-detail
+    // --- DIVIDER + RESIDUAL (always visible) ---
+    html += '<div class="cf-mf-divider"></div>';
+    var resCls = mf.residual >= 0 ? 'cf-mf-positive' : 'cf-mf-negative';
+    html += '<div class="cf-mf-line cf-mf-total">' +
+      '<span class="cf-mf-line-label">UNALLOCATED</span>' +
+      '<span class="cf-mf-line-amount ' + resCls + '">' + Fmt.currency(mf.residual) + '</span></div>';
+
+    // --- ACCOUNT MOVEMENTS section (collapsible) ---
+    if (mf.accountMovements.length > 0) {
+      html += '<div class="cf-mf-section">';
+      html += '<div class="cf-mf-section-header cf-mf-collapsible" data-section="mf-accounts">' +
+        '<span class="cf-mf-chevron">&#9654;</span>' +
+        '<span class="cf-mf-section-title">Account Movements</span>' +
+        '<span class="cf-mf-section-total"></span></div>';
+      html += '<div class="cf-mf-section-body cf-mf-collapsed" id="mf-accounts">';
+
+      for (var m = 0; m < mf.accountMovements.length; m++) {
+        var mv = mf.accountMovements[m];
+        var mvCls = mv.net_contribution >= 0 ? 'cf-mf-positive' : 'cf-mf-negative';
+        var roleLabel = mv.role === 'savings' ? 'savings' : (mv.role === 'transactional' ? 'transactional' : '');
+        var goalLabel = mv.goal ? ' &rarr; ' + mv.goal : '';
+
+        html += '<div class="cf-mf-line cf-mf-line-indent">' +
+          '<span class="cf-mf-line-label">' + mv.name +
+          (roleLabel ? ' <span class="cf-mf-role-badge">' + roleLabel + '</span>' : '') +
+          goalLabel + '</span>' +
+          '<span class="cf-mf-line-amount ' + mvCls + '">' +
+          (mv.net_contribution >= 0 ? '+' : '') + Fmt.currency(mv.net_contribution) + '</span></div>';
+      }
+
+      // Net flow summary
+      html += '<div class="cf-mf-line cf-mf-line-detail">' +
+        '<span class="cf-mf-line-label text-secondary">Net account flow: ' + Fmt.currency(mf.netAccountFlow) + '</span></div>';
+
+      html += '</div></div>';
+    }
+
+    // Draining warning
+    if (mf.isDraining && mf.drainingAccounts.length > 0) {
+      html += '<div class="cf-mf-draining-alert">';
+      for (var d = 0; d < mf.drainingAccounts.length; d++) {
+        var dr = mf.drainingAccounts[d];
+        html += '<div>' + dr.name + ': ' + Fmt.currency(dr.amount) + ' withdrawn</div>';
+      }
+      html += '</div>';
+    }
+
+    html += '</div>'; // cf-money-flow
     return html;
+  },
+
+  // --- Bind collapsible sections in Money Flow ---
+  _bindMoneyFlowCollapsibles: function() {
+    var headers = document.querySelectorAll('.cf-mf-collapsible');
+    for (var i = 0; i < headers.length; i++) {
+      headers[i].addEventListener('click', function() {
+        var sectionId = this.getAttribute('data-section');
+        var body = document.getElementById(sectionId);
+        if (!body) return;
+        var chevron = this.querySelector('.cf-mf-chevron');
+        var isCollapsed = body.classList.contains('cf-mf-collapsed');
+        if (isCollapsed) {
+          body.classList.remove('cf-mf-collapsed');
+          if (chevron) chevron.innerHTML = '&#9660;';
+        } else {
+          body.classList.add('cf-mf-collapsed');
+          if (chevron) chevron.innerHTML = '&#9654;';
+        }
+      });
+    }
   },
 
   // --- Budget vs Actual (with Month/YTD toggle) ---
@@ -592,44 +671,7 @@ var CashFlowRenderer = {
     return html;
   },
 
-  // --- Goal Funding Reality ---
-  _renderGoalFundingReality: function(gfr) {
-    if (!gfr || !gfr.goals.length) return '';
-
-    var html = '<div class="table-container"><div class="table-header-row"><h2>Goal Funding</h2></div>';
-    html += '<div class="nw-table-scroll"><table class="returns-table"><thead><tr>' +
-      '<th>Goal</th><th class="text-right">Planned</th>' +
-      '<th class="text-right">Actual</th><th class="text-right">Status</th>' +
-      '</tr></thead><tbody>';
-
-    for (var i = 0; i < gfr.goals.length; i++) {
-      var g = gfr.goals[i];
-      var statusLabel = g.status === 'on_track' ? 'On track' :
-        (g.status === 'underfunded' ? 'Underfunded' :
-        (g.status === 'overfunded' ? 'Overfunded' :
-        (g.status === 'withdrawn' ? 'Withdrawn' : g.status)));
-      var statusCls = g.status === 'on_track' || g.status === 'overfunded' ? 'positive' :
-        (g.status === 'underfunded' ? 'negative' : 'negative');
-
-      html += '<tr><td>' + g.name + '</td>' +
-        '<td class="text-right">' + Fmt.currency(g.planned) + '</td>' +
-        '<td class="text-right">' + Fmt.currency(g.actual) + '</td>' +
-        '<td class="text-right ' + statusCls + '">' + statusLabel + '</td></tr>';
-    }
-
-    html += '<tr class="table-total-row"><td>Total</td>' +
-      '<td class="text-right">' + Fmt.currency(gfr.totalPlanned) + '</td>' +
-      '<td class="text-right">' + Fmt.currency(gfr.totalActual) + '</td>' +
-      '<td class="text-right"></td></tr>';
-
-    if (gfr.overdrawn > 0) {
-      html += '<tr><td colspan="4" class="cf-funding-alert-warning">' +
-        'Goal contributions exceed available savings by ' + Fmt.currency(gfr.overdrawn) + '</td></tr>';
-    }
-
-    html += '</tbody></table></div></div>';
-    return html;
-  },
+  // (Goal Funding Reality removed — now part of Money Flow Statement)
 
   // --- YoY Comparison ---
   _renderYoYComparison: function(yoy, selectedMonth) {
@@ -795,56 +837,7 @@ var CashFlowRenderer = {
 
   // --- Charts ---
 
-  _renderWaterfallChart: function(waterfall) {
-    var canvas = document.getElementById('waterfallChart');
-    if (!canvas || typeof Chart === 'undefined') return;
-    if (this._waterfallChart) this._waterfallChart.destroy();
-
-    var labels = ['Income'];
-    var values = [waterfall.income];
-    var colors = ['#1a73e8'];
-
-    labels.push('Expenses');
-    values.push(-waterfall.actualExpenses);
-    colors.push('#d93025');
-
-    if (waterfall.goalAllocations) {
-      waterfall.goalAllocations.forEach(function(g) {
-        labels.push(g.name);
-        values.push(-g.allocated);
-        colors.push('#e8710a');
-      });
-    }
-
-    if (waterfall.unallocated > 0) {
-      labels.push('Unallocated');
-      values.push(-waterfall.unallocated);
-      colors.push('#9334e6');
-    }
-
-    var bases = [0], heights = [waterfall.income], running = waterfall.income;
-    for (var i = 1; i < values.length; i++) {
-      running += values[i];
-      bases.push(running);
-      heights.push(-values[i]);
-    }
-
-    this._waterfallChart = new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [
-          { label: 'Base', data: bases, backgroundColor: 'transparent', borderWidth: 0, barPercentage: 0.6 },
-          { label: 'Amount', data: heights, backgroundColor: colors, borderWidth: 0, barPercentage: 0.6 }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return ctx.datasetIndex === 0 ? null : Fmt.currency(ctx.raw); } } } },
-        scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, ticks: { callback: function(v) { return Fmt.currency(v); } } } }
-      }
-    });
-  },
+  // (Waterfall chart removed — replaced by Money Flow Statement)
 
   _renderIncExpChart: function(monthlyData) {
     var canvas = document.getElementById('incExpChart');

@@ -1723,3 +1723,110 @@ describe('CashflowCalculator (YoY comparison)', function() {
     assertEqual(result.hasPriorYear, false);
   });
 });
+
+describe('CashflowCalculator (money flow)', function() {
+  var accounts = [
+    { account_id: 'INDEXA', account_name: 'Indexa Capital', type: 'Broker', cashflow_role: 'savings' },
+    { account_id: 'IBKR', account_name: 'Interactive Brokers', type: 'Broker', cashflow_role: 'savings' },
+    { account_id: 'TR', account_name: 'Trade Republic', type: 'Cash', cashflow_role: 'savings' },
+    { account_id: 'BBVA', account_name: 'BBVA', type: 'Cash', cashflow_role: 'transactional' }
+  ];
+  var goals = [
+    { goal_id: 'retirement', name: 'Retirement', priority: 1, allocated_monthly: 500,
+      funding_accounts: ['INDEXA', 'IBKR'] },
+    { goal_id: 'emergency', name: 'Emergency Fund', priority: 2, allocated_monthly: 200,
+      funding_accounts: ['TR'] }
+  ];
+
+  it('computes balanced money flow with deployments', function() {
+    var entries = [
+      { month: '2026-02', type: 'income', category: 'Salary', amount: 3200 },
+      { month: '2026-02', type: 'expense', category: 'Housing', amount: 800 },
+      { month: '2026-02', type: 'expense', category: 'Food', amount: 400 }
+    ];
+    var allData = [
+      { month: '2026-02', account_id: 'INDEXA', end_value: 50000, net_contribution: 350 },
+      { month: '2026-02', account_id: 'IBKR', end_value: 30000, net_contribution: 170 },
+      { month: '2026-02', account_id: 'TR', end_value: 5000, net_contribution: 200 },
+      { month: '2026-02', account_id: 'BBVA', end_value: 2000, net_contribution: -720 }
+    ];
+
+    var result = CashflowCalculator.computeMoneyFlow(entries, '2026-02', allData, goals, accounts);
+
+    // P&L layer
+    assertClose(result.income.total, 3200, 0.01);
+    assertClose(result.expenses.total, 1200, 0.01);
+    assertClose(result.netSavings, 2000, 0.01);
+
+    // Deployments
+    assertEqual(result.deployments.length, 2);
+    // Retirement: planned 500, actual 350+170=520
+    var retirement = result.deployments[0];
+    assertEqual(retirement.goal, 'Retirement');
+    assertClose(retirement.planned, 500, 0.01);
+    assertClose(retirement.actual, 520, 0.01);
+    assertEqual(retirement.status, 'on_track');
+
+    // Emergency: planned 200, actual 200
+    var emergency = result.deployments[1];
+    assertEqual(emergency.goal, 'Emergency Fund');
+    assertClose(emergency.actual, 200, 0.01);
+    assertEqual(emergency.status, 'on_track');
+
+    // Residual: 2000 - 720 = 1280 (BBVA outflow not a "deployment")
+    assertClose(result.totalDeployed, 720, 0.01);
+    assertClose(result.residual, 1280, 0.01);
+
+    // Account movements
+    assert(result.accountMovements.length >= 4, 'Should have all accounts');
+    assertEqual(result.isDraining, false);
+    assertEqual(result.isBalanced, false); // residual > 50
+    assertEqual(result.balanceVerdictStatus, 'positive'); // surplus is positive
+  });
+
+  it('detects draining savings accounts', function() {
+    var entries = [
+      { month: '2026-02', type: 'income', category: 'Salary', amount: 1000 },
+      { month: '2026-02', type: 'expense', category: 'Housing', amount: 800 }
+    ];
+    // netSavings = 200, but deploying 700 to goals (draining TR)
+    var allData = [
+      { month: '2026-02', account_id: 'INDEXA', end_value: 50000, net_contribution: 500 },
+      { month: '2026-02', account_id: 'IBKR', end_value: 30000, net_contribution: 200 },
+      { month: '2026-02', account_id: 'TR', end_value: 4000, net_contribution: -300 },
+      { month: '2026-02', account_id: 'BBVA', end_value: 1500, net_contribution: -400 }
+    ];
+
+    var result = CashflowCalculator.computeMoneyFlow(entries, '2026-02', allData, goals, accounts);
+
+    assertEqual(result.isDraining, true);
+    assertEqual(result.drainingAccounts.length, 1);
+    assertEqual(result.drainingAccounts[0].account_id, 'TR');
+    assertClose(result.drainingAccounts[0].amount, -300, 0.01);
+    assertEqual(result.balanceVerdictStatus, 'negative');
+  });
+
+  it('handles no goals gracefully', function() {
+    var entries = [
+      { month: '2026-02', type: 'income', category: 'Salary', amount: 3000 },
+      { month: '2026-02', type: 'expense', category: 'Food', amount: 500 }
+    ];
+    var allData = [
+      { month: '2026-02', account_id: 'BBVA', end_value: 3000, net_contribution: 0 }
+    ];
+
+    var result = CashflowCalculator.computeMoneyFlow(entries, '2026-02', allData, [], accounts);
+
+    assertEqual(result.deployments.length, 0);
+    assertClose(result.totalDeployed, 0, 0.01);
+    assertClose(result.residual, 2500, 0.01);
+  });
+
+  it('handles no data gracefully', function() {
+    var result = CashflowCalculator.computeMoneyFlow([], '2026-02', [], [], []);
+    assertEqual(result.deployments.length, 0);
+    assertEqual(result.isBalanced, true);
+    assertClose(result.netSavings, 0, 0.01);
+    assertClose(result.totalDeployed, 0, 0.01);
+  });
+});

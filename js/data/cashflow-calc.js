@@ -1319,6 +1319,215 @@ var CashflowCalculator = {
     return result;
   },
 
+  // Compute full money flow statement for a month.
+  // Reconciles cashflow P&L with actual account movements (net_contribution)
+  // and goal funding to show where every cent went.
+  // Returns: { month, income, expenses, netSavings, savingsRate, savingsRateStatus,
+  //   deployments: [{ goal, goalId, accounts: [{ id, name }], planned, actual, delta, status, statusLabel }],
+  //   totalDeployed, residual, residualStatus, isBalanced, balanceVerdict, balanceVerdictStatus,
+  //   accountMovements: [{ account_id, name, role, net_contribution, goal, goalId }],
+  //   totalAccountInflows, totalAccountOutflows, netAccountFlow, flowGap, isDraining, drainingAccounts }
+  computeMoneyFlow: function(entries, month, allData, plannerGoals, accounts, categories, subcategories) {
+    // Layer 1: P&L from cashflow entries
+    var pnl = this.computeMonthPnL(entries, month, categories, subcategories);
+    if (!pnl) {
+      return {
+        month: month, income: { total: 0, byCategory: {} }, expenses: { total: 0, byCategory: {} },
+        netSavings: 0, savingsRate: 0, savingsRateStatus: 'neutral',
+        deployments: [], totalDeployed: 0, residual: 0, residualStatus: 'neutral',
+        isBalanced: true, balanceVerdict: 'No data', balanceVerdictStatus: 'neutral',
+        accountMovements: [], totalAccountInflows: 0, totalAccountOutflows: 0,
+        netAccountFlow: 0, flowGap: 0, isDraining: false, drainingAccounts: []
+      };
+    }
+
+    var accts = accounts || [];
+
+    // Build account lookup maps
+    var accountNameMap = {};
+    var accountRoleMap = {};
+    for (var a = 0; a < accts.length; a++) {
+      accountNameMap[accts[a].account_id] = accts[a].account_name || accts[a].account_id;
+      accountRoleMap[accts[a].account_id] = accts[a].cashflow_role || 'none';
+    }
+
+    // Layer 2: Actual account movements from MonthEnd net_contribution
+    var contribByAccount = {};
+    (allData || []).forEach(function(r) {
+      if (r.month === month) {
+        contribByAccount[r.account_id] = r.net_contribution || 0;
+      }
+    });
+
+    // Build goal-to-account mapping
+    var accountToGoal = {};
+    var goals = (plannerGoals || []);
+    for (var g = 0; g < goals.length; g++) {
+      var fundingAccounts = goals[g].funding_accounts || [];
+      for (var f = 0; f < fundingAccounts.length; f++) {
+        accountToGoal[fundingAccounts[f]] = {
+          goalId: goals[g].goal_id,
+          goalName: goals[g].name || goals[g].goal_id
+        };
+      }
+    }
+
+    // Layer 3: Deployments — per-goal actual vs planned
+    var deployments = [];
+    var totalDeployed = 0;
+
+    for (var gi = 0; gi < goals.length; gi++) {
+      var goal = goals[gi];
+      var gAccounts = goal.funding_accounts || [];
+      if (!gAccounts.length) continue;
+
+      var actual = 0;
+      var goalAcctDetails = [];
+      for (var ai = 0; ai < gAccounts.length; ai++) {
+        var accId = gAccounts[ai];
+        var nc = contribByAccount[accId] || 0;
+        actual += nc;
+        goalAcctDetails.push({
+          id: accId,
+          name: accountNameMap[accId] || accId,
+          net_contribution: nc
+        });
+      }
+      actual = Math.round(actual * 100) / 100;
+
+      var planned = goal.allocated_monthly || 0;
+      var delta = Math.round((actual - planned) * 100) / 100;
+
+      var status = 'on_track';
+      if (actual < -EPSILON) {
+        status = 'withdrawn';
+      } else if (planned > EPSILON && actual < planned * 0.5) {
+        status = 'underfunded';
+      } else if (planned > EPSILON && actual > planned * 1.5) {
+        status = 'overfunded';
+      }
+
+      var statusLabel = status === 'on_track' ? 'On track' :
+        (status === 'underfunded' ? 'Underfunded' :
+        (status === 'overfunded' ? 'Overfunded' : 'Withdrawn'));
+
+      deployments.push({
+        goal: goal.name || goal.goal_id,
+        goalId: goal.goal_id,
+        priority: goal.priority || 99,
+        accounts: goalAcctDetails,
+        planned: planned,
+        actual: actual,
+        delta: delta,
+        deltaStatus: ValueStatus.sign(delta),
+        status: status,
+        statusLabel: statusLabel
+      });
+
+      totalDeployed += Math.max(0, actual);
+    }
+
+    deployments.sort(function(a, b) { return a.priority - b.priority; });
+    totalDeployed = Math.round(totalDeployed * 100) / 100;
+
+    // Layer 4: All account movements
+    var accountMovements = [];
+    var totalInflows = 0;
+    var totalOutflows = 0;
+    var drainingAccounts = [];
+
+    var accountIds = Object.keys(contribByAccount);
+    for (var mi = 0; mi < accountIds.length; mi++) {
+      var id = accountIds[mi];
+      var nc = contribByAccount[id];
+      var goalInfo = accountToGoal[id];
+      var role = accountRoleMap[id] || 'none';
+
+      accountMovements.push({
+        account_id: id,
+        name: accountNameMap[id] || id,
+        role: role,
+        net_contribution: Math.round(nc * 100) / 100,
+        goal: goalInfo ? goalInfo.goalName : null,
+        goalId: goalInfo ? goalInfo.goalId : null
+      });
+
+      if (nc > EPSILON) {
+        totalInflows += nc;
+      } else if (nc < -EPSILON) {
+        totalOutflows += nc;
+      }
+
+      // Flag savings accounts with negative net_contribution (draining)
+      if (role === 'savings' && nc < -EPSILON) {
+        drainingAccounts.push({
+          account_id: id,
+          name: accountNameMap[id] || id,
+          amount: Math.round(nc * 100) / 100
+        });
+      }
+    }
+
+    // Sort: savings accounts first, then by |net_contribution| desc
+    accountMovements.sort(function(a, b) {
+      var roleOrder = { savings: 0, transactional: 1, none: 2 };
+      var ra = roleOrder[a.role] !== undefined ? roleOrder[a.role] : 2;
+      var rb = roleOrder[b.role] !== undefined ? roleOrder[b.role] : 2;
+      if (ra !== rb) return ra - rb;
+      return Math.abs(b.net_contribution) - Math.abs(a.net_contribution);
+    });
+
+    totalInflows = Math.round(totalInflows * 100) / 100;
+    totalOutflows = Math.round(totalOutflows * 100) / 100;
+    var netAccountFlow = Math.round((totalInflows + totalOutflows) * 100) / 100;
+
+    // Layer 5: Reconciliation
+    var residual = Math.round((pnl.netSavings - totalDeployed) * 100) / 100;
+    var flowGap = Math.round((pnl.netSavings - netAccountFlow) * 100) / 100;
+    var isDraining = drainingAccounts.length > 0;
+
+    var isBalanced = Math.abs(residual) < 50 && !isDraining;
+    var balanceVerdict, balanceVerdictStatus;
+
+    if (isDraining) {
+      var drainTotal = drainingAccounts.reduce(function(s, d) { return s + Math.abs(d.amount); }, 0);
+      balanceVerdict = 'Imbalanced \u2014 ' + Fmt.currency(drainTotal) + ' withdrawn from savings accounts';
+      balanceVerdictStatus = 'negative';
+    } else if (residual > 50) {
+      balanceVerdict = 'Balanced \u2014 ' + Fmt.currency(residual) + ' unallocated surplus';
+      balanceVerdictStatus = 'positive';
+    } else if (residual < -50) {
+      balanceVerdict = 'Imbalanced \u2014 deployed ' + Fmt.currency(Math.abs(residual)) + ' more than saved';
+      balanceVerdictStatus = 'negative';
+    } else {
+      balanceVerdict = 'Balanced \u2014 income covers all expenses and goal contributions';
+      balanceVerdictStatus = 'positive';
+    }
+
+    return {
+      month: month,
+      income: pnl.income,
+      expenses: pnl.expenses,
+      netSavings: pnl.netSavings,
+      savingsRate: pnl.savingsRate,
+      savingsRateStatus: pnl.savingsRateStatus,
+      deployments: deployments,
+      totalDeployed: totalDeployed,
+      residual: residual,
+      residualStatus: ValueStatus.sign(residual),
+      isBalanced: isBalanced,
+      balanceVerdict: balanceVerdict,
+      balanceVerdictStatus: balanceVerdictStatus,
+      accountMovements: accountMovements,
+      totalAccountInflows: totalInflows,
+      totalAccountOutflows: totalOutflows,
+      netAccountFlow: netAccountFlow,
+      flowGap: flowGap,
+      isDraining: isDraining,
+      drainingAccounts: drainingAccounts
+    };
+  },
+
   // Generate a slug from a category name (lowercase, spaces to hyphens).
   slugify: function(str) {
     return (str || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');

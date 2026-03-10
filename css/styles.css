@@ -1766,6 +1766,62 @@ tr:hover { background: var(--bg); }
 .cf-yoy-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
 .cf-yoy-value { font-size: 14px; font-weight: 600; }
 
+/* === MONEY FLOW STATEMENT === */
+.cf-money-flow { padding-bottom: 8px; }
+
+.cf-mf-verdict { padding: 10px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+.cf-mf-verdict-positive { background: rgba(13,144,79,0.08); color: #0d904f; border: 1px solid rgba(13,144,79,0.2); }
+.cf-mf-verdict-negative { background: rgba(217,48,37,0.08); color: #d93025; border: 1px solid rgba(217,48,37,0.2); }
+.cf-mf-verdict-neutral { background: var(--bg); color: var(--text-secondary); border: 1px solid var(--border); }
+
+.cf-mf-section { margin: 4px 0; }
+.cf-mf-section-header { display: flex; align-items: center; padding: 10px 16px; cursor: pointer; border-radius: 6px; user-select: none; }
+.cf-mf-section-header:hover { background: var(--bg); }
+.cf-mf-chevron { display: inline-block; width: 16px; font-size: 10px; color: var(--text-secondary); margin-right: 8px; transition: transform 0.15s; }
+.cf-mf-section-title { font-size: 12px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-secondary); flex: 1; }
+.cf-mf-section-total { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cf-mf-section-body { padding: 0 16px 8px; }
+.cf-mf-section-body.cf-mf-collapsed { display: none; }
+
+.cf-mf-divider { height: 1px; background: var(--border); margin: 8px 16px; }
+
+.cf-mf-line { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; min-height: 28px; }
+.cf-mf-line-label { font-size: 13px; flex: 1; display: flex; align-items: baseline; gap: 6px; }
+.cf-mf-line-amount { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; padding-left: 12px; }
+
+.cf-mf-line-indent { padding-left: 24px; }
+.cf-mf-line-subcat { padding-left: 48px; font-size: 12px; }
+.cf-mf-line-detail { padding-left: 48px; font-size: 11px; padding-top: 0; padding-bottom: 2px; }
+.cf-mf-line-account { padding-left: 60px; font-size: 11px; padding-top: 0; padding-bottom: 0; }
+
+.cf-mf-total { padding: 8px 16px; font-weight: 600; font-size: 14px; }
+.cf-mf-total .cf-mf-line-label { font-size: 14px; }
+.cf-mf-total .cf-mf-line-amount { font-size: 15px; font-weight: 700; }
+
+.cf-mf-positive { color: #0d904f; }
+.cf-mf-negative { color: #d93025; }
+
+.cf-mf-pct { font-size: 11px; color: var(--text-secondary); font-weight: 400; }
+
+.cf-mf-role-badge { font-size: 10px; padding: 1px 5px; border-radius: 3px; background: var(--bg); color: var(--text-secondary); border: 1px solid var(--border-light); vertical-align: baseline; }
+
+.cf-mf-draining-alert { padding: 10px 16px; margin: 8px 16px; background: rgba(217,48,37,0.06); border: 1px solid rgba(217,48,37,0.15); border-radius: 6px; font-size: 12px; color: #d93025; }
+
+/* Money flow subcategory rows (reuse cf-subcat-row behavior) */
+.cf-money-flow .cf-subcat-row { display: none; }
+.cf-money-flow .cf-subcat-row.visible { display: flex; }
+.cf-money-flow .cf-cat-row { cursor: pointer; border-radius: 4px; }
+.cf-money-flow .cf-cat-row:hover { background: var(--bg); }
+.cf-money-flow .cf-cat-chevron { display: inline-block; transition: transform 0.2s; margin-right: 4px; font-size: 9px; }
+.cf-money-flow .cf-cat-row.expanded .cf-cat-chevron { transform: rotate(90deg); }
+
+@media (max-width: 640px) {
+  .cf-mf-line-indent { padding-left: 12px; }
+  .cf-mf-line-subcat { padding-left: 28px; }
+  .cf-mf-line-detail { padding-left: 28px; }
+  .cf-mf-line-account { padding-left: 36px; }
+}
+
 /* === CASH FLOW MODAL (legacy, kept for compat) === */
 .cf-modal-overlay {
   position: fixed;
