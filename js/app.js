@@ -132,10 +132,28 @@ function refreshHome() {
     var monthlyIncome = appConfig.monthly_income || 0;
     var savingsRateTrend = FICalculator.savingsRateTrend(perfMonthly, monthlyIncome, 6);
 
-    // Actions
+    // Actions (with cash health for latest month if available)
     var actions = [];
+    var _homeCashHealth = null;
+    if (typeof CashHealthCalculator !== 'undefined' && cashflowEntries.length && budgetItems.length) {
+      var homeMonths = CashflowCalculator.getMonthsWithActuals(cashflowEntries);
+      var homeSorted = []; homeMonths.forEach(function(m) { homeSorted.push(m); }); homeSorted.sort();
+      if (homeSorted.length) {
+        var homeLatest = homeSorted[homeSorted.length - 1];
+        var homePL = CashHealthCalculator.computeProvisionLedger(budgetItems, cashflowEntries, homeSorted);
+        var homeCF = CashflowCalculator.computeMonth(cashflowEntries, homeLatest, cashflowCategories, cashflowSubcategories);
+        var homeEntries = cashflowEntries.filter(function(e) { return e.month === homeLatest; });
+        _homeCashHealth = CashHealthCalculator.computeMonth({
+          month: homeLatest,
+          cashflowMonth: homeCF,
+          provisionLedger: homePL,
+          goals: plannerGoalsData || [],
+          monthEntries: homeEntries
+        });
+      }
+    }
     if (typeof ActionsCalculator !== 'undefined' && _cachedGoalPlan) {
-      actions = ActionsCalculator.computeActions(_cachedGoalPlan, null, null);
+      actions = ActionsCalculator.computeActions(_cachedGoalPlan, null, null, _homeCashHealth);
     }
 
     var progressPct = FICalculator.progress(current.liquid, fiTarget);
@@ -552,6 +570,64 @@ function refreshCashFlow() {
     };
   }
 
+  // Cash Health computations
+  var cashHealth = null;
+  var cashHealthTrailing = null;
+  var provisionLedger = null;
+  var balanceDecomposition = null;
+  if (typeof CashHealthCalculator !== 'undefined' && monthlyData.length && budgetItems.length) {
+    // Build provision ledger over all months
+    provisionLedger = CashHealthCalculator.computeProvisionLedger(budgetItems, cashflowEntries, months);
+
+    // Compute per-month cashflow data keyed by month
+    var cfMonthsKeyed = {};
+    if (typeof CashflowCalculator !== 'undefined') {
+      for (var chi = 0; chi < months.length; chi++) {
+        cfMonthsKeyed[months[chi]] = CashflowCalculator.computeMonth(
+          cashflowEntries, months[chi], cashflowCategories, cashflowSubcategories
+        );
+      }
+    }
+
+    // Compute health for all months
+    var allHealthMonths = CashHealthCalculator.computeAllMonths({
+      months: months,
+      cashflowMonths: cfMonthsKeyed,
+      provisionLedger: provisionLedger,
+      goals: plannerGoalsData || [],
+      allEntries: cashflowEntries
+    });
+
+    // Selected month health
+    if (selectedMonth) {
+      for (var chj = 0; chj < allHealthMonths.length; chj++) {
+        if (allHealthMonths[chj].month === selectedMonth) {
+          cashHealth = allHealthMonths[chj];
+          break;
+        }
+      }
+    }
+
+    // Trailing average
+    cashHealthTrailing = CashHealthCalculator.computeTrailingHealth(allHealthMonths, _cashflowTrailingMonths || 6);
+
+    // Balance decomposition for Bankinter
+    var latestAccountsForHealth = _buildLatestAccounts(allData);
+    var bankinterBalance = latestAccountsForHealth['BANKINTER'] || 0;
+    var arrasBalance = latestAccountsForHealth['ARRAS'] || 0;
+    var mortgageGoal = (plannerGoalsData || []).filter(function(g) {
+      return g.goal_id === 'mortgage_down_payment' && g.active !== false;
+    })[0];
+    var mortgageTarget = mortgageGoal ? (mortgageGoal.target_amount || 0) : 0;
+
+    balanceDecomposition = CashHealthCalculator.decomposeBalance({
+      accountBalance: bankinterBalance,
+      mortgageTarget: mortgageTarget,
+      otherFundingBalance: arrasBalance,
+      provisionBalance: provisionLedger.totalByMonth[selectedMonth] || 0
+    });
+  }
+
   // Cross-month computations
   var categoryTrends = null;
   var incomeStability = null;
@@ -593,6 +669,10 @@ function refreshCashFlow() {
     yoyComparison: yoyComparison,
     whatIfScenarios: whatIfScenarios,
     moneyFlow: moneyFlow,
+    cashHealth: cashHealth,
+    cashHealthTrailing: cashHealthTrailing,
+    provisionLedger: provisionLedger,
+    balanceDecomposition: balanceDecomposition,
     trailingMonths: _cashflowTrailingMonths
   });
 }

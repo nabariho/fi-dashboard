@@ -492,16 +492,22 @@ function renderBudget() {
     '<div class="add-form-field"><label>Amount</label><input type="number" step="any" id="newBudgetAmount" placeholder="0" style="width:100px"></div>' +
     '<div class="add-form-field"><label>Frequency</label><select id="newBudgetFreq"><option value="monthly">monthly</option><option value="quarterly">quarterly</option><option value="yearly">yearly</option></select></div>' +
     '<div class="add-form-field"><label>Category</label><input type="text" id="newBudgetCategory" placeholder="Category" list="budgetCategoryList" style="width:120px"></div>' +
+    '<div class="add-form-field"><label>Due Month</label><select id="newBudgetDueMonth"><option value="">(N/A)</option>' +
+      '<option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>' +
+      '<option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>' +
+      '<option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>' +
+      '<option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>' +
+    '</select></div>' +
     '<div class="add-form-field"><label>Active</label><input type="checkbox" id="newBudgetActive" checked></div>' +
     '<button class="btn-add" onclick="addBudget()">Add Item</button>' +
     '</div></div>';
 
   html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
-    '<th>ID</th><th>Name</th><th>Type</th><th>Amount</th><th>Frequency</th><th>Category</th><th style="text-align:center">Active</th><th></th>' +
+    '<th>ID</th><th>Name</th><th>Type</th><th>Amount</th><th>Frequency</th><th>Category</th><th>Due Month</th><th style="text-align:center">Active</th><th></th>' +
     '</tr></thead><tbody>';
 
   if (!items.length) {
-    html += '<tr><td colspan="8"><div class="empty-state">No budget items yet. Add one above.</div></td></tr>';
+    html += '<tr><td colspan="9"><div class="empty-state">No budget items yet. Add one above.</div></td></tr>';
   }
 
   items.forEach(function(b, i) {
@@ -519,6 +525,21 @@ function renderBudget() {
         '<option value="yearly"' + (b.frequency === 'yearly' ? ' selected' : '') + '>yearly</option>' +
       '</select></td>' +
       '<td><input type="text" value="' + escHtml(b.category) + '" data-idx="' + i + '" data-field="category" class="budget-field" list="budgetCategoryList" style="width:120px"></td>' +
+      '<td><select data-idx="' + i + '" data-field="due_month" class="budget-due-month" style="width:70px"' + (b.frequency !== 'yearly' ? ' disabled' : '') + '>' +
+        '<option value=""' + (!b.due_month ? ' selected' : '') + '>—</option>' +
+        '<option value="1"' + (b.due_month === 1 ? ' selected' : '') + '>Jan</option>' +
+        '<option value="2"' + (b.due_month === 2 ? ' selected' : '') + '>Feb</option>' +
+        '<option value="3"' + (b.due_month === 3 ? ' selected' : '') + '>Mar</option>' +
+        '<option value="4"' + (b.due_month === 4 ? ' selected' : '') + '>Apr</option>' +
+        '<option value="5"' + (b.due_month === 5 ? ' selected' : '') + '>May</option>' +
+        '<option value="6"' + (b.due_month === 6 ? ' selected' : '') + '>Jun</option>' +
+        '<option value="7"' + (b.due_month === 7 ? ' selected' : '') + '>Jul</option>' +
+        '<option value="8"' + (b.due_month === 8 ? ' selected' : '') + '>Aug</option>' +
+        '<option value="9"' + (b.due_month === 9 ? ' selected' : '') + '>Sep</option>' +
+        '<option value="10"' + (b.due_month === 10 ? ' selected' : '') + '>Oct</option>' +
+        '<option value="11"' + (b.due_month === 11 ? ' selected' : '') + '>Nov</option>' +
+        '<option value="12"' + (b.due_month === 12 ? ' selected' : '') + '>Dec</option>' +
+      '</select></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (b.active ? ' checked' : '') + ' data-idx="' + i + '" class="budget-active"></td>' +
       '<td style="width:60px"><button class="btn-delete" data-idx="' + i + '" onclick="deleteBudget(this)">Delete</button></td>' +
       '</tr>';
@@ -554,6 +575,15 @@ function renderBudget() {
       renderBudget();
     });
   });
+
+  container.querySelectorAll('.budget-due-month').forEach(function(el) {
+    el.addEventListener('change', function() {
+      var idx = parseInt(this.dataset.idx);
+      var val = this.value ? parseInt(this.value) : null;
+      AdminState.budgetItems[idx].due_month = val;
+      markDirty();
+    });
+  });
 }
 
 function deleteBudget(btn) {
@@ -584,13 +614,16 @@ function addBudget() {
     return;
   }
 
+  var freq = document.getElementById('newBudgetFreq').value;
+  var dueMonthVal = document.getElementById('newBudgetDueMonth').value;
   AdminState.budgetItems.push({
     item_id: id,
     name: name,
     type: document.getElementById('newBudgetType').value,
     amount: amount,
-    frequency: document.getElementById('newBudgetFreq').value,
+    frequency: freq,
     category: document.getElementById('newBudgetCategory').value.trim() || 'Other',
+    due_month: (freq === 'yearly' && dueMonthVal) ? parseInt(dueMonthVal) : null,
     active: document.getElementById('newBudgetActive').checked
   });
   markDirty();
@@ -629,6 +662,7 @@ function renderPlanning() {
     '<div class="add-form-field"><label>Target Date</label><input type="month" id="newGoalDate" style="width:130px"></div>' +
     '<div class="add-form-field"><label>Funding Accounts</label><details class="acct-picker" id="newGoalFundingPicker"><summary class="acct-picker-summary" id="newGoalFundingSummary">Select accounts</summary><div id="newGoalFunding" class="acct-checklist">' + addGoalAccountChecks + '</div></details></div>' +
     '<div class="add-form-field"><label>Priority</label><input type="number" step="1" id="newGoalPriority" value="2" style="width:80px"></div>' +
+    '<div class="add-form-field"><label>Monthly Contrib.</label><input type="number" step="any" id="newGoalMonthlyContrib" placeholder="0" style="width:100px"></div>' +
     '<div class="add-form-field"><label>Track from Accounts</label><input type="checkbox" id="newGoalTrackFromAccounts" checked></div>' +
     '<div class="add-form-field"><label>Active</label><input type="checkbox" id="newGoalActive" checked></div>' +
     '<button class="btn-add" onclick="addPlanningGoal()">Add Goal</button>' +
@@ -637,11 +671,11 @@ function renderPlanning() {
   html += '<div class="section-desc" style="margin:-6px 0 12px 0">Available accounts: ' + accountIds.join(', ') + '</div>';
 
   html += '<div class="admin-table-container"><table class="admin-table"><thead><tr>' +
-    '<th>ID</th><th>Name</th><th style="text-align:right">Target</th><th style="text-align:right">Current</th><th>Target Date</th><th>Funding Accounts</th><th>Priority</th><th style="text-align:center">Track</th><th style="text-align:center">Active</th><th></th>' +
+    '<th>ID</th><th>Name</th><th style="text-align:right">Target</th><th style="text-align:right">Current</th><th>Target Date</th><th>Funding Accounts</th><th>Priority</th><th style="text-align:right">Mo. Contrib.</th><th style="text-align:center">Track</th><th style="text-align:center">Active</th><th></th>' +
     '</tr></thead><tbody>';
 
   if (!goals.length) {
-    html += '<tr><td colspan="10"><div class="empty-state">No goals yet. Add one above.</div></td></tr>';
+    html += '<tr><td colspan="11"><div class="empty-state">No goals yet. Add one above.</div></td></tr>';
   }
 
   goals.forEach(function(g, i) {
@@ -658,6 +692,7 @@ function renderPlanning() {
       '<td><input type="month" value="' + escHtml(g.target_date || '') + '" data-idx="' + i + '" data-field="target_date" class="goal-field" style="width:130px"></td>' +
       '<td><details class="acct-picker"><summary class="acct-picker-summary">' + escHtml(fundingSummary(g.funding_accounts || [])) + '</summary><div class="acct-checklist">' + rowAccountChecks + '</div></details></td>' +
       '<td><input type="number" step="1" value="' + (g.priority || 3) + '" data-idx="' + i + '" data-field="priority" class="goal-int" style="width:70px"></td>' +
+      '<td style="text-align:right"><input type="number" step="any" value="' + (g.monthly_contribution || 0) + '" data-idx="' + i + '" data-field="monthly_contribution" class="goal-num" style="width:100px; text-align:right"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (g.track_current_from_accounts !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-track"></td>' +
       '<td style="text-align:center"><input type="checkbox"' + (g.active !== false ? ' checked' : '') + ' data-idx="' + i + '" class="goal-active"></td>' +
       '<td style="width:60px"><button class="btn-delete" data-idx="' + i + '" onclick="deletePlanningGoal(this)">Delete</button></td>' +
@@ -763,6 +798,7 @@ function addPlanningGoal() {
     return;
   }
 
+  var monthlyContrib = parseFloat(document.getElementById('newGoalMonthlyContrib').value || '0');
   AdminState.plannerGoals.push({
     goal_id: id,
     name: name,
@@ -771,6 +807,7 @@ function addPlanningGoal() {
     target_date: date,
     funding_accounts: fundingAccounts,
     priority: priority,
+    monthly_contribution: isNaN(monthlyContrib) ? 0 : monthlyContrib,
     track_current_from_accounts: document.getElementById('newGoalTrackFromAccounts').checked,
     active: document.getElementById('newGoalActive').checked
   });

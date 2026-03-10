@@ -116,6 +116,36 @@ var ActionsCalculator = {
       }
     }
 
+    // 6. Cash health: downpayment erosion (from CashHealthCalculator data)
+    if (typeof arguments[3] !== 'undefined') {
+      var cashHealthData = arguments[3]; // optional 4th argument
+      if (cashHealthData && cashHealthData.surplus < -0.01) {
+        actions.push({
+          type: 'downpayment_erosion',
+          severity: 'error',
+          message: Fmt.currency(Math.abs(cashHealthData.surplus)) + ' drawn from mortgage downpayment this month.',
+          detail: 'Income (' + Fmt.currency(cashHealthData.income) + ') did not cover operating expenses (' +
+            Fmt.currency(cashHealthData.operatingExpenses) + ') + provisions (' +
+            Fmt.currency(cashHealthData.annualProvision) + ') + goal contributions (' +
+            Fmt.currency(cashHealthData.goalContributions) + ').'
+        });
+      }
+      if (cashHealthData && cashHealthData.provisionItems) {
+        for (var pi = 0; pi < cashHealthData.provisionItems.length; pi++) {
+          var prov = cashHealthData.provisionItems[pi];
+          if (prov.status === 'at_risk') {
+            actions.push({
+              type: 'provision_risk',
+              severity: 'warning',
+              message: prov.name + ' provision may fall short (' + Fmt.currency(Math.max(0, prov.balance)) +
+                ' accrued of ' + Fmt.currency(prov.annualAmount) + ').',
+              detail: 'This annual payment may not be fully covered by its due date. Consider setting aside extra funds.'
+            });
+          }
+        }
+      }
+    }
+
     // Sort by severity: error > warning > info > success
     var severityOrder = { error: 0, warning: 1, info: 2, success: 3 };
     actions.sort(function(a, b) {

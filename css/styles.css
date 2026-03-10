@@ -2366,3 +2366,131 @@ tr:hover { background: var(--bg); }
   font-size: 11px;
   color: var(--text-secondary);
 }
+
+/* === Cash Health Section === */
+.cf-health-section {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.cf-health-section.cf-health-healthy { border-left: 4px solid #0d904f; }
+.cf-health-section.cf-health-deficit { border-left: 4px solid #d93025; }
+.cf-health-section.cf-health-neutral { border-left: 4px solid var(--text-secondary); }
+
+.cf-health-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.cf-health-header h2 { margin: 0; font-size: 16px; }
+
+.cf-health-badge {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+.cf-health-badge.cf-health-healthy { background: rgba(13,144,79,0.1); color: #0d904f; }
+.cf-health-badge.cf-health-deficit { background: rgba(217,48,37,0.1); color: #d93025; }
+.cf-health-badge.cf-health-neutral { background: var(--bg); color: var(--text-secondary); }
+
+.cf-health-equation {
+  margin-bottom: 12px;
+}
+
+.cf-health-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 5px 0;
+}
+.cf-health-label { font-size: 14px; }
+.cf-health-amount {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cf-health-debit .cf-health-amount { color: var(--text-secondary); }
+.cf-health-planned { font-size: 11px; color: var(--text-secondary); font-weight: 400; }
+
+.cf-health-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+}
+
+.cf-health-total .cf-health-label { font-weight: 700; }
+.cf-health-total .cf-health-amount { font-size: 16px; font-weight: 700; }
+.cf-health-total.cf-health-healthy .cf-health-amount { color: #0d904f; }
+.cf-health-total.cf-health-deficit .cf-health-amount { color: #d93025; }
+
+.cf-health-alert {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(217,48,37,0.06);
+  border: 1px solid rgba(217,48,37,0.2);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #d93025;
+}
+
+.cf-health-trailing {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+.cf-health-trailing-label { font-weight: 600; }
+
+.cf-health-provisions,
+.cf-health-decomp {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cf-health-provisions summary,
+.cf-health-decomp summary {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg);
+  user-select: none;
+}
+.cf-health-provisions summary:hover,
+.cf-health-decomp summary:hover {
+  background: var(--hover-bg, var(--bg));
+}
+
+.cf-health-prov-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.cf-health-prov-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.cf-health-prov-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.cf-health-prov-table tr:last-child td { border-bottom: none; }
+.cf-health-pct { font-size: 11px; color: var(--text-secondary); }
+
+.cf-health-decomp-rows { padding: 12px 14px; }
+.cf-health-decomp .cf-health-row { padding: 4px 0; }
+.cf-health-decomp .cf-health-label { font-size: 13px; }
+.cf-health-decomp .cf-health-amount { font-size: 13px; }

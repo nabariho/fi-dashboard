@@ -74,6 +74,11 @@ var CashFlowRenderer = {
       html += this._renderScorecard(scorecard, spendingSplit, incomeStability);
     }
 
+    // 2b. Cash Health — "Can I cover all my obligations?"
+    if (renderData.cashHealth) {
+      html += this._renderCashHealth(renderData.cashHealth, renderData.cashHealthTrailing, renderData.balanceDecomposition);
+    }
+
     // 3. Money Flow Statement — "Where does every cent go?"
     var moneyFlow = renderData.moneyFlow;
     if (moneyFlow) {
@@ -135,6 +140,140 @@ var CashFlowRenderer = {
     this._bindExpenseExpand();
     this._bindHistoryRowClicks();
     this._bindBudgetToggle(budgetVsActual, budgetVsActualYTD, selectedMonth);
+  },
+
+  // --- Cash Health ---
+  _renderCashHealth: function(health, trailing, decomposition) {
+    var monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var statusClass = health.surplusStatus === 'positive' ? 'cf-health-healthy' :
+                      health.surplusStatus === 'negative' ? 'cf-health-deficit' : 'cf-health-neutral';
+    var statusLabel = health.surplus >= 0 ? 'HEALTHY' : 'DEFICIT';
+    var statusIcon = health.surplus >= 0 ? '&#10003;' : '&#9888;';
+
+    var html = '<div class="cf-section cf-health-section ' + statusClass + '">' +
+      '<div class="cf-health-header">' +
+        '<h2>Cash Health</h2>' +
+        '<span class="cf-health-badge ' + statusClass + '">' + statusIcon + ' ' + statusLabel + '</span>' +
+      '</div>';
+
+    // Main equation
+    html += '<div class="cf-health-equation">' +
+      '<div class="cf-health-row">' +
+        '<span class="cf-health-label">Income</span>' +
+        '<span class="cf-health-amount">' + Fmt.currency(health.income) + '</span>' +
+      '</div>' +
+      '<div class="cf-health-row cf-health-debit">' +
+        '<span class="cf-health-label">Operating expenses</span>' +
+        '<span class="cf-health-amount">(' + Fmt.currency(health.operatingExpenses) + ')</span>' +
+      '</div>' +
+      '<div class="cf-health-row cf-health-debit">' +
+        '<span class="cf-health-label">Annual provisions (1/12)</span>' +
+        '<span class="cf-health-amount">(' + Fmt.currency(health.annualProvision) + ')</span>' +
+      '</div>';
+
+    // Goal contribution details
+    if (health.goalContributionDetails && health.goalContributionDetails.length) {
+      for (var i = 0; i < health.goalContributionDetails.length; i++) {
+        var gc = health.goalContributionDetails[i];
+        var gcLabel = gc.name;
+        if (gc.actual !== gc.planned && gc.planned > 0) {
+          gcLabel += ' <span class="cf-health-planned">(planned: ' + Fmt.currency(gc.planned) + ')</span>';
+        }
+        html += '<div class="cf-health-row cf-health-debit">' +
+          '<span class="cf-health-label">' + gcLabel + '</span>' +
+          '<span class="cf-health-amount">(' + Fmt.currency(gc.actual) + ')</span>' +
+        '</div>';
+      }
+    } else if (health.goalContributions > 0) {
+      html += '<div class="cf-health-row cf-health-debit">' +
+        '<span class="cf-health-label">Goal contributions</span>' +
+        '<span class="cf-health-amount">(' + Fmt.currency(health.goalContributions) + ')</span>' +
+      '</div>';
+    }
+
+    html += '<div class="cf-health-divider"></div>' +
+      '<div class="cf-health-row cf-health-total ' + statusClass + '">' +
+        '<span class="cf-health-label">' + (health.surplus >= 0 ? 'Monthly surplus' : 'Monthly deficit') + '</span>' +
+        '<span class="cf-health-amount">' + (health.surplus < 0 ? '(' + Fmt.currency(Math.abs(health.surplus)) + ')' : Fmt.currency(health.surplus)) + '</span>' +
+      '</div>';
+
+    // Deficit warning
+    if (health.surplus < -0.01) {
+      html += '<div class="cf-health-alert">' +
+        '&#9888; ' + Fmt.currency(Math.abs(health.surplus)) + ' was drawn from your mortgage downpayment fund this month.' +
+      '</div>';
+    }
+
+    html += '</div>'; // equation
+
+    // Trailing summary
+    if (trailing) {
+      var trendClass = trailing.trend === 'healthy' ? 'positive' : (trailing.trend === 'deteriorating' ? 'negative' : 'neutral');
+      html += '<div class="cf-health-trailing">' +
+        '<span class="cf-health-trailing-label">Last ' + trailing.totalMonths + ' months:</span> ' +
+        'Avg surplus <span class="' + trendClass + '">' + Fmt.currency(trailing.avgSurplus) + '/mo</span>';
+      if (trailing.deficitMonths > 0) {
+        html += ' &middot; <span class="negative">Deficit in ' + trailing.deficitMonths + ' of ' + trailing.totalMonths + ' months</span>';
+      }
+      html += '</div>';
+    }
+
+    // Provision status table
+    if (health.provisionItems && health.provisionItems.length) {
+      html += '<details class="cf-health-provisions">' +
+        '<summary>Provision Status (' + health.provisionItems.length + ' annual items)</summary>' +
+        '<table class="cf-health-prov-table"><thead><tr>' +
+          '<th>Item</th><th style="text-align:right">Annual</th><th style="text-align:right">Accrued</th>' +
+          '<th>Due</th><th>Status</th>' +
+        '</tr></thead><tbody>';
+
+      for (var p = 0; p < health.provisionItems.length; p++) {
+        var pi = health.provisionItems[p];
+        var provStatusClass = pi.status === 'at_risk' ? 'negative' : (pi.status === 'on_track' ? 'positive' : 'neutral');
+        var provStatusLabel = pi.status === 'at_risk' ? 'At risk' : (pi.status === 'on_track' ? 'On track' : 'No due date');
+        var dueLabel = pi.due_month ? monthNames[pi.due_month] : '—';
+        var pctAccrued = pi.annualAmount > 0 ? Math.round(Math.max(0, pi.balance) / pi.annualAmount * 100) : 0;
+
+        html += '<tr>' +
+          '<td>' + pi.name + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(pi.annualAmount) + '</td>' +
+          '<td style="text-align:right">' + Fmt.currency(Math.max(0, pi.balance)) + ' <span class="cf-health-pct">(' + pctAccrued + '%)</span></td>' +
+          '<td>' + dueLabel + '</td>' +
+          '<td><span class="' + provStatusClass + '">' + provStatusLabel + '</span></td>' +
+        '</tr>';
+      }
+
+      html += '</tbody></table></details>';
+    }
+
+    // Balance decomposition
+    if (decomposition && decomposition.accountBalance > 0) {
+      html += '<details class="cf-health-decomp">' +
+        '<summary>Bankinter Balance Breakdown</summary>' +
+        '<div class="cf-health-decomp-rows">' +
+          '<div class="cf-health-row">' +
+            '<span class="cf-health-label">Account balance</span>' +
+            '<span class="cf-health-amount">' + Fmt.currency(decomposition.accountBalance) + '</span>' +
+          '</div>' +
+          '<div class="cf-health-row cf-health-debit">' +
+            '<span class="cf-health-label">Mortgage downpayment earmark</span>' +
+            '<span class="cf-health-amount">(' + Fmt.currency(decomposition.mortgageEarmark) + ')</span>' +
+          '</div>' +
+          '<div class="cf-health-row cf-health-debit">' +
+            '<span class="cf-health-label">Provision reserve</span>' +
+            '<span class="cf-health-amount">(' + Fmt.currency(decomposition.provisionReserve) + ')</span>' +
+          '</div>' +
+          '<div class="cf-health-divider"></div>' +
+          '<div class="cf-health-row cf-health-total ' + (decomposition.availableCashStatus === 'positive' ? 'cf-health-healthy' : 'cf-health-deficit') + '">' +
+            '<span class="cf-health-label">Available operating cash</span>' +
+            '<span class="cf-health-amount">' + Fmt.currency(decomposition.availableCash) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</details>';
+    }
+
+    html += '</div>'; // section
+    return html;
   },
 
   // --- Month Selector ---
