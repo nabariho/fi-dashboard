@@ -115,20 +115,43 @@ var CashHealthCalculator = {
   //   surplus, surplusStatus,
   //   provisionBalance, provisionItems: [{ name, balance, due_month, annualAmount, status }]
   // }
-  // Build a lookup mapping account_id patterns to subcategory names for matching.
-  // E.g., INDEXA -> "indexa capital", IBKR -> "interactive brokers"
-  _matchesAccount: function(text, acctId) {
+  // Build a lookup from account_id to all matchable names (id, name, variants).
+  // accounts: array of { account_id, account_name, ... }
+  // Returns: { account_id_lower: [name1_lower, name2_lower, ...] }
+  _buildAccountNameMap: function(accounts) {
+    var map = {};
+    for (var i = 0; i < accounts.length; i++) {
+      var a = accounts[i];
+      var id = (a.account_id || '').toLowerCase();
+      if (!id) continue;
+      var names = [id];
+      // Add underscore/hyphen variants of the ID
+      if (id.indexOf('_') >= 0) {
+        names.push(id.replace(/_/g, ' '));
+        names.push(id.replace(/_/g, '-'));
+      }
+      // Add account_name if present
+      var name = (a.account_name || '').toLowerCase();
+      if (name && names.indexOf(name) < 0) names.push(name);
+      map[id] = names;
+    }
+    return map;
+  },
+
+  // Check if text matches any known name for the given account_id.
+  // accountNameMap: from _buildAccountNameMap()
+  _matchesAccount: function(text, acctId, accountNameMap) {
     if (!text || !acctId) return false;
     var t = text.toLowerCase();
     var id = acctId.toLowerCase();
-    // Direct match
-    if (t.indexOf(id) >= 0) return true;
-    // Underscore/hyphen variants
-    if (t.indexOf(id.replace(/_/g, ' ')) >= 0) return true;
-    if (t.indexOf(id.replace(/_/g, '-')) >= 0) return true;
-    // Common abbreviation mappings
-    if (id === 'ibkr' && t.indexOf('interactive brokers') >= 0) return true;
-    if (id === 'indexa' && t.indexOf('indexa capital') >= 0) return true;
+    var names = accountNameMap[id];
+    if (!names) {
+      // Fallback: direct substring match on ID itself
+      return t.indexOf(id) >= 0;
+    }
+    for (var i = 0; i < names.length; i++) {
+      if (t.indexOf(names[i]) >= 0) return true;
+    }
     return false;
   },
 
@@ -139,18 +162,28 @@ var CashHealthCalculator = {
     var goals = options.goals || [];                  // planner goals with monthly_contribution
     var monthEntries = options.monthEntries || [];    // raw cashflow entries for this month
     var categories = options.categories || [];        // cashflow categories (for classification lookup)
+    var accounts = options.accounts || [];            // accounts config (for account_id → account_name mapping)
 
     var income = cashflowMonth ? cashflowMonth.totalIncome : 0;
     var operatingExpenses = cashflowMonth ? cashflowMonth.totalExpenses : 0;
     var annualProvision = provisionLedger ? provisionLedger.monthlyProvision : 0;
 
-    // Build set of transfer-classified category IDs for filtering
+    // Build set of transfer-classified category IDs from categories config.
+    // Categories with classification === 'transfer' are investment/internal transfers.
     var transferCategoryIds = {};
     for (var ci = 0; ci < categories.length; ci++) {
       if (categories[ci].classification === 'transfer') {
         transferCategoryIds[categories[ci].category_id] = true;
       }
     }
+
+    // Helper: check if an entry belongs to a transfer-classified category
+    function isTransferEntry(entry) {
+      return !!transferCategoryIds[entry.category_id];
+    }
+
+    // Build account name map for matching entry subcategories to funding account IDs
+    var accountNameMap = this._buildAccountNameMap(accounts);
 
     // Goal contributions: only match entries from transfer-classified categories
     // (Investing, Internal Transfer) against goal funding account IDs
@@ -171,14 +204,14 @@ var CashHealthCalculator = {
         var entry = monthEntries[j];
         if (entry.type !== 'expense') continue;
         // Only consider transfer-classified categories (Investing, Internal Transfer)
-        if (!transferCategoryIds[entry.category_id]) continue;
+        if (!isTransferEntry(entry)) continue;
 
         var subcat = (entry.subcategory || '').toLowerCase();
         var entryId = (entry.entry_id || '').toLowerCase();
 
         for (var k = 0; k < fundingAccounts.length; k++) {
-          if (self._matchesAccount(subcat, fundingAccounts[k]) ||
-              self._matchesAccount(entryId, fundingAccounts[k])) {
+          if (self._matchesAccount(subcat, fundingAccounts[k], accountNameMap) ||
+              self._matchesAccount(entryId, fundingAccounts[k], accountNameMap)) {
             actual += entry.amount || 0;
             break; // avoid double counting
           }
@@ -261,6 +294,7 @@ var CashHealthCalculator = {
     var goals = options.goals || [];
     var allEntries = options.allEntries || [];
     var categories = options.categories || [];
+    var accounts = options.accounts || [];
 
     // Index entries by month
     var entriesByMonth = {};
@@ -279,7 +313,8 @@ var CashHealthCalculator = {
         provisionLedger: provisionLedger,
         goals: goals,
         monthEntries: entriesByMonth[month] || [],
-        categories: categories
+        categories: categories,
+        accounts: accounts
       }));
     }
 

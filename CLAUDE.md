@@ -24,6 +24,13 @@
 - **Date arithmetic**: Use `DateUtils.monthsBetween()`, `DateUtils.addMonths()`, etc. from `js/lib/date-utils.js`. Never duplicate month math.
 - **No hardcoded thresholds** in UI: Business rule thresholds (e.g., savings rate 30%/15%, budget staleness 15%) belong in calculators or config.
 
+## Enterprise Standards (MANDATORY)
+- **No hardcoded values**: All business data (account names, category IDs, thresholds, mappings) MUST come from configuration data (accounts, categories, config, budget items, goals). Never embed specific account names, category strings, or abbreviation mappings in code.
+- **Data-driven matching**: When matching or classifying entries, use config-provided fields (e.g., `classification`, `account_id`/`account_name` mappings, `category_id`). Build lookup maps from config data at runtime rather than embedding known values.
+- **No magic strings or numbers**: String literals in calculators should only be field names, operators, or format specifiers — never domain-specific values like account names or category labels.
+- **Defensive but not fragile**: Fallback to safe defaults (0, empty array, null) when config data is missing, but never substitute hardcoded business values as fallbacks.
+- **Single source of truth**: Each piece of business data should be configured in exactly one place (admin panel) and flow through the system via the data layer. Duplicating values across code and config is prohibited.
+
 ## Storage modes
 - **File mode**: encrypted `.fjson` files via File API / iCloud Drive sync
 - **DB mode**: Supabase zero-knowledge backend -- all data encrypted client-side with AES-256-GCM before sending to server. Server sees only opaque hashes and ciphertext.
