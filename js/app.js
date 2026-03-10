@@ -148,7 +148,8 @@ function refreshHome() {
           cashflowMonth: homeCF,
           provisionLedger: homePL,
           goals: plannerGoalsData || [],
-          monthEntries: homeEntries
+          monthEntries: homeEntries,
+          categories: cashflowCategories
         });
       }
     }
@@ -595,7 +596,8 @@ function refreshCashFlow() {
       cashflowMonths: cfMonthsKeyed,
       provisionLedger: provisionLedger,
       goals: plannerGoalsData || [],
-      allEntries: cashflowEntries
+      allEntries: cashflowEntries,
+      categories: cashflowCategories
     });
 
     // Selected month health

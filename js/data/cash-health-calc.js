@@ -138,13 +138,22 @@ var CashHealthCalculator = {
     var provisionLedger = options.provisionLedger;    // from computeProvisionLedger()
     var goals = options.goals || [];                  // planner goals with monthly_contribution
     var monthEntries = options.monthEntries || [];    // raw cashflow entries for this month
+    var categories = options.categories || [];        // cashflow categories (for classification lookup)
 
     var income = cashflowMonth ? cashflowMonth.totalIncome : 0;
     var operatingExpenses = cashflowMonth ? cashflowMonth.totalExpenses : 0;
     var annualProvision = provisionLedger ? provisionLedger.monthlyProvision : 0;
 
-    // Goal contributions: match raw entries (type=expense, transfer-classified categories)
-    // against goal funding account IDs via subcategory names
+    // Build set of transfer-classified category IDs for filtering
+    var transferCategoryIds = {};
+    for (var ci = 0; ci < categories.length; ci++) {
+      if (categories[ci].classification === 'transfer') {
+        transferCategoryIds[categories[ci].category_id] = true;
+      }
+    }
+
+    // Goal contributions: only match entries from transfer-classified categories
+    // (Investing, Internal Transfer) against goal funding account IDs
     var goalContributions = 0;
     var goalContributionDetails = [];
     var self = this;
@@ -157,14 +166,14 @@ var CashHealthCalculator = {
       var actual = 0;
       var fundingAccounts = g.funding_accounts || [];
 
-      // Scan raw entries for matches against funding account IDs
+      // Scan only transfer-classified entries for matches
       for (var j = 0; j < monthEntries.length; j++) {
         var entry = monthEntries[j];
         if (entry.type !== 'expense') continue;
+        // Only consider transfer-classified categories (Investing, Internal Transfer)
+        if (!transferCategoryIds[entry.category_id]) continue;
 
-        // Check subcategory and category against each funding account
         var subcat = (entry.subcategory || '').toLowerCase();
-        var cat = (entry.category || '').toLowerCase();
         var entryId = (entry.entry_id || '').toLowerCase();
 
         for (var k = 0; k < fundingAccounts.length; k++) {
@@ -251,6 +260,7 @@ var CashHealthCalculator = {
     var provisionLedger = options.provisionLedger;
     var goals = options.goals || [];
     var allEntries = options.allEntries || [];
+    var categories = options.categories || [];
 
     // Index entries by month
     var entriesByMonth = {};
@@ -268,7 +278,8 @@ var CashHealthCalculator = {
         cashflowMonth: cashflowMonths[month] || null,
         provisionLedger: provisionLedger,
         goals: goals,
-        monthEntries: entriesByMonth[month] || []
+        monthEntries: entriesByMonth[month] || [],
+        categories: categories
       }));
     }
 
