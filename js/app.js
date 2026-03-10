@@ -577,6 +577,8 @@ function refreshCashFlow() {
   var cashHealthTrailing = null;
   var provisionLedger = null;
   var balanceDecomposition = null;
+  var allHealthMonths = null;
+  var decompositionSeries = null;
   if (typeof CashHealthCalculator !== 'undefined' && monthlyData.length && budgetItems.length) {
     // Build provision ledger over all months
     provisionLedger = CashHealthCalculator.computeProvisionLedger(budgetItems, cashflowEntries, months);
@@ -592,7 +594,7 @@ function refreshCashFlow() {
     }
 
     // Compute health for all months
-    var allHealthMonths = CashHealthCalculator.computeAllMonths({
+    allHealthMonths = CashHealthCalculator.computeAllMonths({
       months: months,
       cashflowMonths: cfMonthsKeyed,
       provisionLedger: provisionLedger,
@@ -615,21 +617,22 @@ function refreshCashFlow() {
     // Trailing average
     cashHealthTrailing = CashHealthCalculator.computeTrailingHealth(allHealthMonths, _cashflowTrailingMonths || 6);
 
-    // Balance decomposition for Bankinter
-    var latestAccountsForHealth = _buildLatestAccounts(allData);
-    var bankinterBalance = latestAccountsForHealth['BANKINTER'] || 0;
-    var arrasBalance = latestAccountsForHealth['ARRAS'] || 0;
-    var mortgageGoal = (plannerGoalsData || []).filter(function(g) {
-      return g.goal_id === 'mortgage_down_payment' && g.active !== false;
-    })[0];
-    var mortgageTarget = mortgageGoal ? (mortgageGoal.target_amount || 0) : 0;
-
-    balanceDecomposition = CashHealthCalculator.decomposeBalance({
-      accountBalance: bankinterBalance,
-      mortgageTarget: mortgageTarget,
-      otherFundingBalance: arrasBalance,
-      provisionBalance: provisionLedger.totalByMonth[selectedMonth] || 0
+    // Balance decomposition series (all months)
+    var decompositionSeries = CashHealthCalculator.computeDecompositionSeries({
+      months: months,
+      monthendData: allData,
+      accounts: accountsConfig,
+      goals: plannerGoalsData || [],
+      provisionTotalByMonth: provisionLedger.totalByMonth
     });
+
+    // Pick the selected month's decomposition
+    for (var dsi = 0; dsi < decompositionSeries.length; dsi++) {
+      if (decompositionSeries[dsi].month === selectedMonth) {
+        balanceDecomposition = decompositionSeries[dsi];
+        break;
+      }
+    }
   }
 
   // Cross-month computations
@@ -675,8 +678,10 @@ function refreshCashFlow() {
     moneyFlow: moneyFlow,
     cashHealth: cashHealth,
     cashHealthTrailing: cashHealthTrailing,
+    cashHealthAllMonths: allHealthMonths,
     provisionLedger: provisionLedger,
     balanceDecomposition: balanceDecomposition,
+    decompositionSeries: decompositionSeries,
     trailingMonths: _cashflowTrailingMonths
   });
 }

@@ -305,9 +305,10 @@ var CashHealthCalculator = {
     }
 
     var results = [];
+    var cumulative = 0;
     for (var i = 0; i < months.length; i++) {
       var month = months[i];
-      results.push(this.computeMonth({
+      var result = this.computeMonth({
         month: month,
         cashflowMonth: cashflowMonths[month] || null,
         provisionLedger: provisionLedger,
@@ -315,34 +316,132 @@ var CashHealthCalculator = {
         monthEntries: entriesByMonth[month] || [],
         categories: categories,
         accounts: accounts
-      }));
+      });
+      cumulative += result.surplus;
+      result.cumulativeSurplus = Math.round(cumulative * 100) / 100;
+      result.cumulativeSurplusStatus = ValueStatus.sign(cumulative);
+      results.push(result);
     }
 
     return results;
   },
 
   // Decompose a transactional account balance into earmarked portions.
+  // goalEarmarkTarget: total target amount for goals funded from this account
+  // otherFundingBalance: balance held in non-transactional funding accounts for those goals
   // Returns: {
-  //   accountBalance, mortgageEarmark, provisionReserve, availableCash,
+  //   accountBalance, goalEarmark, provisionReserve, availableCash,
   //   availableCashStatus
   // }
   decomposeBalance: function(options) {
     var accountBalance = options.accountBalance || 0;
-    var mortgageTarget = options.mortgageTarget || 0;
-    var otherFundingBalance = options.otherFundingBalance || 0; // e.g., Arras account
+    var goalEarmarkTarget = options.goalEarmarkTarget || 0;
+    var otherFundingBalance = options.otherFundingBalance || 0;
     var provisionBalance = options.provisionBalance || 0;
 
-    var mortgageEarmark = Math.max(0, mortgageTarget - otherFundingBalance);
+    var goalEarmark = Math.max(0, goalEarmarkTarget - otherFundingBalance);
     var provisionReserve = Math.max(0, provisionBalance);
-    var availableCash = Math.round((accountBalance - mortgageEarmark - provisionReserve) * 100) / 100;
+    var availableCash = Math.round((accountBalance - goalEarmark - provisionReserve) * 100) / 100;
 
     return {
       accountBalance: accountBalance,
-      mortgageEarmark: mortgageEarmark,
+      goalEarmark: goalEarmark,
       provisionReserve: provisionReserve,
       availableCash: availableCash,
       availableCashStatus: ValueStatus.sign(availableCash)
     };
+  },
+
+  // Compute balance decomposition for multiple months.
+  // Uses account cashflow_role and goal funding_accounts to identify relevant accounts.
+  // monthendData: array of { month, account_id, end_value }
+  // accounts: accounts config with cashflow_role
+  // goals: planner goals with funding_accounts
+  // provisionTotalByMonth: { YYYY-MM: number } from provision ledger
+  // Returns: array of { month, accountBalance, goalEarmark, provisionReserve, availableCash, availableCashStatus }
+  computeDecompositionSeries: function(options) {
+    var months = options.months || [];
+    var monthendData = options.monthendData || [];
+    var accounts = options.accounts || [];
+    var goals = options.goals || [];
+    var provisionTotalByMonth = options.provisionTotalByMonth || {};
+
+    // Find transactional accounts (where salary lands, expenses are paid from)
+    var transactionalIds = [];
+    var transactionalSet = {};
+    for (var a = 0; a < accounts.length; a++) {
+      if (accounts[a].cashflow_role === 'transactional') {
+        transactionalIds.push(accounts[a].account_id);
+        transactionalSet[accounts[a].account_id] = true;
+      }
+    }
+
+    // Find goals whose funding_accounts include a transactional account.
+    // These goals create earmarks on the transactional balance.
+    var earmarkedGoals = [];
+    for (var g = 0; g < goals.length; g++) {
+      var goal = goals[g];
+      if (goal.active === false) continue;
+      var fundingAccts = goal.funding_accounts || [];
+      var usesTransactional = false;
+      for (var fa = 0; fa < fundingAccts.length; fa++) {
+        if (transactionalSet[fundingAccts[fa]]) { usesTransactional = true; break; }
+      }
+      if (usesTransactional) earmarkedGoals.push(goal);
+    }
+
+    // Build per-month balances: { month: { account_id: end_value } }
+    var balancesByMonth = {};
+    for (var d = 0; d < monthendData.length; d++) {
+      var r = monthendData[d];
+      if (!r.month || !r.account_id) continue;
+      if (!balancesByMonth[r.month]) balancesByMonth[r.month] = {};
+      balancesByMonth[r.month][r.account_id] = r.end_value || 0;
+    }
+
+    // Sum total earmark target and collect all non-transactional funding accounts
+    var totalEarmarkTarget = 0;
+    var otherFundingAccountIds = [];
+    for (var eg = 0; eg < earmarkedGoals.length; eg++) {
+      totalEarmarkTarget += earmarkedGoals[eg].target_amount || 0;
+      var efa = earmarkedGoals[eg].funding_accounts || [];
+      for (var efi = 0; efi < efa.length; efi++) {
+        if (!transactionalSet[efa[efi]] && otherFundingAccountIds.indexOf(efa[efi]) < 0) {
+          otherFundingAccountIds.push(efa[efi]);
+        }
+      }
+    }
+
+    var series = [];
+    for (var m = 0; m < months.length; m++) {
+      var month = months[m];
+      var monthBalances = balancesByMonth[month] || {};
+
+      // Sum transactional account balances
+      var transactionalBalance = 0;
+      for (var t = 0; t < transactionalIds.length; t++) {
+        transactionalBalance += monthBalances[transactionalIds[t]] || 0;
+      }
+
+      // Sum other funding account balances (non-transactional accounts that fund earmarked goals)
+      var otherFundingBalance = 0;
+      for (var f = 0; f < otherFundingAccountIds.length; f++) {
+        otherFundingBalance += monthBalances[otherFundingAccountIds[f]] || 0;
+      }
+
+      var provisionBalance = provisionTotalByMonth[month] || 0;
+
+      var decomp = this.decomposeBalance({
+        accountBalance: transactionalBalance,
+        goalEarmarkTarget: totalEarmarkTarget,
+        otherFundingBalance: otherFundingBalance,
+        provisionBalance: provisionBalance
+      });
+      decomp.month = month;
+      series.push(decomp);
+    }
+
+    return series;
   },
 
   // Compute trailing average surplus/deficit.

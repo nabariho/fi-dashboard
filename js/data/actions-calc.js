@@ -116,14 +116,14 @@ var ActionsCalculator = {
       }
     }
 
-    // 6. Cash health: downpayment erosion (from CashHealthCalculator data)
+    // 6. Cash health: goal earmark erosion (from CashHealthCalculator data)
     if (typeof arguments[3] !== 'undefined') {
       var cashHealthData = arguments[3]; // optional 4th argument
       if (cashHealthData && cashHealthData.surplus < -0.01) {
         actions.push({
-          type: 'downpayment_erosion',
+          type: 'earmark_erosion',
           severity: 'error',
-          message: Fmt.currency(Math.abs(cashHealthData.surplus)) + ' drawn from mortgage downpayment this month.',
+          message: Fmt.currency(Math.abs(cashHealthData.surplus)) + ' drawn from goal earmark this month.',
           detail: 'Income (' + Fmt.currency(cashHealthData.income) + ') did not cover operating expenses (' +
             Fmt.currency(cashHealthData.operatingExpenses) + ') + provisions (' +
             Fmt.currency(cashHealthData.annualProvision) + ') + goal contributions (' +

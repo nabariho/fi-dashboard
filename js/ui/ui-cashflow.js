@@ -77,6 +77,18 @@ var CashFlowRenderer = {
     // 2b. Cash Health — "Can I cover all my obligations?"
     if (renderData.cashHealth) {
       html += this._renderCashHealth(renderData.cashHealth, renderData.cashHealthTrailing, renderData.balanceDecomposition);
+
+      // Cash Health trend charts (need multiple months)
+      if (renderData.cashHealthAllMonths && renderData.cashHealthAllMonths.length > 1) {
+        html += '<div class="chart-container">' +
+          '<div class="chart-header"><h2>Cash Health Trend</h2></div>' +
+          '<canvas id="cashHealthTrendChart"></canvas></div>';
+      }
+      if (renderData.decompositionSeries && renderData.decompositionSeries.length > 1) {
+        html += '<div class="chart-container">' +
+          '<div class="chart-header"><h2>Transactional Balance Breakdown</h2></div>' +
+          '<canvas id="balanceDecompChart"></canvas></div>';
+      }
     }
 
     // 3. Money Flow Statement — "Where does every cent go?"
@@ -134,6 +146,12 @@ var CashFlowRenderer = {
     if (monthlyData.length > 1) this._renderIncExpChart(monthlyData);
     if (categoryTrends && categoryTrends.months.length > 1) this._renderCategoryTrendsChart(categoryTrends);
     if (monthlyData.length > 1) this._renderSavingsRateTrend(monthlyData);
+    if (renderData.cashHealthAllMonths && renderData.cashHealthAllMonths.length > 1) {
+      this._renderCashHealthTrendChart(renderData.cashHealthAllMonths);
+    }
+    if (renderData.decompositionSeries && renderData.decompositionSeries.length > 1) {
+      this._renderBalanceDecompChart(renderData.decompositionSeries);
+    }
 
     // Bind interactions
     this._bindMoneyFlowCollapsibles();
@@ -200,7 +218,7 @@ var CashFlowRenderer = {
     // Deficit warning
     if (health.surplus < -0.01) {
       html += '<div class="cf-health-alert">' +
-        '&#9888; ' + Fmt.currency(Math.abs(health.surplus)) + ' was drawn from your mortgage downpayment fund this month.' +
+        '&#9888; ' + Fmt.currency(Math.abs(health.surplus)) + ' was drawn from your goal earmark this month.' +
       '</div>';
     }
 
@@ -249,15 +267,15 @@ var CashFlowRenderer = {
     // Balance decomposition
     if (decomposition && decomposition.accountBalance > 0) {
       html += '<details class="cf-health-decomp">' +
-        '<summary>Bankinter Balance Breakdown</summary>' +
+        '<summary>Transactional Account Balance Breakdown</summary>' +
         '<div class="cf-health-decomp-rows">' +
           '<div class="cf-health-row">' +
             '<span class="cf-health-label">Account balance</span>' +
             '<span class="cf-health-amount">' + Fmt.currency(decomposition.accountBalance) + '</span>' +
           '</div>' +
           '<div class="cf-health-row cf-health-debit">' +
-            '<span class="cf-health-label">Mortgage downpayment earmark</span>' +
-            '<span class="cf-health-amount">(' + Fmt.currency(decomposition.mortgageEarmark) + ')</span>' +
+            '<span class="cf-health-label">Goal earmark</span>' +
+            '<span class="cf-health-amount">(' + Fmt.currency(decomposition.goalEarmark) + ')</span>' +
           '</div>' +
           '<div class="cf-health-row cf-health-debit">' +
             '<span class="cf-health-label">Provision reserve</span>' +
@@ -1070,5 +1088,143 @@ var CashFlowRenderer = {
     var parts = monthStr.split('-');
     var names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return names[parseInt(parts[1], 10) - 1];
+  },
+
+  // Cash Health Trend: bar chart (surplus/deficit per month) + cumulative line
+  _renderCashHealthTrendChart: function(healthMonths) {
+    var canvas = document.getElementById('cashHealthTrendChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (this._cashHealthTrendChart) this._cashHealthTrendChart.destroy();
+
+    var labels = healthMonths.map(function(h) { return h.month; });
+    var surplusData = healthMonths.map(function(h) { return h.surplus; });
+    var cumulativeData = healthMonths.map(function(h) { return h.cumulativeSurplus; });
+    var barColors = healthMonths.map(function(h) {
+      return h.surplus >= 0 ? 'rgba(13,144,79,0.7)' : 'rgba(217,48,37,0.7)';
+    });
+
+    this._cashHealthTrendChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Monthly Surplus/Deficit',
+            data: surplusData,
+            backgroundColor: barColors,
+            borderWidth: 0,
+            order: 2,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Cumulative',
+            data: cumulativeData,
+            type: 'line',
+            borderColor: '#1a73e8',
+            backgroundColor: 'rgba(26,115,232,0.08)',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 3,
+            borderWidth: 2,
+            order: 1,
+            yAxisID: 'y'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return ctx.dataset.label + ': ' + Fmt.currency(ctx.raw); }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: {
+            ticks: { callback: function(v) { return Fmt.currency(v); } },
+            grid: { color: function(ctx) { return ctx.tick.value === 0 ? '#666' : '#e0e0e0'; } }
+          }
+        }
+      }
+    });
+  },
+
+  // Balance Decomposition: stacked area chart over time
+  _renderBalanceDecompChart: function(decompositionSeries) {
+    var canvas = document.getElementById('balanceDecompChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (this._balanceDecompChart) this._balanceDecompChart.destroy();
+
+    var labels = decompositionSeries.map(function(d) { return d.month; });
+    var mortgageData = decompositionSeries.map(function(d) { return d.goalEarmark; });
+    var provisionData = decompositionSeries.map(function(d) { return d.provisionReserve; });
+    var availableData = decompositionSeries.map(function(d) { return d.availableCash; });
+
+    this._balanceDecompChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Available Cash',
+            data: availableData,
+            backgroundColor: 'rgba(13,144,79,0.15)',
+            borderColor: '#0d904f',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 3,
+            order: 1
+          },
+          {
+            label: 'Provision Reserve',
+            data: provisionData,
+            backgroundColor: 'rgba(232,113,10,0.15)',
+            borderColor: '#e8710a',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 3,
+            order: 2
+          },
+          {
+            label: 'Goal Earmark',
+            data: mortgageData,
+            backgroundColor: 'rgba(26,115,232,0.15)',
+            borderColor: '#1a73e8',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 3,
+            order: 3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return ctx.dataset.label + ': ' + Fmt.currency(ctx.raw); },
+              footer: function(items) {
+                var total = 0;
+                items.forEach(function(i) { total += i.raw; });
+                return 'Total: ' + Fmt.currency(total);
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: {
+            stacked: true,
+            ticks: { callback: function(v) { return Fmt.currency(v); } }
+          }
+        }
+      }
+    });
   }
 };
